@@ -16,13 +16,14 @@ function AccessControl() {
 
   const [simulating, setSimulating] = useState(false);
   const audioRef = useRef(new Audio('https://assets.mixkit.co/sfx/preview/mixkit-software-interface-start-2574.mp3')); // Som de exemplo
+  const modalTimeoutRef = useRef(null);
 
   // Modal Manual State
   const [manualModalOpen, setManualModalOpen] = useState(false);
   const [manualDoc, setManualDoc] = useState('');
   const manualInputRef = useRef(null);
   const [manualMode, setManualMode] = useState('search'); // 'search' | 'create'
-  const [newParticipant, setNewParticipant] = useState({ nome: '', documento: '', genero: 'Outro' });
+  const [newParticipant, setNewParticipant] = useState({ nome: '', documento: '', cpf: '', crm: '', data_nascimento: '', genero: 'Outro' });
 
   // Companion States
   const [companionModalOpen, setCompanionModalOpen] = useState(false);
@@ -55,14 +56,20 @@ function AccessControl() {
     fetchEvento();
 
     const fetchLogs = async () => {
+      // Só buscar logs se houver evento ativo
+      if (!evento) return;
+
       try {
         const res = await fetch(`${API_URL}/logs`);
         const data = await res.json();
 
-        if (data && data.length > 0) {
-          setLogs(data);
+        // Filtrar apenas logs do evento ativo atual
+        const filteredLogs = data.filter(log => log.EventoId === evento.id);
 
-          const latest = data[0];
+        if (filteredLogs && filteredLogs.length > 0) {
+          setLogs(filteredLogs);
+
+          const latest = filteredLogs[0];
           // Se houver um novo log e for recente (ex: criado nos últimos 5 segundos)
           // Na prática, comparamos IDs para não repetir
           if (latest.id > lastLogId) {
@@ -71,14 +78,19 @@ function AccessControl() {
               showModal(latest);
             }
           }
+        } else {
+          setLogs([]);
         }
 
-        // Cálculos Estatísticos (Participantes Presentes Únicos)
+        // Cálculos Estatísticos (Participantes Presentes Únicos) - usar filteredLogs
         const presentesMap = new Map();
-        data.forEach(log => {
+        filteredLogs.forEach(log => {
           if (log.status_validacao === 'sucesso' && log.Participante) {
-            if (!presentesMap.has(log.Participante.id)) {
-              presentesMap.set(log.Participante.id, log.Participante);
+            // Não incluir acompanhantes nas estatísticas (eles não têm dados demográficos completos)
+            if (log.Participante.documento !== 'Acompanhante') {
+              if (!presentesMap.has(log.Participante.id)) {
+                presentesMap.set(log.Participante.id, log.Participante);
+              }
             }
           }
         });
@@ -147,7 +159,7 @@ function AccessControl() {
     fetchLogs(); // Primeira chamada
 
     return () => clearInterval(interval);
-  }, [lastLogId, navigate]);
+  }, [lastLogId, navigate, evento]);
 
   // Simulação Loop
   useEffect(() => {
@@ -157,7 +169,7 @@ function AccessControl() {
         try {
           await fetch(`${API_URL}/simulate`, { method: 'POST' });
         } catch (e) { console.error("Erro simulação", e); }
-      }, 3000); // A cada 3 segundos gera um log
+      }, 7000); // A cada 7 segundos gera um log
     }
     return () => clearInterval(simInterval);
   }, [simulating]);
@@ -208,8 +220,8 @@ function AccessControl() {
   };
 
   const submitCreateEntry = async () => {
-    if (!newParticipant.nome || !newParticipant.documento) {
-      showMessage("Aviso", "Preencha Nome e Documento", "info");
+    if (!newParticipant.nome || !newParticipant.cpf || !newParticipant.data_nascimento) {
+      showMessage("Aviso", "Preencha Nome, CPF e Data de Nascimento", "info");
       return;
     }
 
@@ -223,6 +235,8 @@ function AccessControl() {
 
       if (data.success) {
         setManualModalOpen(false);
+        setManualMode('search');
+        setNewParticipant({ nome: '', documento: '', cpf: '', crm: '', data_nascimento: '', genero: 'Outro' });
         showMessage("Sucesso", "Participante cadastrado com sucesso!", "success");
         const fakeLog = {
           status_validacao: 'sucesso',
@@ -320,14 +334,20 @@ function AccessControl() {
   };
 
   const showModal = (log) => {
+    // Limpar timeout anterior se existir
+    if (modalTimeoutRef.current) {
+      clearTimeout(modalTimeoutRef.current);
+    }
+
     setModalData(log);
     // Tocar som
     if (audioRef.current) audioRef.current.play().catch(e => console.log(e));
 
-    // Manter dados visíveis por 8 segundos
-    setTimeout(() => {
+    // Manter dados visíveis por 6 segundos
+    modalTimeoutRef.current = setTimeout(() => {
       setModalData(null);
-    }, 8000);
+      modalTimeoutRef.current = null;
+    }, 6000);
   };
 
   // Helper para formatar nome: "Kelvin Higino da Silva" -> "Kelvin H. d. S."
@@ -423,7 +443,7 @@ function AccessControl() {
               <div style={{
                 height: '100%',
                 backgroundColor: 'var(--success-color)',
-                animation: 'progressBar 8s linear forwards',
+                animation: 'progressBar 6s linear forwards',
                 width: '100%'
               }}></div>
             </div>
@@ -529,7 +549,7 @@ function AccessControl() {
           <div className="dashboard-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
             <div className="card">
               <h2>Total de Entradas</h2>
-              <div className="stat-value">{logs.length}</div>
+              <div className="stat-value">{logs.filter(l => l.status_validacao === 'sucesso').length}</div>
 
               {/* Barra de Participantes vs Acompanhantes */}
               {logs.length > 0 && (() => {
@@ -583,6 +603,12 @@ function AccessControl() {
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.3rem' }}>
                 <span style={{ color: '#74c0fc', fontWeight: 'bold', fontSize: '1.2rem' }}>♂ {stats.percentMale ?? 0}%</span>
                 <span style={{ color: '#faa2c1', fontWeight: 'bold', fontSize: '1.2rem' }}>♀ {stats.percentFemale ?? 0}%</span>
+              </div>
+            </div>
+            <div className="card">
+              <h2>Biometrias Não Localizadas</h2>
+              <div className="stat-value" style={{ color: 'var(--error-color)' }}>
+                {logs.filter(l => l.status_validacao === 'nao_encontrado').length}
               </div>
             </div>
           </div>
@@ -706,24 +732,75 @@ function AccessControl() {
       </div>
 
       {/* Modal Manual */}
-      <div className={`modal-overlay ${manualModalOpen ? 'open' : ''}`} onClick={() => setManualModalOpen(false)}>
-        <div className="modal-content" onClick={e => e.stopPropagation()}>
-          <div className="modal-header">Localizar Pessoa</div>
-          <input
-            ref={manualInputRef}
-            type="text"
-            className="modal-input"
-            placeholder="Digite Nome, CPF ou CRM"
-            value={manualDoc}
-            onChange={e => setManualDoc(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && submitManualEntry()}
-          />
-          <div className="modal-actions">
-            <button className="btn-secondary" onClick={() => setManualModalOpen(false)}>Cancelar</button>
-            <button className="btn-primary" onClick={submitManualEntry}>Confirmar</button>
-          </div>
+      <div className={`modal-overlay ${manualModalOpen ? 'open' : ''}`} onClick={() => { setManualModalOpen(false); setManualMode('search'); }}>
+        <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '500px' }}>
+          {manualMode === 'search' ? (
+            <>
+              <div className="modal-header">Localizar Pessoa</div>
+              <input
+                ref={manualInputRef}
+                type="text"
+                className="modal-input"
+                placeholder="Digite Nome, CPF ou CRM"
+                value={manualDoc}
+                onChange={e => setManualDoc(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && submitManualEntry()}
+              />
+              <div className="modal-actions">
+                <button className="btn-secondary" onClick={() => { setManualModalOpen(false); setManualMode('search'); }}>Cancelar</button>
+                <button className="btn-primary" onClick={submitManualEntry}>Confirmar</button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="modal-header">Cadastrar Novo Participante</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <input
+                  type="text"
+                  className="modal-input"
+                  placeholder="Nome Completo *"
+                  value={newParticipant.nome}
+                  onChange={e => setNewParticipant({ ...newParticipant, nome: e.target.value })}
+                />
+                <input
+                  type="text"
+                  className="modal-input"
+                  placeholder="CPF *"
+                  value={newParticipant.cpf}
+                  onChange={e => setNewParticipant({ ...newParticipant, cpf: e.target.value, documento: e.target.value })}
+                />
+                <input
+                  type="text"
+                  className="modal-input"
+                  placeholder="CRM (opcional)"
+                  value={newParticipant.crm}
+                  onChange={e => setNewParticipant({ ...newParticipant, crm: e.target.value })}
+                />
+                <input
+                  type="date"
+                  className="modal-input"
+                  placeholder="Data de Nascimento *"
+                  value={newParticipant.data_nascimento}
+                  onChange={e => setNewParticipant({ ...newParticipant, data_nascimento: e.target.value })}
+                />
+                <select
+                  className="modal-input"
+                  value={newParticipant.genero}
+                  onChange={e => setNewParticipant({ ...newParticipant, genero: e.target.value })}
+                >
+                  <option value="M">Masculino</option>
+                  <option value="F">Feminino</option>
+                  <option value="Outro">Outro</option>
+                </select>
+              </div>
+              <div className="modal-actions">
+                <button className="btn-secondary" onClick={() => { setManualMode('search'); setNewParticipant({ nome: '', documento: '', cpf: '', crm: '', data_nascimento: '', genero: 'Outro' }); }}>Voltar</button>
+                <button className="btn-primary" onClick={submitCreateEntry}>Cadastrar e Registrar Entrada</button>
+              </div>
+            </>
+          )}
         </div>
-      </div >
+      </div>
 
       {/* Modal Finalizar */}
       < div className={`modal-overlay ${finishModalOpen ? 'open' : ''}`} onClick={() => setFinishModalOpen(false)}>

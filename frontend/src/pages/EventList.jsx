@@ -182,6 +182,11 @@ function EventList() {
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1.5rem', opacity: 0.8 }}>
                                     {eventos.filter(e => e.status === 'finalizado').map(evento => (
                                         <div key={evento.id} className="card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                            {evento.imagem && (
+                                                <div style={{ height: '140px', overflow: 'hidden', borderRadius: '6px', marginBottom: '0.5rem' }}>
+                                                    <img src={evento.imagem} alt={evento.nome} style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'grayscale(100%)' }} />
+                                                </div>
+                                            )}
                                             <div>
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '0.8rem' }}>
                                                     <h2 style={{ fontSize: '1.25rem', color: 'var(--text-secondary)', margin: 0 }}>{evento.nome}</h2>
@@ -323,7 +328,7 @@ function EventList() {
                         </button>
                     </form>
                 </div>
-            </div>
+            </div >
 
             <MessageModal
                 isOpen={messageModal.open}

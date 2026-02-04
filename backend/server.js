@@ -266,7 +266,7 @@ app.get('/api/logs', async (req, res) => {
             order: [['createdAt', 'DESC']],
             limit: 1000,
             include: [
-                { model: Participante, attributes: ['nome', 'documento', 'genero', 'data_nascimento', 'categoria'] },
+                { model: Participante, attributes: ['id', 'nome', 'documento', 'cpf', 'crm', 'genero', 'data_nascimento', 'categoria'] },
                 { model: Participante, as: 'Responsavel', attributes: ['nome'] },
                 { model: Evento, attributes: ['nome'] }
             ]
@@ -329,10 +329,7 @@ app.post('/api/eventos', async (req, res) => {
     try {
         const { nome, data, hora, local, imagem } = req.body;
 
-        // 1. Finalizar eventos anteriores
-        await Evento.update({ status: 'finalizado' }, { where: { status: 'ativo' } });
-
-        // 2. Criar novo
+        // Criar novo evento
         const novoEvento = await Evento.create({
             nome,
             data_inicio: data,
