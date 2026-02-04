@@ -29,6 +29,7 @@ const Participante = sequelize.define('Participante', {
   genero: { type: DataTypes.ENUM('M', 'F', 'Outro'), defaultValue: 'Outro' },
   data_nascimento: { type: DataTypes.DATEONLY },
   categoria: { type: DataTypes.ENUM('Medico', 'Outros'), defaultValue: 'Outros' },
+  foto: { type: DataTypes.TEXT }, // Foto do cadastro (Base64)
   ativo: { type: DataTypes.BOOLEAN, defaultValue: true }
 });
 

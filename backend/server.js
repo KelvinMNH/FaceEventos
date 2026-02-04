@@ -287,6 +287,7 @@ app.post('/api/cadastrar-entrada', async (req, res) => {
             genero: genero || 'Outro',
             data_nascimento, // pode ser null
             ativo: true,
+            foto: req.body.foto,
             template_biometrico: req.body.template_biometrico || ('manual_' + Date.now())
         });
 
@@ -407,7 +408,7 @@ app.get('/api/logs', async (req, res) => {
             order: [['createdAt', 'DESC']],
             limit: 1000,
             include: [
-                { model: Participante, attributes: ['id', 'nome', 'documento', 'cpf', 'crm', 'genero', 'data_nascimento', 'categoria'] },
+                { model: Participante, attributes: ['id', 'nome', 'documento', 'cpf', 'crm', 'genero', 'data_nascimento', 'categoria', 'foto'] },
                 { model: Participante, as: 'Responsavel', attributes: ['nome'] },
                 { model: Evento, attributes: ['nome'] }
             ]

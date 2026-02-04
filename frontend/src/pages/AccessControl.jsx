@@ -22,6 +22,8 @@ function AccessControl() {
 
 
 
+  const handledLogIds = useRef(new Set());
+
   // States para detecção facial
   const webcamRef = useRef(null);
   const [modelsLoaded, setModelsLoaded] = useState(false);
@@ -76,6 +78,7 @@ function AccessControl() {
                 const last = globalValidations.get(pid);
 
                 globalValidations.set(pid, now);
+                if (data.access_id) handledLogIds.current.add(data.access_id);
 
                 if (last && (now - last < 60000)) {
                   setToastMessage({ text: data.participante.nome + ' já identificado', type: 'success' });
@@ -90,6 +93,7 @@ function AccessControl() {
                   setTimeout(() => setScanCooldown(false), 2000);
                 }
               } else {
+                if (data.access_id) handledLogIds.current.add(data.access_id);
                 showModal({
                   status_validacao: 'nao_encontrado'
                 });
@@ -166,6 +170,9 @@ function AccessControl() {
           // Na prática, comparamos IDs para não repetir
           if (latest.id > lastLogId) {
             setLastLogId(latest.id);
+            // Se o log já foi tratado localmente pelo loop de scan, não mostra modal de novo
+            if (handledLogIds.current.has(latest.id)) return;
+
             if (latest.status_validacao === 'sucesso' || latest.status_validacao === 'nao_encontrado') {
               showModal(latest);
             }
@@ -366,7 +373,7 @@ function AccessControl() {
       if (data.success) {
         setManualModalOpen(false);
         setManualMode('search');
-        setNewParticipant({ nome: '', documento: '', cpf: '', crm: '', data_nascimento: '', genero: 'Outro' });
+        setNewParticipant({ nome: '', documento: '', cpf: '', crm: '', data_nascimento: '', genero: 'Outro', foto: null });
         showMessage("Sucesso", "Participante cadastrado com sucesso!", "success");
         const fakeLog = {
           status_validacao: 'sucesso',
@@ -471,9 +478,13 @@ function AccessControl() {
 
   const confirmCapture = () => {
     if (tempDescriptor) {
-      setNewParticipant(prev => ({ ...prev, template_biometrico: tempDescriptor }));
+      setNewParticipant(prev => ({
+        ...prev,
+        template_biometrico: tempDescriptor,
+        foto: capturedImage
+      }));
       setCaptureFeedbackOpen(false);
-      showMessage("Sucesso", "Biometria vinculada!", "success");
+      showMessage("Sucesso", "Biometria e foto vinculadas!", "success");
     }
     setScanCooldown(false);
   };
@@ -595,15 +606,22 @@ function AccessControl() {
           <div className={'access-panel-overlay ' + statusClass} style={{
             position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
             background: isSuccess ? 'rgba(255, 255, 255, 0.95)' : 'rgba(255, 230, 230, 0.95)',
-            zIndex: 10, display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '1.5rem',
-            animation: 'fadeIn 0.3s ease-out'
+            zIndex: 10, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', padding: '1rem',
+            animation: 'fadeIn 0.3s ease-out',
+            overflowY: 'auto'
           }}>
             <div className="access-photo-large" style={{
-              width: '120px', height: '120px', fontSize: '2.5rem', margin: '0 auto 1rem',
+              width: '100px', height: '100px', fontSize: '2.5rem', margin: '0 auto 0.5rem',
               borderWidth: '4px', borderColor: isSuccess ? 'var(--success-color)' : 'var(--error-color)',
-              background: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%'
+              background: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%',
+              flexShrink: 0,
+              overflow: 'hidden'
             }}>
-              {participante.nome ? participante.nome.charAt(0) : '!'}
+              {participante.foto ? (
+                <img src={participante.foto} alt="Foto" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              ) : (
+                participante.nome ? participante.nome.charAt(0) : '!'
+              )}
             </div>
 
             {isSuccess ? (
@@ -611,30 +629,37 @@ function AccessControl() {
                 <h2 className="access-title" style={{ color: 'var(--success-color)', fontSize: '1.4rem', marginBottom: '0.5rem', textAlign: 'center' }}>
                   Bem-vindo(a), {participante.nome}!
                 </h2>
-                <div className="info-grid" style={{ width: '100%', marginTop: '1rem' }}>
-                  <div className="info-item" style={{ background: 'rgba(0,0,0,0.03)', padding: '0.8rem', borderRadius: '8px', marginBottom: '0.8rem' }}>
-                    <span className="info-label" style={{ fontSize: '0.75rem', color: '#666' }}>Documento / CPF</span>
-                    <span className="info-value" style={{ fontWeight: 'bold', fontSize: '1.2rem', color: '#333' }}>
-                      {participante.cpf || participante.documento || '-'}
-                    </span>
-                  </div>
-
-                  <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.8rem' }}>
-                    <div className="info-item" style={{ flex: 1, background: 'rgba(0,0,0,0.03)', padding: '0.8rem', borderRadius: '8px', overflow: 'hidden' }}>
-                      <span className="info-label" style={{ fontSize: '0.75rem', color: '#666' }}>CRM</span>
-                      <span className="info-value" style={{ fontWeight: 'bold', color: '#333', fontSize: '1.2rem' }}>{participante.crm || participante.id || '-'}</span>
+                <div className="info-grid" style={{ width: '90%', marginTop: '1rem', margin: '1rem auto 0 auto' }}>
+                  {/* Row 1: CPF and CRM */}
+                  <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
+                    <div className="info-item" style={{ flex: 3, background: 'rgba(0,0,0,0.03)', padding: '0.8rem', borderRadius: '8px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center' }}>
+                      <span className="info-label" style={{ fontSize: '0.7rem', color: '#666', textTransform: 'uppercase', marginBottom: '2px' }}>Documento / CPF</span>
+                      <span className="info-value" style={{ fontWeight: 'bold', fontSize: '1.2rem', color: '#333' }}>
+                        {participante.cpf || participante.documento || '-'}
+                      </span>
                     </div>
-                    <div className="info-item" style={{ flex: 1.2, background: 'rgba(0,0,0,0.03)', padding: '0.8rem', borderRadius: '8px', overflow: 'hidden' }}>
-                      <span className="info-label" style={{ fontSize: '0.75rem', color: '#666' }}>Data Nasc.</span>
+                    <div className="info-item" style={{ flex: 2, background: 'rgba(0,0,0,0.03)', padding: '0.8rem', borderRadius: '8px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center' }}>
+                      <span className="info-label" style={{ fontSize: '0.7rem', color: '#666', textTransform: 'uppercase', marginBottom: '2px' }}>CRM</span>
                       <span className="info-value" style={{ fontWeight: 'bold', color: '#333', fontSize: '1.2rem' }}>
-                        {participante.data_nascimento ? formatDate(participante.data_nascimento) : '-'}
+                        {participante.crm || '-'}
                       </span>
                     </div>
                   </div>
 
-                  <div className="info-item" style={{ background: 'rgba(0,0,0,0.03)', padding: '0.8rem', borderRadius: '8px' }}>
-                    <span className="info-label" style={{ fontSize: '0.75rem', color: '#666' }}>Categoria</span>
-                    <strong style={{ color: '#00995D', fontSize: '1.2rem' }}>{participante.categoria || 'Visitante'}</strong>
+                  {/* Row 2: Data Nascimento and Gênero */}
+                  <div style={{ display: 'flex', gap: '10px', marginBottom: '0.5rem' }}>
+                    <div className="info-item" style={{ flex: 3, background: 'rgba(0,0,0,0.03)', padding: '0.8rem', borderRadius: '8px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center' }}>
+                      <span className="info-label" style={{ fontSize: '0.7rem', color: '#666', textTransform: 'uppercase', marginBottom: '2px' }}>Data Nasc.</span>
+                      <span className="info-value" style={{ fontWeight: 'bold', color: '#333', fontSize: '1.2rem' }}>
+                        {participante.data_nascimento ? formatDate(participante.data_nascimento) : '-'}
+                      </span>
+                    </div>
+                    <div className="info-item" style={{ flex: 2, background: 'rgba(0,0,0,0.03)', padding: '0.8rem', borderRadius: '8px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center' }}>
+                      <span className="info-label" style={{ fontSize: '0.7rem', color: '#666', textTransform: 'uppercase', marginBottom: '2px' }}>Gênero</span>
+                      <strong style={{ color: '#555', fontSize: '1.2rem' }}>
+                        {participante.genero === 'M' ? 'H' : participante.genero === 'F' ? 'M' : 'O'}
+                      </strong>
+                    </div>
                   </div>
                 </div>
                 {/* Barra de Progresso do Timeout */}
@@ -644,8 +669,8 @@ function AccessControl() {
               </>
             ) : (
               <div style={{ textAlign: 'center' }}>
-                <h2 style={{ color: 'var(--error-color)', marginBottom: '1rem' }}>Acesso Negado</h2>
-                <p>Não reconhecido (Biometria)</p>
+                <h2 style={{ color: 'var(--error-color)', marginBottom: '1rem' }}>Rosto não encontrado</h2>
+                <p>Biometria facial não identificada</p>
               </div>
             )}
           </div>
@@ -912,16 +937,39 @@ function AccessControl() {
                 </tr>
               </thead>
               <tbody>
-                {logs
-                  .filter(log => {
+                {(() => {
+                  const searchFiltered = logs.filter(log => {
                     if (!searchTerm) return true;
                     const term = searchTerm.toLowerCase();
-                    const participante = log.Participante || {};
-                    const nome = participante.nome || 'Desconhecido';
-                    const documento = participante.documento || '';
-                    return nome.toLowerCase().includes(term) || documento.toLowerCase().includes(term);
-                  })
-                  .map(log => (
+                    const p = log.Participante || {};
+                    return (p.nome || '').toLowerCase().includes(term) || (p.documento || '').toLowerCase().includes(term);
+                  });
+
+                  const firstSuccessMap = new Map();
+                  [...searchFiltered].reverse().forEach(l => {
+                    if (l.status_validacao === 'sucesso' && l.Participante && !firstSuccessMap.has(l.Participante.id)) {
+                      firstSuccessMap.set(l.Participante.id, l.id);
+                    }
+                  });
+
+                  const displayLogs = searchFiltered.filter(l => {
+                    if (l.status_validacao === 'sucesso' && l.Participante) {
+                      return firstSuccessMap.get(l.Participante.id) === l.id;
+                    }
+                    return true;
+                  });
+
+                  if (displayLogs.length === 0) {
+                    return (
+                      <tr>
+                        <td colSpan="4" style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '2rem' }}>
+                          {searchTerm ? 'Nenhum registro encontrado para esta busca.' : 'Aguardando registros de entrada...'}
+                        </td>
+                      </tr>
+                    );
+                  }
+
+                  return displayLogs.map(log => (
                     <tr key={log.id}>
                       <td>{new Date(log.createdAt).toLocaleTimeString()}</td>
                       <td>{formatName(log.Participante ? log.Participante.nome : 'Desconhecido')}</td>
@@ -934,12 +982,8 @@ function AccessControl() {
                         </span>
                       </td>
                     </tr>
-                  ))}
-                {logs.length === 0 && (
-                  <tr>
-                    <td colSpan="4" style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>Aguardando registros...</td>
-                  </tr>
-                )}
+                  ));
+                })()}
               </tbody>
             </table>
           </div>
