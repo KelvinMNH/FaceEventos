@@ -23,6 +23,7 @@ function AccessControl() {
   const [manualDoc, setManualDoc] = useState('');
   const manualInputRef = useRef(null);
   const [manualMode, setManualMode] = useState('search'); // 'search' | 'create'
+  const [manualSearchResults, setManualSearchResults] = useState([]); // Array de resultados da busca
   const [newParticipant, setNewParticipant] = useState({ nome: '', documento: '', cpf: '', crm: '', data_nascimento: '', genero: 'Outro' });
 
   // Companion States
@@ -183,39 +184,77 @@ function AccessControl() {
   const handleManualEntryClick = () => {
     setManualDoc('');
     setManualMode('search');
+    setManualSearchResults([]);
     setNewParticipant({ nome: '', documento: '', genero: 'Outro' });
     setManualModalOpen(true);
   };
 
   const submitManualEntry = async () => {
     if (!manualDoc) return;
-    // Don't close modal yet
+    setManualSearchResults([]);
 
     try {
-      const res = await fetch(`${API_URL}/manual-entry`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: manualDoc })
-      });
+      // Buscar participantes em vez de tentar registrar direto
+      const res = await fetch(`${API_URL}/participantes/busca?q=${manualDoc}`);
       const data = await res.json();
 
-      if (data.success) {
-        setManualModalOpen(false);
-        const fakeLog = {
-          status_validacao: data.status,
-          Participante: data.participante || { nome: 'Desconhecido', documento: manualDoc }
-        };
-        showModal(fakeLog);
-      } else if (data.not_found) {
-        // Switch to create mode
-        setManualMode('create');
-        setNewParticipant({ ...newParticipant, documento: manualDoc });
+      if (data && data.length > 0) {
+        setManualSearchResults(data);
       } else {
-        // Generic error
-        showMessage("Erro", data.msg || "Erro ao processar entrada manual", "error");
+        // Se não encontrar, mudar para modo de criação
+        setManualMode('create');
+        setNewParticipant({ ...newParticipant, documento: manualDoc, cpf: manualDoc }); // Assumindo que pode ser CPF
       }
     } catch (e) {
       showMessage("Erro", "Erro de comunicação com servidor", "error");
+    }
+  };
+
+  const confirmManualEntry = async (participante) => {
+    // Função auxiliar para processar resposta
+    const processResponse = async (res) => {
+      const text = await res.text();
+      try {
+        return JSON.parse(text);
+      } catch (e) {
+        throw new Error("Resposta inválida do servidor (HTML/Erro 404)");
+      }
+    };
+
+    try {
+      console.log("Tentando registrar via ID...");
+      const res = await fetch(`${API_URL}/registrar-acesso-id`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ participanteId: participante.id })
+      });
+
+      let data;
+      try {
+        data = await processResponse(res);
+      } catch (e) {
+        // Se falhar (provavelmente rota nova não existe no backend rodando), tenta fallback
+        console.warn("Rota nova falhou, tentando fallback para rota antiga...");
+        const resFallback = await fetch(`${API_URL}/manual-entry`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: participante.documento || participante.cpf })
+        });
+        data = await processResponse(resFallback);
+      }
+
+      if (data.success) {
+        setManualModalOpen(false);
+        showModal({
+          status_validacao: 'sucesso',
+          Participante: participante
+        });
+      } else {
+        showMessage("Erro", data.msg || "Erro ao registrar acesso", "error");
+      }
+    } catch (e) {
+      console.error("Erro fetch:", e);
+      showMessage("Erro", `Erro ao conectar: ${e.message}`, "error");
     }
   };
 
@@ -548,16 +587,25 @@ function AccessControl() {
 
           <div className="dashboard-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
             <div className="card">
-              <h2>Total de Entradas</h2>
-              <div className="stat-value">{logs.filter(l => l.status_validacao === 'sucesso').length}</div>
+              <h2>Total de Pessoas (Únicas)</h2>
+              <div className="stat-value">
+                {(() => {
+                  const isCompanion = (l) => l.Participante?.documento?.startsWith('ACP-') || l.Participante?.documento === 'Acompanhante' || !!l.Responsavel;
+                  const uniqueParticipants = new Set(logs.filter(l => l.status_validacao === 'sucesso' && !isCompanion(l)).map(l => l.Participante?.id)).size;
+                  const companions = logs.filter(l => l.status_validacao === 'sucesso' && isCompanion(l)).length;
+                  return uniqueParticipants + companions;
+                })()}
+              </div>
 
               {/* Barra de Participantes vs Acompanhantes */}
               {logs.length > 0 && (() => {
-                const totalSuccess = logs.filter(l => l.status_validacao === 'sucesso').length;
-                const companions = logs.filter(l => l.status_validacao === 'sucesso' && l.Participante?.documento === 'Acompanhante').length;
-                const participants = totalSuccess - companions;
-                const percentParticipants = totalSuccess > 0 ? Math.round((participants / totalSuccess) * 100) : 0;
-                const percentCompanions = totalSuccess > 0 ? Math.round((companions / totalSuccess) * 100) : 0;
+                const isCompanion = (l) => l.Participante?.documento?.startsWith('ACP-') || l.Participante?.documento === 'Acompanhante' || !!l.Responsavel;
+                const uniqueParticipants = new Set(logs.filter(l => l.status_validacao === 'sucesso' && !isCompanion(l)).map(l => l.Participante?.id)).size;
+                const companions = logs.filter(l => l.status_validacao === 'sucesso' && isCompanion(l)).length;
+                const total = uniqueParticipants + companions;
+
+                const percentParticipants = total > 0 ? Math.round((uniqueParticipants / total) * 100) : 0;
+                const percentCompanions = total > 0 ? Math.round((companions / total) * 100) : 0;
 
                 return (
                   <>
@@ -576,11 +624,21 @@ function AccessControl() {
             </div>
             <div className="card">
               <h2>Participantes Presentes</h2>
-              <div className="stat-value">{logs.filter(l => l.status_validacao === 'sucesso').length}</div>
+              <div className="stat-value">
+                {(() => {
+                  const isCompanion = (l) => l.Participante?.documento?.startsWith('ACP-') || l.Participante?.documento === 'Acompanhante' || !!l.Responsavel;
+                  return new Set(logs.filter(l => l.status_validacao === 'sucesso' && !isCompanion(l)).map(l => l.Participante?.id)).size;
+                })()}
+              </div>
             </div>
             <div className="card">
               <h2>Acompanhantes Presentes</h2>
-              <div className="stat-value">{logs.filter(l => l.status_validacao === 'sucesso' && l.Participante?.documento === 'Acompanhante').length}</div>
+              <div className="stat-value">
+                {(() => {
+                  const isCompanion = (l) => l.Participante?.documento?.startsWith('ACP-') || l.Participante?.documento === 'Acompanhante' || !!l.Responsavel;
+                  return logs.filter(l => l.status_validacao === 'sucesso' && isCompanion(l)).length;
+                })()}
+              </div>
             </div>
             <div className="card">
               <h2>Faixa Etária Principal</h2>
@@ -732,9 +790,45 @@ function AccessControl() {
       </div>
 
       {/* Modal Manual */}
-      <div className={`modal-overlay ${manualModalOpen ? 'open' : ''}`} onClick={() => { setManualModalOpen(false); setManualMode('search'); }}>
-        <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '500px' }}>
-          {manualMode === 'search' ? (
+      <div className={`modal-overlay ${manualModalOpen ? 'open' : ''}`} onClick={() => { setManualModalOpen(false); setManualMode('search'); setManualSearchResults([]); }}>
+        <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '500px', maxHeight: '90vh', overflowY: 'auto' }}>
+          {manualSearchResults.length > 0 ? (
+            <>
+              <div className="modal-header">Selecione o Participante</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '400px', overflowY: 'auto', marginBottom: '1rem' }}>
+                {manualSearchResults.map(p => (
+                  <div
+                    key={p.id}
+                    onClick={() => confirmManualEntry(p)}
+                    style={{
+                      padding: '1rem',
+                      backgroundColor: '#f8f9fa',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      border: '1px solid #e1e4e8',
+                      transition: 'background 0.2s',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center'
+                    }}
+                    onMouseOver={e => e.currentTarget.style.backgroundColor = '#e1e4e8'}
+                    onMouseOut={e => e.currentTarget.style.backgroundColor = '#f8f9fa'}
+                  >
+                    <div>
+                      <div style={{ fontWeight: 'bold' }}>{p.nome}</div>
+                      <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                        CPF: {p.documento} {p.crm ? `| CRM: ${p.crm}` : ''}
+                      </div>
+                    </div>
+                    <div style={{ color: 'var(--accent-color)', fontWeight: 'bold' }}>Selecionar</div>
+                  </div>
+                ))}
+              </div>
+              <div className="modal-actions">
+                <button className="btn-secondary" onClick={() => setManualSearchResults([])}>Voltar</button>
+              </div>
+            </>
+          ) : manualMode === 'search' ? (
             <>
               <div className="modal-header">Localizar Pessoa</div>
               <input
@@ -803,7 +897,7 @@ function AccessControl() {
       </div>
 
       {/* Modal Finalizar */}
-      < div className={`modal-overlay ${finishModalOpen ? 'open' : ''}`} onClick={() => setFinishModalOpen(false)}>
+      <div className={`modal-overlay ${finishModalOpen ? 'open' : ''}`} onClick={() => setFinishModalOpen(false)}>
         <div className="modal-content" onClick={e => e.stopPropagation()} style={{ textAlign: 'center' }}>
           <div className="modal-header" style={{ color: 'var(--error-color)' }}>Finalizar Evento?</div>
           <p style={{ marginBottom: '2rem', color: 'var(--text-secondary)' }}>

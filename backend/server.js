@@ -110,8 +110,66 @@ app.post('/api/simulate', async (req, res) => {
     }
 });
 
-// Endpoint para Entrada Manual (Caso a biometria falhe)
-// Endpoint para Entrada Manual (Caso a biometria falhe)
+    }
+});
+
+// Endpoint para registrar acesso por ID (confirmação manual)
+app.post('/api/registrar-acesso-id', async (req, res) => {
+    console.log("Recebida requisição para registrar acesso manual:", req.body);
+    try {
+        const { participanteId } = req.body;
+        console.log("ParticipanteID:", participanteId);
+
+        const evento = await Evento.findOne({ where: { status: 'ativo' } });
+        if (!evento) {
+            console.log("Evento ativo não encontrado");
+            return res.json({ success: false, msg: "Sem evento ativo" });
+        }
+
+        const participante = await Participante.findByPk(participanteId);
+        if (!participante) {
+            console.log("Participante não encontrado no banco");
+            return res.json({ success: false, msg: "Participante inválido" });
+        }
+
+        console.log("Participante encontrado:", participante.nome);
+
+        // Verificar se já entrou no evento
+        const ultimoAcesso = await RegistroAcesso.findOne({
+            where: {
+                EventoId: evento.id,
+                ParticipanteId: participante.id,
+                status_validacao: 'sucesso'
+            },
+            order: [['createdAt', 'DESC']]
+        });
+
+        // Se já entrou há menos de 1 minuto, bloquear (evita duplo clique)
+        if (ultimoAcesso) {
+            const agora = new Date();
+            const diferenca = agora - new Date(ultimoAcesso.createdAt);
+            if (diferenca < 60000) { // 1 minuto de intervalo
+                console.log("Acesso duplicado bloqueado:", diferenca, "ms");
+                return res.json({ success: false, msg: "Entrada já registrada recentemente!" });
+            }
+        }
+
+        await RegistroAcesso.create({
+            tipo_acesso: 'entrada',
+            status_validacao: 'sucesso',
+            device_id: 'manual_entry_web_confirmed',
+            EventoId: evento.id,
+            ParticipanteId: participante.id
+        });
+
+        res.json({ success: true, status: 'sucesso', participante });
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ error: "Erro ao registrar acesso manual" });
+    }
+});
+
+// Endpoint para Entrada Manual (mantido para compatibilidade ou fluxo rápido)
 app.post('/api/manual-entry', async (req, res) => {
     try {
         const { query } = req.body;

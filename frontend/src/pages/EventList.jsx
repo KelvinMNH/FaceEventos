@@ -136,11 +136,18 @@ function EventList() {
                                         onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 8px 16px rgba(0,0,0,0.1)'; }}
                                         onMouseLeave={(e) => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'none'; }}
                                     >
-                                        {evento.imagem && (
-                                            <div style={{ height: '140px', overflow: 'hidden', borderRadius: '6px', marginBottom: '0.5rem' }}>
-                                                <img src={evento.imagem} alt={evento.nome} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                            </div>
-                                        )}
+                                        <div style={{ height: '140px', overflow: 'hidden', borderRadius: '6px', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f0f0f0' }}>
+                                            <img
+                                                src={evento.imagem || '/logo.jpg'}
+                                                alt={evento.nome}
+                                                style={{
+                                                    width: '100%',
+                                                    height: '100%',
+                                                    objectFit: evento.imagem ? 'cover' : 'contain',
+                                                    padding: evento.imagem ? '0' : '1.5rem'
+                                                }}
+                                            />
+                                        </div>
                                         <div>
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '0.8rem' }}>
                                                 <h2 style={{ fontSize: '1.25rem', color: 'var(--text-primary)', margin: 0, lineHeight: 1.3 }}>{evento.nome}</h2>
@@ -182,11 +189,20 @@ function EventList() {
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1.5rem', opacity: 0.8 }}>
                                     {eventos.filter(e => e.status === 'finalizado').map(evento => (
                                         <div key={evento.id} className="card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                                            {evento.imagem && (
-                                                <div style={{ height: '140px', overflow: 'hidden', borderRadius: '6px', marginBottom: '0.5rem' }}>
-                                                    <img src={evento.imagem} alt={evento.nome} style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'grayscale(100%)' }} />
-                                                </div>
-                                            )}
+                                            <div style={{ height: '140px', overflow: 'hidden', borderRadius: '6px', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f8f9fa' }}>
+                                                <img
+                                                    src={evento.imagem || '/logo.jpg'}
+                                                    alt={evento.nome}
+                                                    style={{
+                                                        width: '100%',
+                                                        height: '100%',
+                                                        objectFit: evento.imagem ? 'cover' : 'contain',
+                                                        filter: 'grayscale(100%)',
+                                                        padding: evento.imagem ? '0' : '1.5rem',
+                                                        opacity: 0.7
+                                                    }}
+                                                />
+                                            </div>
                                             <div>
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '0.8rem' }}>
                                                     <h2 style={{ fontSize: '1.25rem', color: 'var(--text-secondary)', margin: 0 }}>{evento.nome}</h2>
