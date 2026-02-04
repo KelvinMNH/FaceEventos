@@ -87,6 +87,72 @@ function EventReport() {
                     </h1>
                 </div>
 
+                {/* Estatísticas Gerais */}
+                <div className="card" style={{ marginBottom: '2rem' }}>
+                    <h2>Estatísticas Gerais do Evento</h2>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem', marginTop: '1.5rem' }}>
+                        {/* Total de Participantes */}
+                        <div style={{ textAlign: 'center', padding: '1rem', backgroundColor: '#f8f9fa', borderRadius: '8px' }}>
+                            <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>Total de Participantes</div>
+                            <div style={{ fontSize: '2rem', fontWeight: 'bold', color: 'var(--accent-color)' }}>
+                                {logs.filter(l => l.Participante?.documento !== 'Acompanhante').length}
+                            </div>
+                        </div>
+
+                        {/* Total de Acompanhantes */}
+                        <div style={{ textAlign: 'center', padding: '1rem', backgroundColor: '#f8f9fa', borderRadius: '8px' }}>
+                            <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>Total de Acompanhantes</div>
+                            <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#b1d249' }}>
+                                {logs.filter(l => l.Participante?.documento === 'Acompanhante').length}
+                            </div>
+                        </div>
+
+                        {/* Gênero */}
+                        <div style={{ textAlign: 'center', padding: '1rem', backgroundColor: '#f8f9fa', borderRadius: '8px' }}>
+                            <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>Distribuição de Gênero</div>
+                            <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', fontSize: '1.5rem', fontWeight: 'bold' }}>
+                                <span style={{ color: '#74c0fc' }}>♂ {logs.filter(l => l.Participante?.genero === 'M' && l.Participante?.documento !== 'Acompanhante').length}</span>
+                                <span style={{ color: '#faa2c1' }}>♀ {logs.filter(l => l.Participante?.genero === 'F' && l.Participante?.documento !== 'Acompanhante').length}</span>
+                            </div>
+                        </div>
+
+                        {/* Faixa Etária Predominante */}
+                        <div style={{ textAlign: 'center', padding: '1rem', backgroundColor: '#f8f9fa', borderRadius: '8px' }}>
+                            <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>Faixa Etária Predominante</div>
+                            <div style={{ fontSize: '2rem', fontWeight: 'bold', color: 'var(--text-primary)' }}>
+                                {(() => {
+                                    const faixas = { '18-25': 0, '26-35': 0, '36-50': 0, '50+': 0 };
+
+                                    logs
+                                        .filter(l => l.Participante?.data_nascimento && l.Participante?.documento !== 'Acompanhante')
+                                        .forEach(l => {
+                                            const nasc = new Date(l.Participante.data_nascimento);
+                                            const hoje = new Date();
+                                            let idade = hoje.getFullYear() - nasc.getFullYear();
+                                            const m = hoje.getMonth() - nasc.getMonth();
+                                            if (m < 0 || (m === 0 && hoje.getDate() < nasc.getDate())) idade--;
+
+                                            if (idade <= 25) faixas['18-25']++;
+                                            else if (idade <= 35) faixas['26-35']++;
+                                            else if (idade <= 50) faixas['36-50']++;
+                                            else faixas['50+']++;
+                                        });
+
+                                    let maxFaixa = '-';
+                                    let maxQtd = -1;
+                                    for (const [faixa, qtd] of Object.entries(faixas)) {
+                                        if (qtd > maxQtd) {
+                                            maxQtd = qtd;
+                                            maxFaixa = faixa;
+                                        }
+                                    }
+                                    return maxFaixa === '-' ? '-' : maxFaixa + ' anos';
+                                })()}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <div className="card">
                     <h2>Registros de Acesso (Participantes Presentes)</h2>
                     <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
