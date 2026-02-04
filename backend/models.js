@@ -53,7 +53,7 @@ async function syncDB() {
 
   // Sear dados iniciais se vazio
   const count = await Participante.count();
-  if (count === 0) {
+  if (false && count === 0) { // Desativado para testes manuais
     const nomes = [
       'Kelvin Higino', 'João Silva', 'Maria Oliveira', 'Ana Santos', 'Pedro Costa',
       'Lucas Pereira', 'Juliana Lima', 'Fernanda Souza', 'Rafaela Alves', 'Gustavo Ribeiro',

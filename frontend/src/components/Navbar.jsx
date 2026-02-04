@@ -95,6 +95,22 @@ function Navbar({ children, onOpenCreateModal }) {
                         Painel de Controle
                     </a>
 
+                    <a
+                        href="#"
+                        className={`sidebar-link ${location.pathname === '/register' ? 'active' : ''}`}
+                        onClick={(e) => { e.preventDefault(); handleNavigate('/register'); }}
+                    >
+                        Cadastro Facial
+                    </a>
+
+                    <a
+                        href="#"
+                        className={`sidebar-link ${location.pathname === '/participants' ? 'active' : ''}`}
+                        onClick={(e) => { e.preventDefault(); handleNavigate('/participants'); }}
+                    >
+                        Lista de Cadastrados
+                    </a>
+
                     {/* Espaço para futuros links */}
                 </div>
             </div>

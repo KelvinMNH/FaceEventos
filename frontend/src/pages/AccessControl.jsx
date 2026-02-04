@@ -2,8 +2,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import MessageModal from '../components/MessageModal';
+import Webcam from 'react-webcam';
+import * as faceapi from 'face-api.js';
 
 const API_URL = 'http://localhost:3000/api';
+
+const globalValidations = new Map();
 
 function AccessControl() {
   const navigate = useNavigate();
@@ -15,6 +19,93 @@ function AccessControl() {
   const [searchTerm, setSearchTerm] = useState('');
 
   const [simulating, setSimulating] = useState(false);
+
+
+
+  // States para detecção facial
+  const webcamRef = useRef(null);
+  const [modelsLoaded, setModelsLoaded] = useState(false);
+  const [scanCooldown, setScanCooldown] = useState(false);
+  const [toastMessage, setToastMessage] = useState(null);
+
+  // States para Feedback de Captura (Cadastro)
+  const [captureFeedbackOpen, setCaptureFeedbackOpen] = useState(false);
+  const [capturedImage, setCapturedImage] = useState(null);
+  const [tempDescriptor, setTempDescriptor] = useState(null);
+
+  // Carregar Modelos da FaceAPI
+  useEffect(() => {
+    const loadModels = async () => {
+      try {
+        const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
+        await Promise.all([
+          faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+          faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+          faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
+        ]);
+        setModelsLoaded(true);
+        console.log("Modelos carregados no AccessControl");
+      } catch (e) { console.error("Erro models:", e); }
+    };
+    loadModels();
+  }, []);
+
+  // Loop de detecção
+  useEffect(() => {
+    let interval;
+    if (modelsLoaded && !scanCooldown && !modalData) {
+      interval = setInterval(async () => {
+        if (webcamRef.current && webcamRef.current.video && webcamRef.current.video.readyState === 4) {
+          try {
+            const video = webcamRef.current.video;
+            const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
+
+            if (detection) {
+              const descriptor = Array.from(detection.descriptor);
+
+              const res = await fetch(`${API_URL}/biometria/validar`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ descriptor })
+              });
+              const data = await res.json();
+
+              if (data.authorized) {
+                const pid = String(data.participante.id);
+                const now = Date.now();
+                const last = globalValidations.get(pid);
+
+                globalValidations.set(pid, now);
+
+                if (last && (now - last < 60000)) {
+                  setToastMessage({ text: data.participante.nome + ' já identificado', type: 'success' });
+                  setTimeout(() => setToastMessage(null), 2000);
+                } else {
+                  showModal({
+                    status_validacao: 'sucesso',
+                    Participante: data.participante
+                  });
+                  fetchLogs();
+                  setScanCooldown(true);
+                  setTimeout(() => setScanCooldown(false), 2000);
+                }
+              } else {
+                showModal({
+                  status_validacao: 'nao_encontrado'
+                });
+                setScanCooldown(true);
+                setTimeout(() => setScanCooldown(false), 3000);
+              }
+            }
+          } catch (err) {
+            // ignorar
+          }
+        }
+      }, 800);
+    }
+    return () => clearInterval(interval);
+  }, [modelsLoaded, modalData, scanCooldown]);
+
   const audioRef = useRef(new Audio('https://assets.mixkit.co/sfx/preview/mixkit-software-interface-start-2574.mp3')); // Som de exemplo
   const modalTimeoutRef = useRef(null);
 
@@ -350,6 +441,50 @@ function AccessControl() {
     }
   };
 
+  const captureFacialData = async () => {
+    if (!webcamRef.current || !webcamRef.current.video) return;
+
+    // Pausa o scan automático momentaneamente
+    setScanCooldown(true);
+
+    try {
+      const video = webcamRef.current.video;
+      const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
+        .withFaceLandmarks()
+        .withFaceDescriptor();
+
+      if (detection) {
+        const imageSrc = webcamRef.current.getScreenshot();
+        setCapturedImage(imageSrc);
+        setTempDescriptor(JSON.stringify(Array.from(detection.descriptor)));
+        setCaptureFeedbackOpen(true);
+      } else {
+        showMessage("Atenção", "Nenhum rosto detectado. Olhe para a câmera.", "warning");
+        setTimeout(() => setScanCooldown(false), 1000);
+      }
+    } catch (e) {
+      console.error(e);
+      showMessage("Erro", "Falha ao capturar imagem.", "error");
+      setScanCooldown(false);
+    }
+  };
+
+  const confirmCapture = () => {
+    if (tempDescriptor) {
+      setNewParticipant(prev => ({ ...prev, template_biometrico: tempDescriptor }));
+      setCaptureFeedbackOpen(false);
+      showMessage("Sucesso", "Biometria vinculada!", "success");
+    }
+    setScanCooldown(false);
+  };
+
+  const cancelCapture = () => {
+    setCaptureFeedbackOpen(false);
+    setCapturedImage(null);
+    setTempDescriptor(null);
+    setScanCooldown(false);
+  };
+
   const handleFinishClick = () => {
     if (!evento) return;
     setFinishModalOpen(true);
@@ -386,7 +521,7 @@ function AccessControl() {
     modalTimeoutRef.current = setTimeout(() => {
       setModalData(null);
       modalTimeoutRef.current = null;
-    }, 6000);
+    }, 3000);
   };
 
   // Helper para formatar nome: "Kelvin Higino da Silva" -> "Kelvin H. d. S."
@@ -416,89 +551,116 @@ function AccessControl() {
 
   // Helper para renderizar o painel direito
   const renderAccessPanel = () => {
-    if (!modalData) {
-      return (
-        <div className="access-panel waiting" style={{ padding: '2rem', justifyContent: 'center' }}>
-          <div className="access-photo-large" style={{ width: '120px', height: '120px', fontSize: '3rem', margin: '0 auto 1.5rem' }}>
-            <span role="img" aria-label="fingerprint">👆</span>
-          </div>
-          <h2 className="access-title" style={{ fontSize: '1.5rem' }}>Aguardando Validação</h2>
-          <p className="access-subtitle" style={{ fontSize: '1rem', marginBottom: '2rem' }}>Posicione seu dedo no leitor biométrico</p>
-
-          <div style={{ opacity: 0.15, transform: 'scale(1.5)', color: 'var(--text-primary)' }}>
-            <svg width="60" height="60" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-              <path d="M17.81 4.47c-.08 0-.16-.02-.23-.06C15.66 3.42 14 3 12.01 3c-1.98 0-3.86.47-5.57 1.41-.24.13-.54.04-.68-.2-.13-.24-.04-.55.2-.68C7.82 2.52 9.86 2 12.01 2c2.13 0 3.99.47 6.03 1.52.25.13.34.43.21.67-.09.18-.26.28-.44.28zM3.5 9.72c-.1 0-.2-.03-.29-.09-.23-.16-.28-.47-.12-.7.99-1.4 2.25-2.5 3.75-3.27C9.98 4.04 14 4.03 17.15 5.65c1.5.77 2.76 1.86 3.75 3.25.16.22.11.54-.12.7-.23.16-.54.11-.7-.12-.9-1.26-2.04-2.25-3.39-2.94-2.87-1.47-6.54-1.47-9.4.01-1.36.7-2.5 1.7-3.4 2.96-.08.14-.23.21-.39.21zm6.25 12.07c-.13 0-.26-.05-.35-.15-.87-.87-1.34-1.43-2.01-2.64-.69-1.23-1.05-2.73-1.05-4.34 0-2.97 2.54-5.39 5.66-5.39s5.66 2.42 5.66 5.39c0 .28-.22.5-.5.5s-.5-.22-.5-.5c0-2.42-2.09-4.39-4.66-4.39-2.57 0-4.66 1.97-4.66 4.39 0 1.44.32 2.77.93 3.85.64 1.15 1.08 1.64 1.85 2.42.19.2.19.51 0 .71-.11.1-.24.15-.37.15zm7.17-1.85c-1.19 0-2.24-.3-3.1-.89-1.49-1.01-2.38-2.65-2.38-4.39 0-.28.22-.5.5-.5s.5.22.5.5c0 1.41.72 2.74 1.94 3.56.71.48 1.54.71 2.54.71.24 0 .64-.03 1.04-.1.27-.05.53.13.58.41.05.27-.13.53-.41.58-.57.11-1.07.12-1.21.12zM14.91 22c-.04 0-.09-.01-.13-.02-1.59-.44-2.63-1.03-3.72-2.1-1.4-1.39-2.17-3.24-2.17-5.22 0-1.62 1.38-2.94 3.08-2.94 1.7 0 3.08 1.32 3.08 2.94 0 1.07.93 1.94 2.08 1.94.28 0 .5.22.5.5s-.22.5-.5.5c-1.7 0-3.08-1.32-3.08-2.94 0-1.07-.93-1.94-2.08-1.94-1.15 0-2.08.87-2.08 1.94 0 1.71.66 3.31 1.87 4.51.95.94 1.86 1.46 3.27 1.85.27.07.42.35.35.61-.05.23-.26.38-.47.38z" />
-            </svg>
-          </div>
-        </div>
-      );
-    }
-
-    const isSuccess = modalData.status_validacao === 'sucesso';
+    // 1. Preparar dados do Modal (se houver)
+    const isSuccess = modalData?.status_validacao === 'sucesso';
     const statusClass = isSuccess ? 'success' : 'error';
-    const participante = modalData.Participante || {};
+    const participante = modalData?.Participante || {};
 
     return (
-      <div className={`access-panel ${statusClass}`} style={{ position: 'relative', overflow: 'hidden', padding: '1.5rem 1rem', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-        <div className="access-photo-large" style={{
-          width: '120px',
-          height: '120px',
-          fontSize: '2.5rem',
-          margin: '0 auto 1rem',
-          borderWidth: '4px'
-        }}>
-          {participante.nome ? participante.nome.charAt(0) : '!'}
+      <div className="access-panel-container" style={{ position: 'relative', minHeight: '450px', background: '#000', borderRadius: '12px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+
+        {/* === CAMADA 1: WEBCAM SEMPRE ATIVA === */}
+        <div style={{ flex: 1, position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 1 }}>
+          <Webcam
+            audio={false}
+            ref={webcamRef}
+            forceScreenshotSourceSize={true}
+            onUserMedia={() => console.log('Webcam OK')}
+            onUserMediaError={(e) => console.error('Erro Câmera:', e)}
+            screenshotFormat="image/jpeg"
+            videoConstraints={{ width: 1280, height: 720, facingMode: "user" }}
+            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+          />
+
+          {!modalData && modelsLoaded && (
+            <div style={{ position: 'absolute', top: '15%', left: '15%', right: '15%', bottom: '15%', border: '2px dashed rgba(255,255,255,0.4)', borderRadius: '16px', pointerEvents: 'none' }}></div>
+          )}
+
+          {/* Toast Notification (Aviso Discreto) */}
+          {toastMessage && (
+            <div style={{
+              position: 'absolute', top: '20px', left: '50%', transform: 'translateX(-50%)',
+              zIndex: 200, background: toastMessage.type === 'error' ? 'rgba(255,0,0,0.8)' : 'rgba(0,153,93,0.9)',
+              color: 'white', padding: '8px 20px', borderRadius: '30px', fontWeight: 'bold',
+              boxShadow: '0 4px 10px rgba(0,0,0,0.3)', whiteSpace: 'nowrap', fontSize: '1rem',
+              animation: 'fadeIn 0.3s'
+            }}>
+              {toastMessage.text}
+            </div>
+          )}
         </div>
 
-        {isSuccess ? (
-          <>
-            <h2 className="access-title" style={{ color: 'var(--success-color)', fontSize: '1.3rem', marginBottom: '0.5rem', lineHeight: '1.3', display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'center' }}>
-              Bem-vindo(a), {participante.nome}!
-              <span style={{ fontSize: '0.7rem', opacity: 0.5, fontWeight: 'normal', backgroundColor: 'rgba(0,0,0,0.05)', padding: '2px 6px', borderRadius: '3px' }}>
-                {participante.genero === 'M' ? 'H' : participante.genero === 'F' ? 'M' : ''}
-              </span>
-            </h2>
-            <p className="access-subtitle" style={{ fontSize: '0.85rem', marginBottom: '1rem', color: 'var(--text-secondary)' }}>Acesso autorizado com sucesso</p>
-
-            <div className="info-grid" style={{ gap: '0.6rem', width: '100%' }}>
-              <div className="info-item" style={{ padding: '0.5rem', textAlign: 'left' }}>
-                <span className="info-label" style={{ fontSize: '0.7rem' }}>CPF</span>
-                <span className="info-value" style={{ fontSize: '0.95rem' }}>{participante.cpf || participante.documento || '-'}</span>
-              </div>
-              <div className="info-item" style={{ padding: '0.5rem', textAlign: 'left' }}>
-                <span className="info-label" style={{ fontSize: '0.7rem' }}>CRM</span>
-                <span className="info-value" style={{ fontSize: '0.95rem' }}>{participante.crm || '-'}</span>
-              </div>
-              <div className="info-item" style={{ padding: '0.5rem', textAlign: 'left' }}>
-                <span className="info-label" style={{ fontSize: '0.7rem' }}>Data de Nascimento</span>
-                <span className="info-value" style={{ fontSize: '0.95rem' }}>
-                  {participante.data_nascimento ? formatDate(participante.data_nascimento) : '-'}
-                </span>
-              </div>
+        {/* === CAMADA 2: INTERFACE DE FEEDBACK (MODAL) === */}
+        {modalData && (
+          <div className={'access-panel-overlay ' + statusClass} style={{
+            position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
+            background: isSuccess ? 'rgba(255, 255, 255, 0.95)' : 'rgba(255, 230, 230, 0.95)',
+            zIndex: 10, display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '1.5rem',
+            animation: 'fadeIn 0.3s ease-out'
+          }}>
+            <div className="access-photo-large" style={{
+              width: '120px', height: '120px', fontSize: '2.5rem', margin: '0 auto 1rem',
+              borderWidth: '4px', borderColor: isSuccess ? 'var(--success-color)' : 'var(--error-color)',
+              background: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%'
+            }}>
+              {participante.nome ? participante.nome.charAt(0) : '!'}
             </div>
 
-            {/* Progress Bar */}
-            <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '4px', backgroundColor: 'rgba(0,0,0,0.1)', overflow: 'hidden' }}>
-              <div style={{
-                height: '100%',
-                backgroundColor: 'var(--success-color)',
-                animation: 'progressBar 6s linear forwards',
-                width: '100%'
-              }}></div>
-            </div>
+            {isSuccess ? (
+              <>
+                <h2 className="access-title" style={{ color: 'var(--success-color)', fontSize: '1.4rem', marginBottom: '0.5rem', textAlign: 'center' }}>
+                  Bem-vindo(a), {participante.nome}!
+                </h2>
+                <div className="info-grid" style={{ width: '100%', marginTop: '1rem' }}>
+                  <div className="info-item" style={{ background: 'rgba(0,0,0,0.03)', padding: '0.8rem', borderRadius: '8px', marginBottom: '0.8rem' }}>
+                    <span className="info-label" style={{ fontSize: '0.75rem', color: '#666' }}>Documento / CPF</span>
+                    <span className="info-value" style={{ fontWeight: 'bold', fontSize: '1.2rem', color: '#333' }}>
+                      {participante.cpf || participante.documento || '-'}
+                    </span>
+                  </div>
 
-          </>
-        ) : (
-          <>
-            <h2 className="access-title" style={{ color: 'var(--error-color)', fontSize: '1.5rem' }}>Biometria não reconhecida</h2>
-            <p className="access-subtitle" style={{ fontSize: '1rem' }}>Biometria não identificada</p>
-            <div className="info-grid" style={{ gap: '1rem', width: '100%' }}>
-              <div className="info-item" style={{ padding: '0.8rem' }}>
-                <span className="info-label">Status</span>
-                <span className="info-value" style={{ color: 'var(--error-color)', fontSize: '1.1rem' }}>Não Cadastrado</span>
+                  <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.8rem' }}>
+                    <div className="info-item" style={{ flex: 1, background: 'rgba(0,0,0,0.03)', padding: '0.8rem', borderRadius: '8px', overflow: 'hidden' }}>
+                      <span className="info-label" style={{ fontSize: '0.75rem', color: '#666' }}>CRM</span>
+                      <span className="info-value" style={{ fontWeight: 'bold', color: '#333', fontSize: '1.2rem' }}>{participante.crm || participante.id || '-'}</span>
+                    </div>
+                    <div className="info-item" style={{ flex: 1.2, background: 'rgba(0,0,0,0.03)', padding: '0.8rem', borderRadius: '8px', overflow: 'hidden' }}>
+                      <span className="info-label" style={{ fontSize: '0.75rem', color: '#666' }}>Data Nasc.</span>
+                      <span className="info-value" style={{ fontWeight: 'bold', color: '#333', fontSize: '1.2rem' }}>
+                        {participante.data_nascimento ? formatDate(participante.data_nascimento) : '-'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="info-item" style={{ background: 'rgba(0,0,0,0.03)', padding: '0.8rem', borderRadius: '8px' }}>
+                    <span className="info-label" style={{ fontSize: '0.75rem', color: '#666' }}>Categoria</span>
+                    <strong style={{ color: '#00995D', fontSize: '1.2rem' }}>{participante.categoria || 'Visitante'}</strong>
+                  </div>
+                </div>
+                {/* Barra de Progresso do Timeout */}
+                <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '8px', background: '#eee' }}>
+                  <div style={{ height: '100%', background: 'var(--success-color)', animation: 'progressBar 5s linear forwards', width: '100%' }}></div>
+                </div>
+              </>
+            ) : (
+              <div style={{ textAlign: 'center' }}>
+                <h2 style={{ color: 'var(--error-color)', marginBottom: '1rem' }}>Acesso Negado</h2>
+                <p>Não reconhecido (Biometria)</p>
               </div>
+            )}
+          </div>
+        )}
+
+        {/* Rodapé Fixo (Status Câmera) */}
+        {!modalData && (
+          <div style={{
+            position: 'absolute', bottom: '20px', width: '100%', textAlign: 'center',
+            color: 'white', textShadow: '0 1px 2px black', zIndex: 5
+          }}>
+            <div style={{ background: 'rgba(0,0,0,0.6)', display: 'inline-block', padding: '5px 15px', borderRadius: '20px' }}>
+              {modelsLoaded ? '● Câmera Ativa - Aproxime o Rosto' : 'Carregando Inteligência...'}
             </div>
-          </>
+          </div>
         )}
       </div>
     );
@@ -538,7 +700,7 @@ function AccessControl() {
         >
           Finalizar Evento
         </button>
-      </Navbar>
+      </Navbar >
 
       <div className="main-layout">
         {/* Coluna Esquerda: Dashboard e Tabela */}
@@ -886,6 +1048,28 @@ function AccessControl() {
                   <option value="F">Feminino</option>
                   <option value="Outro">Outro</option>
                 </select>
+
+                <div style={{ padding: '1rem', background: '#f0f0f0', borderRadius: '8px', textAlign: 'center' }}>
+                  <div style={{ marginBottom: '0.5rem', fontWeight: 'bold', color: '#555' }}>Biometria Facial</div>
+                  {newParticipant.template_biometrico ? (
+                    <div style={{ color: 'var(--success-color)', fontWeight: 'bold' }}>
+                      ✔ Biometria Capturada
+                      <button
+                        onClick={() => setNewParticipant(p => ({ ...p, template_biometrico: null }))}
+                        style={{ marginLeft: '10px', fontSize: '0.7rem', color: 'red', border: 'none', background: 'none', cursor: 'pointer', textDecoration: 'underline' }}>
+                        Remover
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      className="btn-secondary"
+                      onClick={captureFacialData}
+                      style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
+                    >
+                      📸 Capturar Rosto
+                    </button>
+                  )}
+                </div>
               </div>
               <div className="modal-actions">
                 <button className="btn-secondary" onClick={() => { setManualMode('search'); setNewParticipant({ nome: '', documento: '', cpf: '', crm: '', data_nascimento: '', genero: 'Outro' }); }}>Voltar</button>
@@ -1011,6 +1195,22 @@ function AccessControl() {
         message={messageModal.message}
         type={messageModal.type}
       />
+
+      {/* Modal Feedback Captura Facial */}
+      {captureFeedbackOpen && (
+        <div className="modal-overlay open" style={{ zIndex: 2000 }}>
+          <div className="modal-content" style={{ textAlign: 'center', maxWidth: '400px' }}>
+            <h3 style={{ margin: '0 0 1rem 0' }}>Confirmação da Foto</h3>
+            {capturedImage && (
+              <img src={capturedImage} alt="Captura" style={{ width: '100%', borderRadius: '8px', border: '2px solid #eee', marginBottom: '1rem' }} />
+            )}
+            <div className="modal-actions" style={{ justifyContent: 'center' }}>
+              <button className="btn-secondary" onClick={cancelCapture}>Tentar Novamente</button>
+              <button className="btn-primary" onClick={confirmCapture}>Confirmar Foto</button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

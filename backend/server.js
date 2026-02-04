@@ -9,6 +9,68 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
+// Helper para Distância Euclidiana (FaceID Matching)
+function euclideanDistance(desc1, desc2) {
+    if (!desc1 || !desc2 || desc1.length !== desc2.length) return 1.0;
+    return Math.sqrt(
+        desc1.map((val, i) => Math.pow(val - desc2[i], 2))
+            .reduce((a, b) => a + b, 0)
+    );
+}
+
+// Endpoint de Validação Facial Real
+app.post('/api/biometria/validar', async (req, res) => {
+    try {
+        const { descriptor, device_id } = req.body;
+        if (!descriptor) return res.json({ authorized: false });
+
+        const evento = await Evento.findOne({ where: { status: 'ativo' } });
+        if (!evento) return res.json({ authorized: false, msg: 'Sem evento ativo' });
+
+        // Buscar todos que tem biometria (otimização futura: carregar em memória no startup)
+        const participantes = await Participante.findAll({ where: { ativo: true } });
+
+        let bestMatch = null;
+        let bestDistance = 0.55; // Threshold (0.6 é padrão, 0.5 tá mais estrito)
+
+        for (const p of participantes) {
+            if (p.template_biometrico && p.template_biometrico.startsWith('[')) {
+                try {
+                    const dbDesc = JSON.parse(p.template_biometrico);
+                    const dist = euclideanDistance(descriptor, dbDesc);
+                    if (dist < bestDistance) {
+                        bestDistance = dist;
+                        bestMatch = p;
+                    }
+                } catch (e) { }
+            }
+        }
+
+        if (bestMatch) {
+            const acesso = await RegistroAcesso.create({
+                tipo_acesso: 'entrada',
+                status_validacao: 'sucesso',
+                device_id: device_id || 'webcam_face',
+                EventoId: evento.id,
+                ParticipanteId: bestMatch.id
+            });
+
+            return res.json({
+                authorized: true,
+                participante: bestMatch,
+                distance: bestDistance,
+                access_id: acesso.id
+            });
+        } else {
+            return res.json({ authorized: false, msg: 'Rosto não reconhecido' });
+        }
+
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ error: "Erro validação facial" });
+    }
+});
+
 // Endpoint para a Bridge Biométrica
 app.post('/api/scan', async (req, res) => {
     const { device_id, template, force_match_id } = req.body;
@@ -107,9 +169,6 @@ app.post('/api/simulate', async (req, res) => {
     } catch (e) {
         console.error("Erro na simulação:", e);
         res.status(500).json({ error: "Erro na simulação" });
-    }
-});
-
     }
 });
 
@@ -228,7 +287,7 @@ app.post('/api/cadastrar-entrada', async (req, res) => {
             genero: genero || 'Outro',
             data_nascimento, // pode ser null
             ativo: true,
-            template_biometrico: 'manual_' + Date.now() // placeholder
+            template_biometrico: req.body.template_biometrico || ('manual_' + Date.now())
         });
 
         await RegistroAcesso.create({
@@ -243,6 +302,30 @@ app.post('/api/cadastrar-entrada', async (req, res) => {
     } catch (e) {
         console.error(e);
         res.status(500).json({ error: "Erro ao cadastrar entrada" });
+    }
+});
+
+// Endpoint Listar Todos Participantes (Paginado)
+app.get('/api/participantes', async (req, res) => {
+    try {
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 20;
+        const offset = (page - 1) * limit;
+
+        const { rows, count } = await Participante.findAndCountAll({
+            order: [['createdAt', 'DESC']],
+            limit: limit,
+            offset: offset
+        });
+
+        res.json({
+            data: rows,
+            total: count,
+            totalPages: Math.ceil(count / limit),
+            currentPage: page
+        });
+    } catch (e) {
+        res.status(500).json({ error: "Erro ao listar participantes" });
     }
 });
 
