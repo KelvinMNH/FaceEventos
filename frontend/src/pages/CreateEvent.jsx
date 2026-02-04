@@ -57,8 +57,34 @@ function CreateEvent() {
                 alignItems: 'center',
                 minHeight: 'calc(100vh - 100px)' // Altura total menos navbar
             }}>
-                <div className="card" style={{ width: '100%', maxWidth: '500px' }}>
-                    <h1 style={{ textAlign: 'center', marginBottom: '2rem', fontSize: '1.8rem', color: 'var(--text-primary)' }}>Novo Evento</h1>
+                <div className="card" style={{ width: '100%', maxWidth: '500px', position: 'relative' }}>
+                    <h1 style={{ textAlign: 'center', marginBottom: '2rem', fontSize: '1.8rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <button
+                            onClick={() => navigate(-1)}
+                            style={{
+                                background: 'transparent',
+                                border: 'none',
+                                color: 'var(--text-secondary)',
+                                cursor: 'pointer',
+                                marginRight: '0.5rem',
+                                display: 'flex',
+                                alignItems: 'center',
+                                padding: '5px',
+                                borderRadius: '50%',
+                                transition: 'background 0.2s',
+                                position: 'absolute', // Absolute positioning specifically for this centered layout
+                                left: '1rem'
+                            }}
+                            onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#f0f0f0'}
+                            onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                            title="Voltar"
+                        >
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M15 18l-6-6 6-6" />
+                            </svg>
+                        </button>
+                        Novo Evento
+                    </h1>
 
                     <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
 

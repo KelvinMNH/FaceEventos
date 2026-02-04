@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
+import MessageModal from '../components/MessageModal';
 
 const API_URL = 'http://localhost:3000/api';
 
@@ -11,6 +12,7 @@ function AccessControl() {
   const [lastLogId, setLastLogId] = useState(0);
   const [modalData, setModalData] = useState(null);
   const [stats, setStats] = useState({ faixaPredominante: '-', generoPredominante: '-', generoPercent: 0, mediaIdade: 0 });
+  const [searchTerm, setSearchTerm] = useState('');
 
   const [simulating, setSimulating] = useState(false);
   const audioRef = useRef(new Audio('https://assets.mixkit.co/sfx/preview/mixkit-software-interface-start-2574.mp3')); // Som de exemplo
@@ -19,9 +21,24 @@ function AccessControl() {
   const [manualModalOpen, setManualModalOpen] = useState(false);
   const [manualDoc, setManualDoc] = useState('');
   const manualInputRef = useRef(null);
+  const [manualMode, setManualMode] = useState('search'); // 'search' | 'create'
+  const [newParticipant, setNewParticipant] = useState({ nome: '', documento: '', genero: 'Outro' });
+
+  // Companion States
+  const [companionModalOpen, setCompanionModalOpen] = useState(false);
+  const [companionName, setCompanionName] = useState('');
+  const [responsavelId, setResponsavelId] = useState(null);
+  const [responsibleSearchTerm, setResponsibleSearchTerm] = useState('');
+  const [responsibleResults, setResponsibleResults] = useState([]);
+  const [selectedResponsible, setSelectedResponsible] = useState(null); // Para mostrar o nome na tela
 
   // Modal Finish State
   const [finishModalOpen, setFinishModalOpen] = useState(false);
+  const [messageModal, setMessageModal] = useState({ open: false, title: '', message: '', type: 'info', onOk: null });
+
+  const showMessage = (title, message, type = 'info', onOk = null) => {
+    setMessageModal({ open: true, title, message, type, onOk });
+  };
 
   useEffect(() => {
     // Buscar evento ativo
@@ -31,8 +48,7 @@ function AccessControl() {
         const data = await res.json();
         if (data) setEvento(data);
         else {
-          alert("Nenhum evento ativo. Redirecionando...");
-          navigate('/');
+          showMessage("Aviso", "Nenhum evento ativo. Você será redirecionado.", "info", () => navigate('/'));
         }
       } catch (e) { console.error(e); }
     };
@@ -154,33 +170,130 @@ function AccessControl() {
 
   const handleManualEntryClick = () => {
     setManualDoc('');
+    setManualMode('search');
+    setNewParticipant({ nome: '', documento: '', genero: 'Outro' });
     setManualModalOpen(true);
   };
 
   const submitManualEntry = async () => {
     if (!manualDoc) return;
-    setManualModalOpen(false);
+    // Don't close modal yet
 
     try {
       const res = await fetch(`${API_URL}/manual-entry`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ documento: manualDoc })
+        body: JSON.stringify({ query: manualDoc })
       });
       const data = await res.json();
 
       if (data.success) {
+        setManualModalOpen(false);
         const fakeLog = {
           status_validacao: data.status,
           Participante: data.participante || { nome: 'Desconhecido', documento: manualDoc }
         };
         showModal(fakeLog);
+      } else if (data.not_found) {
+        // Switch to create mode
+        setManualMode('create');
+        setNewParticipant({ ...newParticipant, documento: manualDoc });
       } else {
-        // Pequeno delay para alert não conflitar com fechamento do modal
-        setTimeout(() => alert(data.msg || "Erro ao processar entrada manual"), 200);
+        // Generic error
+        showMessage("Erro", data.msg || "Erro ao processar entrada manual", "error");
       }
     } catch (e) {
-      setTimeout(() => alert("Erro de comunicação com servidor"), 200);
+      showMessage("Erro", "Erro de comunicação com servidor", "error");
+    }
+  };
+
+  const submitCreateEntry = async () => {
+    if (!newParticipant.nome || !newParticipant.documento) {
+      showMessage("Aviso", "Preencha Nome e Documento", "info");
+      return;
+    }
+
+    try {
+      const res = await fetch(`${API_URL}/cadastrar-entrada`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newParticipant)
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        setManualModalOpen(false);
+        showMessage("Sucesso", "Participante cadastrado com sucesso!", "success");
+        const fakeLog = {
+          status_validacao: 'sucesso',
+          Participante: data.participante
+        };
+        showModal(fakeLog);
+      } else {
+        showMessage("Erro", data.msg || "Erro ao cadastrar", "error");
+      }
+    } catch (e) {
+      showMessage("Erro", "Erro ao conectar", "error");
+    }
+  };
+
+
+
+  const handleSearchResponsible = async (term) => {
+    setResponsibleSearchTerm(term);
+    if (term.length < 3) {
+      setResponsibleResults([]);
+      return;
+    }
+    try {
+      const res = await fetch(`${API_URL}/participantes/busca?q=${term}`);
+      const data = await res.json();
+      setResponsibleResults(data || []);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const selectResponsible = (p) => {
+    setResponsavelId(p.id);
+    setSelectedResponsible(p);
+    setResponsibleResults([]);
+    setResponsibleSearchTerm(''); // Limpa busca
+  };
+
+  const resetCompanionModal = () => {
+    setCompanionModalOpen(false);
+    setCompanionName('');
+    setResponsavelId(null);
+    setSelectedResponsible(null);
+    setResponsibleSearchTerm('');
+    setResponsibleResults([]);
+  };
+
+  const submitCompanion = async () => {
+    if (!companionName || !responsavelId) return;
+
+    try {
+      const res = await fetch(`${API_URL}/registrar-acompanhante`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nome: companionName, responsavel_id: responsavelId })
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        resetCompanionModal();
+        showMessage("Sucesso", "Acompanhante registrado com sucesso!", "success");
+        showModal({
+          status_validacao: 'sucesso',
+          Participante: { nome: companionName, documento: 'Acompanhante' },
+          Responsavel: selectedResponsible
+        });
+      } else {
+        showMessage("Erro", data.msg || "Erro ao registrar acompanhante", "error");
+      }
+    } catch (e) {
+      showMessage("Erro", "Erro na conexão", "error");
     }
   };
 
@@ -197,15 +310,12 @@ function AccessControl() {
       const res = await fetch(`${API_URL}/eventos/${evento.id}/finalizar`, { method: 'POST' });
       if (res.ok) {
         // Pequeno delay para visualização
-        setTimeout(() => {
-          alert("Evento finalizado com sucesso!");
-          navigate('/');
-        }, 100);
+        showMessage("Sucesso", "Evento finalizado com sucesso!", "success", () => navigate('/'));
       } else {
-        setTimeout(() => alert("Erro ao finalizar evento."), 100);
+        showMessage("Erro", "Erro ao finalizar evento.", "error");
       }
     } catch (e) {
-      setTimeout(() => alert("Erro de conexão."), 100);
+      showMessage("Erro", "Erro de conexão.", "error");
     }
   };
 
@@ -296,10 +406,12 @@ function AccessControl() {
                 <span className="info-value" style={{ fontSize: '1rem' }}>{participante.documento}</span>
               </div>
             </div>
+
+
           </>
         ) : (
           <>
-            <h2 className="access-title" style={{ color: 'var(--error-color)', fontSize: '1.5rem' }}>Acesso Negado</h2>
+            <h2 className="access-title" style={{ color: 'var(--error-color)', fontSize: '1.5rem' }}>Biometria não reconhecida</h2>
             <p className="access-subtitle" style={{ fontSize: '1rem' }}>Biometria não identificada</p>
             <div className="info-grid" style={{ gap: '1rem', width: '100%' }}>
               <div className="info-item" style={{ padding: '0.8rem' }}>
@@ -333,22 +445,6 @@ function AccessControl() {
           {simulating ? '⏹ Parar Simulação' : '▶ Simular Acesso'}
         </button>
         <button
-          onClick={handleManualEntryClick}
-          style={{
-            backgroundColor: 'transparent',
-            border: '1px solid white',
-            color: 'white',
-            padding: '0.5rem 1rem',
-            borderRadius: '6px',
-            cursor: 'pointer',
-            fontWeight: 'bold',
-            fontSize: '0.8rem',
-            marginRight: '1rem'
-          }}
-        >
-          Localizar Pessoa
-        </button>
-        <button
           onClick={handleFinishClick}
           style={{
             backgroundColor: 'rgba(255,255,255,0.2)',
@@ -369,7 +465,29 @@ function AccessControl() {
         {/* Coluna Esquerda: Dashboard e Tabela */}
         <div className="left-column">
           <div className="event-header" style={{ marginBottom: '1rem', borderBottom: '1px solid #eee', paddingBottom: '0.5rem' }}>
-            <h1 style={{ fontSize: '1.8rem', margin: '0 0 0.2rem 0', color: 'var(--text-primary)' }}>
+            <h1 style={{ fontSize: '1.8rem', margin: '0 0 0.2rem 0', color: 'var(--text-primary)', display: 'flex', alignItems: 'center' }}>
+              <button
+                onClick={() => navigate(-1)}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: 'var(--text-secondary)',
+                  cursor: 'pointer',
+                  marginRight: '0.5rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  padding: '5px',
+                  borderRadius: '50%',
+                  transition: 'background 0.2s'
+                }}
+                onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#f0f0f0'}
+                onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                title="Voltar"
+              >
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M15 18l-6-6 6-6" />
+                </svg>
+              </button>
               {evento ? evento.nome : 'Carregando Evento...'}
             </h1>
             {evento && (
@@ -388,10 +506,18 @@ function AccessControl() {
             )}
           </div>
 
-          <div className="dashboard-grid">
+          <div className="dashboard-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
+            <div className="card">
+              <h2>Total de Entradas</h2>
+              <div className="stat-value">{logs.length}</div>
+            </div>
             <div className="card">
               <h2>Participantes Presentes</h2>
               <div className="stat-value">{logs.filter(l => l.status_validacao === 'sucesso').length}</div>
+            </div>
+            <div className="card">
+              <h2>Acompanhantes Presentes</h2>
+              <div className="stat-value">{logs.filter(l => l.status_validacao === 'sucesso' && l.Participante?.documento === 'Acompanhante').length}</div>
             </div>
             <div className="card">
               <h2>Faixa Etária Principal</h2>
@@ -418,27 +544,104 @@ function AccessControl() {
             </div>
           </div>
 
-          <div className="table-container">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+            <h3 style={{ margin: '0', fontSize: '1.1rem', color: 'var(--text-secondary)' }}>Lista de Entrada</h3>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <button
+                onClick={handleManualEntryClick}
+                style={{
+                  backgroundColor: 'var(--accent-color)',
+                  border: 'none',
+                  color: 'white',
+                  padding: '0.4rem 0.8rem',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontWeight: 'bold',
+                  fontSize: '0.8rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.3rem'
+                }}
+              >
+                <span>+</span> Registrar Participante
+              </button>
+              <button
+                onClick={() => {
+                  if (evento && evento.permitir_acompanhantes) {
+                    setCompanionModalOpen(true);
+                    setResponsavelId(null);
+                    setSelectedResponsible(null);
+                    setResponsibleSearchTerm('');
+                  } else {
+                    showMessage("Aviso", "Este evento não permite acompanhantes.", "info");
+                  }
+                }}
+                style={{
+                  backgroundColor: 'var(--accent-color)',
+                  border: 'none',
+                  color: 'white',
+                  padding: '0.4rem 0.8rem',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontWeight: 'bold',
+                  fontSize: '0.8rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.3rem'
+                }}
+              >
+                <span>+</span> Registrar Acompanhante
+              </button>
+            </div>
+          </div>
+          <div className="table-filter" style={{ marginBottom: '0' }}>
+            <input
+              type="text"
+              placeholder="Localizar por Nome, CPF ou CRM..."
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '0.6rem',
+                borderRadius: '6px 6px 0 0',
+                border: '1px solid var(--border-color)',
+                borderBottom: 'none',
+                fontSize: '0.9rem',
+                boxSizing: 'border-box'
+              }}
+            />
+          </div>
+
+          <div className="table-container" style={{ borderRadius: '0 0 8px 8px', borderTop: 'none', maxHeight: '400px', overflowY: 'auto' }}>
             <table>
               <thead>
                 <tr>
-                  <th>Horário</th>
+                  <th style={{ width: '20%' }}>Horário</th>
                   <th>Participante</th>
-                  <th>Status</th>
+                  <th style={{ width: '15%' }}>Status</th>
                 </tr>
               </thead>
               <tbody>
-                {logs.slice(0, 8).map(log => (
-                  <tr key={log.id}>
-                    <td>{new Date(log.createdAt).toLocaleTimeString()}</td>
-                    <td>{formatName(log.Participante ? log.Participante.nome : 'Desconhecido')}</td>
-                    <td>
-                      <span className={`badge badge-${log.status_validacao === 'sucesso' ? 'success' : 'error'}`}>
-                        {log.status_validacao.toUpperCase()}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
+                {logs
+                  .filter(log => {
+                    if (!searchTerm) return true;
+                    const term = searchTerm.toLowerCase();
+                    const participante = log.Participante || {};
+                    const nome = participante.nome || 'Desconhecido';
+                    const documento = participante.documento || '';
+                    return nome.toLowerCase().includes(term) || documento.toLowerCase().includes(term);
+                  })
+                  .map(log => (
+                    <tr key={log.id}>
+                      <td>{new Date(log.createdAt).toLocaleTimeString()}</td>
+                      <td>{formatName(log.Participante ? log.Participante.nome : 'Desconhecido')}</td>
+                      <td>
+                        <span className={`badge badge-${log.status_validacao === 'sucesso' ? 'success' : 'error'}`}>
+                          {log.status_validacao.toUpperCase()}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
                 {logs.length === 0 && (
                   <tr>
                     <td colSpan="3" style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>Aguardando registros...</td>
@@ -463,7 +666,7 @@ function AccessControl() {
             ref={manualInputRef}
             type="text"
             className="modal-input"
-            placeholder="Digite CPF ou CRM"
+            placeholder="Digite Nome, CPF ou CRM"
             value={manualDoc}
             onChange={e => setManualDoc(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && submitManualEntry()}
@@ -473,10 +676,10 @@ function AccessControl() {
             <button className="btn-primary" onClick={submitManualEntry}>Confirmar</button>
           </div>
         </div>
-      </div>
+      </div >
 
       {/* Modal Finalizar */}
-      <div className={`modal-overlay ${finishModalOpen ? 'open' : ''}`} onClick={() => setFinishModalOpen(false)}>
+      < div className={`modal-overlay ${finishModalOpen ? 'open' : ''}`} onClick={() => setFinishModalOpen(false)}>
         <div className="modal-content" onClick={e => e.stopPropagation()} style={{ textAlign: 'center' }}>
           <div className="modal-header" style={{ color: 'var(--error-color)' }}>Finalizar Evento?</div>
           <p style={{ marginBottom: '2rem', color: 'var(--text-secondary)' }}>
@@ -494,7 +697,102 @@ function AccessControl() {
             </button>
           </div>
         </div>
-      </div>
+      </div >
+
+      {/* Modal Novo Acompanhante */}
+      < div className={`modal-overlay ${companionModalOpen ? 'open' : ''}`} onClick={resetCompanionModal} >
+        <div className="modal-content" onClick={e => e.stopPropagation()} style={{ width: '500px', maxWidth: '95%' }}>
+          <h2 className="modal-header">Adicionar Acompanhante</h2>
+
+          {!responsavelId ? (
+            <div style={{ marginBottom: '1.5rem' }}>
+              <p style={{ textAlign: 'center', marginBottom: '1rem', color: '#666' }}>Primeiro, localize o responsável:</p>
+              <input
+                type="text"
+                className="modal-input"
+                autoFocus
+                placeholder="Buscar Responsável (Nome ou CPF/CRM)"
+                value={responsibleSearchTerm}
+                onChange={e => handleSearchResponsible(e.target.value)}
+                style={{ marginBottom: '0.5rem' }}
+              />
+              {responsibleResults.length > 0 && (
+                <div style={{
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '8px',
+                  maxHeight: '200px',
+                  overflowY: 'auto',
+                  background: '#fff',
+                  marginTop: '0.5rem'
+                }}>
+                  {responsibleResults.map(r => (
+                    <div
+                      key={r.id}
+                      onClick={() => selectResponsible(r)}
+                      style={{
+                        padding: '0.8rem',
+                        borderBottom: '1px solid #eee',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        justifyContent: 'space-between'
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f6f8fa'}
+                      onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                    >
+                      <span style={{ fontWeight: 600 }}>{r.nome}</span>
+                      <span style={{ color: '#666', fontSize: '0.9rem' }}>{r.documento}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div style={{ marginBottom: '1.5rem', textAlign: 'center' }}>
+              <div style={{
+                background: '#e6fffa',
+                border: '1px solid #b2f5ea',
+                padding: '1rem',
+                borderRadius: '8px',
+                marginBottom: '1.5rem'
+              }}>
+                <p style={{ margin: 0, fontWeight: 'bold', color: '#2c7a7b' }}>Responsável: {selectedResponsible?.nome}</p>
+                <button
+                  onClick={() => { setResponsavelId(null); setSelectedResponsible(null); }}
+                  style={{ background: 'none', border: 'none', color: '#2c7a7b', textDecoration: 'underline', cursor: 'pointer', fontSize: '0.85rem', marginTop: '0.5rem' }}
+                >
+                  Alterar
+                </button>
+              </div>
+
+              <input
+                type="text"
+                className="modal-input"
+                autoFocus
+                placeholder="Nome Completo do Acompanhante"
+                value={companionName}
+                onChange={e => setCompanionName(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && submitCompanion()}
+              />
+            </div>
+          )}
+
+          <div className="modal-actions">
+            <button className="btn-secondary" onClick={resetCompanionModal}>Cancelar</button>
+            {responsavelId && (
+              <button className="btn-primary" onClick={submitCompanion}>Confirmar Entrada</button>
+            )}
+          </div>
+        </div>
+      </div >
+
+      <MessageModal
+        isOpen={messageModal.open}
+        onClose={() => setMessageModal({ ...messageModal, open: false })}
+        onConfirm={messageModal.onOk}
+        title={messageModal.title}
+        message={messageModal.message}
+        type={messageModal.type}
+      />
     </>
   );
 }

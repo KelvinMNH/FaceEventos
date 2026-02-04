@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
-function Navbar({ children }) {
+function Navbar({ children, onOpenCreateModal }) {
     const navigate = useNavigate();
     const location = useLocation();
     const [isOpen, setIsOpen] = useState(false);
@@ -13,6 +13,16 @@ function Navbar({ children }) {
         setIsOpen(false);
     };
 
+    const handleCreateClick = (e) => {
+        e.preventDefault();
+        setIsOpen(false);
+        if (onOpenCreateModal) {
+            onOpenCreateModal();
+        } else {
+            navigate('/', { state: { openModal: true } });
+        }
+    };
+
     return (
         <>
             <nav className="navbar">
@@ -22,26 +32,7 @@ function Navbar({ children }) {
                             ☰
                         </button>
 
-                        {location.pathname !== '/' && (
-                            <button
-                                onClick={() => navigate(-1)}
-                                style={{
-                                    background: 'transparent',
-                                    border: 'none',
-                                    color: 'white',
-                                    cursor: 'pointer',
-                                    marginRight: '0.5rem',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    padding: '0'
-                                }}
-                                title="Voltar"
-                            >
-                                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                    <path d="M15 18l-6-6 6-6" />
-                                </svg>
-                            </button>
-                        )}
+
 
                         <div
                             onClick={() => navigate('/')}
@@ -52,7 +43,10 @@ function Navbar({ children }) {
                                 alt="Logo UniEventos"
                                 style={{ height: '40px', backgroundColor: 'white', padding: '2px', borderRadius: '4px' }}
                             />
-                            <h1 className="navbar-title">UniEventos</h1>
+                            <h1 className="navbar-title" style={{ margin: 0, display: 'flex', alignItems: 'baseline', gap: '0.5rem' }}>
+                                UniEventos
+                                <span style={{ fontSize: '0.75rem', color: '#b1d249', fontWeight: '600', letterSpacing: '0.5px' }}>Maceió</span>
+                            </h1>
                         </div>
                     </div>
 
@@ -88,7 +82,7 @@ function Navbar({ children }) {
                     <a
                         href="#"
                         className={`sidebar-link ${location.pathname === '/create' ? 'active' : ''}`}
-                        onClick={(e) => { e.preventDefault(); handleNavigate('/create'); }}
+                        onClick={handleCreateClick}
                     >
                         Novo Evento
                     </a>

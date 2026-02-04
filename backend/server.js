@@ -67,20 +67,31 @@ app.post('/api/scan', async (req, res) => {
 });
 
 // Endpoint de Simulação (Chamado pelo botão no frontend)
+// Endpoint de Simulação (Chamado pelo botão no frontend)
 app.post('/api/simulate', async (req, res) => {
     try {
         const evento = await Evento.findOne({ where: { status: 'ativo' } });
         if (!evento) return res.json({ success: false, msg: "Sem evento ativo" });
 
-        // 80% chance de sucesso
-        const isSuccess = Math.random() > 0.2;
+        // 90% chance de sucesso
+        const isSuccess = Math.random() > 0.1;
         let participante = null;
 
         if (isSuccess) {
-            // Pegar um participante aleatório do banco
-            // SQLite order by random
-            participante = await Participante.findOne({ order: sequelize.random() });
+            // Método robusto para pegar aleatório
+            const count = await Participante.count({ where: { ativo: true } });
+            console.log(`Simulação: ${count} participantes encontrados no banco.`);
+
+            if (count > 0) {
+                const randomOffset = Math.floor(Math.random() * count);
+                participante = await Participante.findOne({
+                    where: { ativo: true },
+                    offset: randomOffset
+                });
+            }
         }
+
+        console.log("Simulação Resultado:", participante ? participante.nome : "Não encontrado (ou sorteado para falhar)");
 
         const status = participante ? 'sucesso' : 'nao_encontrado';
 
@@ -94,27 +105,43 @@ app.post('/api/simulate', async (req, res) => {
 
         res.json({ success: true, status });
     } catch (e) {
-        console.error(e);
+        console.error("Erro na simulação:", e);
         res.status(500).json({ error: "Erro na simulação" });
     }
 });
 
 // Endpoint para Entrada Manual (Caso a biometria falhe)
+// Endpoint para Entrada Manual (Caso a biometria falhe)
 app.post('/api/manual-entry', async (req, res) => {
     try {
-        const { documento } = req.body;
+        const { query } = req.body;
         const evento = await Evento.findOne({ where: { status: 'ativo' } });
         if (!evento) return res.json({ success: false, msg: "Sem evento ativo" });
 
-        const participante = await Participante.findOne({ where: { documento: documento } });
+        const { Op } = require('sequelize');
+
+        const participante = await Participante.findOne({
+            where: {
+                [Op.or]: [
+                    { documento: query },
+                    { nome: { [Op.like]: `%${query}%` } }
+                ]
+            }
+        });
+
         const status = participante ? 'sucesso' : 'nao_encontrado';
+
+        // Se não encontrado, não registra entrada ainda, retorna aviso para frontend oferecer cadastro
+        if (!participante) {
+            return res.json({ success: false, msg: "Participante não encontrado", not_found: true });
+        }
 
         await RegistroAcesso.create({
             tipo_acesso: 'entrada',
             status_validacao: status,
             device_id: 'manual_entry_web',
             EventoId: evento.id,
-            ParticipanteId: participante ? participante.id : null
+            ParticipanteId: participante.id
         });
 
         res.json({ success: true, status, participante });
@@ -124,14 +151,123 @@ app.post('/api/manual-entry', async (req, res) => {
     }
 });
 
+// Endpoint para Cadastrar e Dar Entrada (Novo Participante)
+app.post('/api/cadastrar-entrada', async (req, res) => {
+    try {
+        const { nome, documento, genero, data_nascimento } = req.body;
+        const evento = await Evento.findOne({ where: { status: 'ativo' } });
+        if (!evento) return res.json({ success: false, msg: "Sem evento ativo" });
+
+        // Verifica se já existe documento
+        let participante = await Participante.findOne({ where: { documento } });
+        if (participante) {
+            return res.json({ success: false, msg: "Documento já cadastrado." });
+        }
+
+        participante = await Participante.create({
+            nome,
+            documento,
+            genero: genero || 'Outro',
+            data_nascimento, // pode ser null
+            ativo: true,
+            template_biometrico: 'manual_' + Date.now() // placeholder
+        });
+
+        await RegistroAcesso.create({
+            tipo_acesso: 'entrada',
+            status_validacao: 'sucesso',
+            device_id: 'new_entry_web',
+            EventoId: evento.id,
+            ParticipanteId: participante.id
+        });
+
+        res.json({ success: true, status: 'sucesso', participante });
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ error: "Erro ao cadastrar entrada" });
+    }
+});
+
+// Endpoint de Busca de Participantes (Sem registrar acesso)
+app.get('/api/participantes/busca', async (req, res) => {
+    try {
+        const { q } = req.query;
+        if (!q) return res.json([]);
+
+        const { Op } = require('sequelize');
+        const participantes = await Participante.findAll({
+            where: {
+                [Op.or]: [
+                    { documento: q },
+                    { nome: { [Op.like]: `%${q}%` } }
+                ]
+            },
+            limit: 10
+        });
+        res.json(participantes);
+    } catch (e) {
+        res.status(500).json({ error: "Erro na busca" });
+    }
+});
+
+// Endpoint para Registrar Acompanhante
+app.post('/api/registrar-acompanhante', async (req, res) => {
+    try {
+        const { nome, responsavel_id } = req.body;
+        const evento = await Evento.findOne({ where: { status: 'ativo' } });
+
+        if (!evento) return res.status(400).json({ success: false, msg: "Sem evento ativo" });
+        if (!evento.permitir_acompanhantes) return res.status(400).json({ success: false, msg: "Evento não permite acompanhantes" });
+
+        // Verificar limite
+        if (evento.max_acompanhantes > 0) {
+            const currentCompanions = await RegistroAcesso.count({
+                where: {
+                    EventoId: evento.id,
+                    responsavel_id: responsavel_id
+                }
+            });
+            if (currentCompanions >= evento.max_acompanhantes) {
+                return res.status(400).json({ success: false, msg: `Limite de ${evento.max_acompanhantes} acompanhantes atingido.` });
+            }
+        }
+
+        // Criar Participante 'Acompanhante'
+        const uniqueDoc = `ACP-${responsavel_id}-${Date.now()}`;
+        const acompanhante = await Participante.create({
+            nome: nome,
+            documento: uniqueDoc,
+            categoria: 'Outros', // Poderia ser uma nova categoria se o enum permitir, por enquanto usa Outros
+            ativo: true
+        });
+
+        // Registrar Acesso
+        await RegistroAcesso.create({
+            tipo_acesso: 'entrada',
+            status_validacao: 'sucesso',
+            device_id: 'manual_companion',
+            EventoId: evento.id,
+            ParticipanteId: acompanhante.id,
+            responsavel_id: responsavel_id
+        });
+
+        res.json({ success: true, msg: "Acompanhante registrado com sucesso!" });
+
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ error: "Erro ao registrar acompanhante: " + e.message });
+    }
+});
+
 // Endpoint para o Frontend (Dashboard)
 app.get('/api/logs', async (req, res) => {
     try {
         const logs = await RegistroAcesso.findAll({
             order: [['createdAt', 'DESC']],
-            limit: 20,
+            limit: 1000,
             include: [
                 { model: Participante, attributes: ['nome', 'documento', 'genero', 'data_nascimento', 'categoria'] },
+                { model: Participante, as: 'Responsavel', attributes: ['nome'] },
                 { model: Evento, attributes: ['nome'] }
             ]
         });
@@ -203,7 +339,9 @@ app.post('/api/eventos', async (req, res) => {
             hora_inicio: hora,
             local: local,
             imagem: imagem,
-            status: 'ativo'
+            status: 'ativo',
+            permitir_acompanhantes: req.body.permitir_acompanhantes,
+            max_acompanhantes: req.body.max_acompanhantes
         });
 
         res.json({ success: true, evento: novoEvento });
@@ -225,7 +363,7 @@ app.get('/api/evento-ativo', async (req, res) => {
 
 // Inicialização
 app.listen(PORT, async () => {
-    // alter: true tenta atualizar colunas sem apagar dados.
-    await sequelize.sync({ force: false });
+    // Inicializar Banco e Seed
+    await syncDB();
     console.log(`Backend rodando na porta ${PORT}`);
 });

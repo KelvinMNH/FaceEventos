@@ -34,8 +34,31 @@ function EventReport() {
             <Navbar />
             <div className="page-container">
                 <div style={{ display: 'flex', alignItems: 'center', marginBottom: '2rem' }}>
-                    <button onClick={() => navigate('/')} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', marginRight: '1rem', color: 'var(--text-secondary)' }}>⬅</button>
-                    <h1 style={{ fontSize: '2rem', color: 'var(--text-primary)', margin: 0 }}>Relatório do Evento</h1>
+                    <h1 style={{ fontSize: '2rem', color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center' }}>
+                        <button
+                            onClick={() => navigate(-1)}
+                            style={{
+                                background: 'transparent',
+                                border: 'none',
+                                color: 'var(--text-secondary)',
+                                cursor: 'pointer',
+                                marginRight: '0.5rem',
+                                display: 'flex',
+                                alignItems: 'center',
+                                padding: '5px',
+                                borderRadius: '50%',
+                                transition: 'background 0.2s'
+                            }}
+                            onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#f0f0f0'}
+                            onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                            title="Voltar"
+                        >
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M15 18l-6-6 6-6" />
+                            </svg>
+                        </button>
+                        Relatório do Evento
+                    </h1>
                 </div>
 
                 <div className="card">
