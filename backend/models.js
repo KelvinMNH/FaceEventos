@@ -28,7 +28,7 @@ const Participante = sequelize.define('Participante', {
   template_biometrico: { type: DataTypes.TEXT }, // Base64 ou Hash simulado
   genero: { type: DataTypes.ENUM('M', 'F', 'Outro'), defaultValue: 'Outro' },
   data_nascimento: { type: DataTypes.DATEONLY },
-  categoria: { type: DataTypes.ENUM('Medico', 'Outros'), defaultValue: 'Outros' },
+  categoria: { type: DataTypes.STRING, defaultValue: 'Outros' },
   foto: { type: DataTypes.TEXT }, // Foto do cadastro (Base64)
   ativo: { type: DataTypes.BOOLEAN, defaultValue: true }
 });
@@ -49,8 +49,16 @@ RegistroAcesso.belongsTo(Participante);
 RegistroAcesso.belongsTo(Participante, { as: 'Responsavel', foreignKey: 'responsavel_id' });
 
 async function syncDB() {
-  await sequelize.sync({ alter: true }); // altera tabelas existentes sem apagar dados
-  console.log("Banco de dados sincronizado.");
+  try {
+    // Para SQLite, alter:true tenta dropar e recriar tabelas. 
+    // Precisamos desativar as FKs temporariamente para não dar erro de constraint.
+    await sequelize.query('PRAGMA foreign_keys = OFF');
+    await sequelize.sync({ alter: true });
+    await sequelize.query('PRAGMA foreign_keys = ON');
+    console.log("Banco de dados sincronizado.");
+  } catch (error) {
+    console.error("Erro ao sincronizar banco:", error);
+  }
 
   // Sear dados iniciais se vazio
   const count = await Participante.count();

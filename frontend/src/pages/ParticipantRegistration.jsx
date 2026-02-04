@@ -51,16 +51,12 @@ function ParticipantRegistration() {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!imgSrc) {
-            setMsg({ type: 'error', text: 'Por favor, tire uma foto do rosto.' });
-            return;
-        }
         setLoading(true);
 
         try {
             // Processar biometria
             let descriptor = null;
-            if (modelsLoaded) {
+            if (imgSrc && modelsLoaded) {
                 try {
                     const img = await faceapi.fetchImage(imgSrc);
                     const detection = await faceapi.detectSingleFace(img).withFaceLandmarks().withFaceDescriptor();
@@ -69,30 +65,24 @@ function ParticipantRegistration() {
                         descriptor = JSON.stringify(Array.from(detection.descriptor));
                         console.log("Descriptor gerado com sucesso.");
                     } else {
-                        if (!confirm("Não foi possível detectar um rosto com clareza na foto. A qualidade do reconhecimento pode ser afetada. Deseja prosseguir?")) {
+                        // Se tirou foto mas não detectou rosto, avisa mas deixa prosseguir se o usuário quiser
+                        if (!confirm("Não foi possível detectar um rosto com clareza na foto. Deseja prosseguir sem biometria facial para este cadastro?")) {
                             setLoading(false);
                             return;
                         }
                     }
                 } catch (err) {
                     console.error("Erro processamento face-api:", err);
-                    // Ignora erro e salva sem biometria avançada
                 }
             }
 
-            // Payload para o backend
-            // Se tiver descriptor, salva. Se não, salva apenas indicação (ou a foto base64 se coubesse, mas vamos focar no descriptor)
-            // Como o backend espera 'template_biometrico' string, vamos mandar o JSON do descriptor.
-
             const payload = {
                 ...formData,
-                documento: formData.cpf, // CPF como chave
-                // Se temos descriptor, manda o descriptor. Se não, manda um placeholder único por enquanto.
-                // O ideal seria salvar a foto para retreino, mas vamos focar na biometria.
-                template_biometrico: descriptor || `MANUAL_FACE_${Date.now()}`
+                documento: formData.cpf,
+                foto: imgSrc || null,
+                template_biometrico: descriptor || (imgSrc ? `PHOTO_ONLY_${Date.now()}` : null)
             };
 
-            // Usando cadastrar-entrada que já existe
             const res = await fetch(`${API_URL}/cadastrar-entrada`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -102,7 +92,6 @@ function ParticipantRegistration() {
 
             if (data.success) {
                 setMsg({ type: 'success', text: 'Cadastro realizado com sucesso!' });
-                // Limpar form
                 setFormData({ nome: '', cpf: '', crm: '', genero: 'Outro', data_nascimento: '' });
                 setImgSrc(null);
             } else {

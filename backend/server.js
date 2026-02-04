@@ -352,6 +352,69 @@ app.get('/api/participantes/busca', async (req, res) => {
     }
 });
 
+// Endpoint para Editar Participante
+app.put('/api/participantes/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        console.log(`Recebendo atualização para participante ${id}:`, req.body);
+
+        const { nome, documento, genero, categoria, data_nascimento, cpf, crm, ativo, foto, template_biometrico } = req.body;
+
+        const participante = await Participante.findByPk(id);
+        if (!participante) {
+            return res.status(404).json({ success: false, msg: "Participante não encontrado" });
+        }
+
+        // Sanitização de dados
+        const updateData = {
+            nome,
+            documento,
+            genero,
+            categoria,
+            data_nascimento: data_nascimento === "" ? null : data_nascimento,
+            cpf,
+            crm,
+            ativo: ativo !== undefined ? ativo : true,
+            foto,
+            template_biometrico
+        };
+
+        await participante.update(updateData);
+
+        res.json({ success: true, participante });
+    } catch (e) {
+        console.error("Erro ao editar participante:", e);
+        res.status(500).json({
+            success: false,
+            error: "Erro ao editar participante",
+            details: e.message,
+            stack: e.stack
+        });
+    }
+});
+
+// Endpoint para Excluir Participante
+app.delete('/api/participantes/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const participante = await Participante.findByPk(id);
+
+        if (!participante) {
+            return res.status(404).json({ success: false, msg: "Participante não encontrado" });
+        }
+
+        // Antes de excluir, poderíamos verificar se há registros de acesso.
+        // Se houver, talvez devêssemos apenas desativar ou avisar.
+        // Por simplificação do pedido "excluir", vamos remover.
+        await participante.destroy();
+
+        res.json({ success: true, msg: "Participante excluído com sucesso" });
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ error: "Erro ao excluir participante" });
+    }
+});
+
 // Endpoint para Registrar Acompanhante
 app.post('/api/registrar-acompanhante', async (req, res) => {
     try {
