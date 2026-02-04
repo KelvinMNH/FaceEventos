@@ -43,9 +43,9 @@ function Navbar({ children, onOpenCreateModal }) {
                                 alt="Logo UniEventos"
                                 style={{ height: '40px', backgroundColor: 'white', padding: '2px', borderRadius: '4px' }}
                             />
-                            <h1 className="navbar-title" style={{ margin: 0, display: 'flex', alignItems: 'baseline', gap: '0.5rem' }}>
-                                UniEventos
-                                <span style={{ fontSize: '0.75rem', color: '#b1d249', fontWeight: '600', letterSpacing: '0.5px' }}>Maceió</span>
+                            <h1 className="navbar-title" style={{ margin: 0, display: 'flex', alignItems: 'baseline', gap: '0' }}>
+                                <span style={{ color: 'white' }}>Uni</span>
+                                <span style={{ color: '#b1d249' }}>Eventos</span>
                             </h1>
                         </div>
                     </div>

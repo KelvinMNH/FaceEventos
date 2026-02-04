@@ -537,3 +537,13 @@ tr:hover {
   display: none;
   /* Mantendo classe mas escondida por garantia */
 }
+
+/* Progress Bar Animation */
+@keyframes progressBar {
+  from {
+    width: 100%;
+  }
+  to {
+    width: 0%;
+  }
+}

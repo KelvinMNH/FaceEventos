@@ -22,7 +22,9 @@ const Evento = sequelize.define('Evento', {
 
 const Participante = sequelize.define('Participante', {
   nome: { type: DataTypes.STRING, allowNull: false },
-  documento: { type: DataTypes.STRING, unique: true },
+  documento: { type: DataTypes.STRING }, // Mantido para compatibilidade
+  cpf: { type: DataTypes.STRING },
+  crm: { type: DataTypes.STRING },
   template_biometrico: { type: DataTypes.TEXT }, // Base64 ou Hash simulado
   genero: { type: DataTypes.ENUM('M', 'F', 'Outro'), defaultValue: 'Outro' },
   data_nascimento: { type: DataTypes.DATEONLY },
@@ -68,18 +70,15 @@ async function syncDB() {
       const month = String(Math.floor(Math.random() * 12) + 1).padStart(2, '0');
       const day = String(Math.floor(Math.random() * 28) + 1).padStart(2, '0');
 
-      // Documento fictício
-      let documento;
-      if (isMedico) {
-        documento = `CRM/AL ${10000 + i}`;
-      } else {
-        const cpf = `${100 + i}.456.789-${String(i).padStart(2, '0')}`;
-        documento = cpf;
-      }
+      // Gerar CPF e CRM separadamente
+      const cpf = `${100 + i}.456.789-${String(i).padStart(2, '0')}`;
+      const crm = isMedico ? `CRM/AL ${10000 + i}` : null;
 
       return {
         nome,
-        documento,
+        documento: isMedico ? crm : cpf, // Mantido para compatibilidade
+        cpf,
+        crm,
         template_biometrico: `bio_${i}`,
         genero,
         data_nascimento: `${year}-${month}-${day}`,

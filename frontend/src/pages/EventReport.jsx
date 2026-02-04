@@ -9,17 +9,17 @@ function EventReport() {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        // Como o backend atualmente retorna logs gerais, e o foco é simulação,
-        // vamos simular que estamos buscando logs deste evento específico. 
-        // Em um sistema real, teríamos /api/eventos/:id/logs
-        // Por ora, vamos pegar todos os logs e filtrar ou mostrar mensagem simulada se não tiver backend pronto.
-        // Como o backend atual /api/logs retorna tudo, vamos mostrar tudo como exemplo (protótipo).
-
         const fetchLogs = async () => {
             try {
-                const res = await fetch('http://localhost:3000/api/logs'); // Usando endpoint genérico existente
+                const res = await fetch('http://localhost:3000/api/logs');
                 const data = await res.json();
-                setLogs(data);
+                // Filtrar apenas sucessos e com participante válido
+                const successLogs = data.filter(log =>
+                    log.status_validacao === 'sucesso' &&
+                    log.Participante &&
+                    log.Participante.nome
+                );
+                setLogs(successLogs);
             } catch (err) {
                 console.error(err);
             } finally {
@@ -28,6 +28,32 @@ function EventReport() {
         };
         fetchLogs();
     }, [id]);
+
+    // Função para mascarar CPF (mostra apenas alguns dígitos)
+    const maskCPF = (cpf) => {
+        if (!cpf) return '-';
+        // Formato: XXX.XXX.XXX-XX -> XXX.***.**X-XX
+        const cleaned = cpf.replace(/\D/g, '');
+        if (cleaned.length === 11) {
+            return `${cleaned.substring(0, 3)}.***.**${cleaned.substring(9, 10)}-${cleaned.substring(10, 11)}`;
+        }
+        return cpf; // Retorna original se não for CPF válido
+    };
+
+    // Função para formatar data
+    const formatDate = (dateStr) => {
+        if (!dateStr) return '-';
+        const parts = dateStr.split('-');
+        if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+        return dateStr;
+    };
+
+    // Função para formatar gênero
+    const formatGender = (genero) => {
+        if (genero === 'M') return 'H';
+        if (genero === 'F') return 'M';
+        return '-';
+    };
 
     return (
         <>
@@ -62,9 +88,9 @@ function EventReport() {
                 </div>
 
                 <div className="card">
-                    <h2>Registros de Acesso (Histórico)</h2>
+                    <h2>Registros de Acesso (Participantes Presentes)</h2>
                     <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
-                        Visualizando logs do evento finalizado.
+                        Visualizando apenas entradas bem-sucedidas do evento.
                     </p>
 
                     <div className="table-container">
@@ -73,7 +99,10 @@ function EventReport() {
                                 <tr>
                                     <th>Horário</th>
                                     <th>Participante</th>
-                                    <th>Status</th>
+                                    <th>CPF</th>
+                                    <th>CRM</th>
+                                    <th>Data de Nascimento</th>
+                                    <th style={{ width: '80px' }}>Gênero</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -81,16 +110,23 @@ function EventReport() {
                                     <tr key={log.id}>
                                         <td>{new Date(log.createdAt).toLocaleString()}</td>
                                         <td>{log.Participante ? log.Participante.nome : 'Desconhecido'}</td>
-                                        <td>
-                                            <span className={`badge badge-${log.status_validacao === 'sucesso' ? 'success' : 'error'}`}>
-                                                {log.status_validacao.toUpperCase()}
-                                            </span>
+                                        <td style={{ fontSize: '0.85rem', fontFamily: 'monospace' }}>
+                                            {maskCPF(log.Participante?.cpf || log.Participante?.documento)}
+                                        </td>
+                                        <td style={{ fontSize: '0.85rem' }}>
+                                            {log.Participante?.crm || '-'}
+                                        </td>
+                                        <td style={{ fontSize: '0.85rem' }}>
+                                            {formatDate(log.Participante?.data_nascimento)}
+                                        </td>
+                                        <td style={{ textAlign: 'center', fontSize: '0.85rem' }}>
+                                            {formatGender(log.Participante?.genero)}
                                         </td>
                                     </tr>
                                 ))}
                                 {logs.length === 0 && (
                                     <tr>
-                                        <td colSpan="3" style={{ textAlign: 'center', padding: '2rem' }}>Nenhum registro encontrado.</td>
+                                        <td colSpan="6" style={{ textAlign: 'center', padding: '2rem' }}>Nenhum registro encontrado.</td>
                                     </tr>
                                 )}
                             </tbody>

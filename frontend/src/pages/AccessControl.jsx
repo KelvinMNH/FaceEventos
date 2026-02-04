@@ -324,10 +324,10 @@ function AccessControl() {
     // Tocar som
     if (audioRef.current) audioRef.current.play().catch(e => console.log(e));
 
-    // Manter dados visíveis por 5 segundos
+    // Manter dados visíveis por 8 segundos
     setTimeout(() => {
       setModalData(null);
-    }, 5000);
+    }, 8000);
   };
 
   // Helper para formatar nome: "Kelvin Higino da Silva" -> "Kelvin H. d. S."
@@ -380,7 +380,7 @@ function AccessControl() {
     const participante = modalData.Participante || {};
 
     return (
-      <div className={`access-panel ${statusClass}`} style={{ overflow: 'hidden', padding: '1.5rem 1rem', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+      <div className={`access-panel ${statusClass}`} style={{ position: 'relative', overflow: 'hidden', padding: '1.5rem 1rem', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
         <div className="access-photo-large" style={{
           width: '120px',
           height: '120px',
@@ -393,20 +393,40 @@ function AccessControl() {
 
         {isSuccess ? (
           <>
-            <h2 className="access-title" style={{ color: 'var(--success-color)', fontSize: '1.5rem', marginBottom: '0.2rem' }}>Bem-vindo(a)!</h2>
-            <p className="access-subtitle" style={{ fontSize: '0.9rem', marginBottom: '1rem' }}>Acesso autorizado com sucesso</p>
+            <h2 className="access-title" style={{ color: 'var(--success-color)', fontSize: '1.3rem', marginBottom: '0.5rem', lineHeight: '1.3', display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'center' }}>
+              Bem-vindo(a), {participante.nome}!
+              <span style={{ fontSize: '0.7rem', opacity: 0.5, fontWeight: 'normal', backgroundColor: 'rgba(0,0,0,0.05)', padding: '2px 6px', borderRadius: '3px' }}>
+                {participante.genero === 'M' ? 'H' : participante.genero === 'F' ? 'M' : ''}
+              </span>
+            </h2>
+            <p className="access-subtitle" style={{ fontSize: '0.85rem', marginBottom: '1rem', color: 'var(--text-secondary)' }}>Acesso autorizado com sucesso</p>
 
-            <div className="info-grid" style={{ gap: '0.8rem', width: '100%' }}>
-              <div className="info-item" style={{ padding: '0.6rem', textAlign: 'left' }}>
-                <span className="info-label" style={{ fontSize: '0.75rem' }}>Nome Completo</span>
-                <span className="info-value" style={{ wordBreak: 'break-word', fontSize: '1rem', lineHeight: '1.2' }}>{participante.nome}</span>
+            <div className="info-grid" style={{ gap: '0.6rem', width: '100%' }}>
+              <div className="info-item" style={{ padding: '0.5rem', textAlign: 'left' }}>
+                <span className="info-label" style={{ fontSize: '0.7rem' }}>CPF</span>
+                <span className="info-value" style={{ fontSize: '0.95rem' }}>{participante.cpf || participante.documento || '-'}</span>
               </div>
-              <div className="info-item" style={{ padding: '0.6rem', textAlign: 'left' }}>
-                <span className="info-label" style={{ fontSize: '0.75rem' }}>CPF / CRM</span>
-                <span className="info-value" style={{ fontSize: '1rem' }}>{participante.documento}</span>
+              <div className="info-item" style={{ padding: '0.5rem', textAlign: 'left' }}>
+                <span className="info-label" style={{ fontSize: '0.7rem' }}>CRM</span>
+                <span className="info-value" style={{ fontSize: '0.95rem' }}>{participante.crm || '-'}</span>
+              </div>
+              <div className="info-item" style={{ padding: '0.5rem', textAlign: 'left' }}>
+                <span className="info-label" style={{ fontSize: '0.7rem' }}>Data de Nascimento</span>
+                <span className="info-value" style={{ fontSize: '0.95rem' }}>
+                  {participante.data_nascimento ? formatDate(participante.data_nascimento) : '-'}
+                </span>
               </div>
             </div>
 
+            {/* Progress Bar */}
+            <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '4px', backgroundColor: 'rgba(0,0,0,0.1)', overflow: 'hidden' }}>
+              <div style={{
+                height: '100%',
+                backgroundColor: 'var(--success-color)',
+                animation: 'progressBar 8s linear forwards',
+                width: '100%'
+              }}></div>
+            </div>
 
           </>
         ) : (
@@ -510,6 +530,29 @@ function AccessControl() {
             <div className="card">
               <h2>Total de Entradas</h2>
               <div className="stat-value">{logs.length}</div>
+
+              {/* Barra de Participantes vs Acompanhantes */}
+              {logs.length > 0 && (() => {
+                const totalSuccess = logs.filter(l => l.status_validacao === 'sucesso').length;
+                const companions = logs.filter(l => l.status_validacao === 'sucesso' && l.Participante?.documento === 'Acompanhante').length;
+                const participants = totalSuccess - companions;
+                const percentParticipants = totalSuccess > 0 ? Math.round((participants / totalSuccess) * 100) : 0;
+                const percentCompanions = totalSuccess > 0 ? Math.round((companions / totalSuccess) * 100) : 0;
+
+                return (
+                  <>
+                    <div style={{ display: 'flex', width: '100%', height: '6px', borderRadius: '3px', overflow: 'hidden', backgroundColor: '#eee', position: 'relative', marginTop: '0.5rem' }}>
+                      <div style={{ width: `${percentParticipants}%`, backgroundColor: '#00995D', height: '100%', transition: 'width 0.5s' }} title={`Participantes: ${percentParticipants}%`}></div>
+                      <div style={{ width: '2px', backgroundColor: '#fff', zIndex: 1 }}></div>
+                      <div style={{ width: `${percentCompanions}%`, backgroundColor: '#b1d249', height: '100%', flex: 1, transition: 'width 0.5s' }} title={`Acompanhantes: ${percentCompanions}%`}></div>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: 'var(--text-secondary)', marginTop: '0.3rem' }}>
+                      <span style={{ color: '#00995D', fontWeight: 'bold' }}>👤 {percentParticipants}%</span>
+                      <span style={{ color: '#b1d249', fontWeight: 'bold' }}>👥 {percentCompanions}%</span>
+                    </div>
+                  </>
+                );
+              })()}
             </div>
             <div className="card">
               <h2>Participantes Presentes</h2>
@@ -616,9 +659,10 @@ function AccessControl() {
             <table>
               <thead>
                 <tr>
-                  <th style={{ width: '20%' }}>Horário</th>
+                  <th style={{ width: '15%' }}>Horário</th>
                   <th>Participante</th>
-                  <th style={{ width: '15%' }}>Status</th>
+                  <th style={{ width: '18%' }}>CRM</th>
+                  <th style={{ width: '12%' }}>Status</th>
                 </tr>
               </thead>
               <tbody>
@@ -635,6 +679,9 @@ function AccessControl() {
                     <tr key={log.id}>
                       <td>{new Date(log.createdAt).toLocaleTimeString()}</td>
                       <td>{formatName(log.Participante ? log.Participante.nome : 'Desconhecido')}</td>
+                      <td style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                        {log.Participante?.crm || '-'}
+                      </td>
                       <td>
                         <span className={`badge badge-${log.status_validacao === 'sucesso' ? 'success' : 'error'}`}>
                           {log.status_validacao.toUpperCase()}
@@ -644,7 +691,7 @@ function AccessControl() {
                   ))}
                 {logs.length === 0 && (
                   <tr>
-                    <td colSpan="3" style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>Aguardando registros...</td>
+                    <td colSpan="4" style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>Aguardando registros...</td>
                   </tr>
                 )}
               </tbody>
