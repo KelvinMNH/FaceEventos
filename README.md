@@ -2,11 +2,11 @@
 
 Sistema moderno de gestão de eventos e controle de acesso biométrico para hospitais e centros de convenções.
 
-## 🚀 Sobre o Projeto
+##  Sobre o Projeto
 
 O **UniEventos** é uma plataforma robusta projetada para gerenciar fluxos de entrada e saída em eventos de grande escala. O sistema utiliza tecnologia biométrica para garantir a identidade dos participantes e oferece dashboards em tempo real para os organizadores.
 
-### ✨ Principais Funcionalidades
+###  Principais Funcionalidades
 
 *   **Painel Administrativo**: Criação e gestão de eventos com suporte a múltiplos formatos de imagem.
 *   **Controle de Acesso Biométrico**: Interface dedicada para recepção com feedback visual instantâneo.
@@ -17,7 +17,7 @@ O **UniEventos** é uma plataforma robusta projetada para gerenciar fluxos de en
 
 ---
 
-## 🏗️ Arquitetura do Sistema
+##  Arquitetura do Sistema
 
 O projeto utiliza uma arquitetura modularizada para facilitar a manutenção:
 
@@ -27,7 +27,7 @@ O projeto utiliza uma arquitetura modularizada para facilitar a manutenção:
 
 ---
 
-## 🚦 Como Iniciar
+##  Como Iniciar
 
 ### Pré-requisitos
 *   Node.js (v18+)
@@ -51,18 +51,13 @@ npm run dev
 
 ---
 
-## ⚙️ Configuração de Produção (Oracle)
+##  Configuração de Produção (Oracle)
 
-O sistema está pronto para produção. Para migrar do SQLite para o Oracle:
+O sistema está em desenvolvimento . Para migrar do SQLite para o Oracle:
 1. Altere o arquivo `backend/.env`.
 2. Configure `DB_DIALECT=oracle`.
 3. Preencha as credenciais do seu servidor Oracle.
 
 ---
 
-## 📄 Licença
 
-Este projeto é de uso exclusivo para fins corporativos/acadêmicos da UniEventos.
-
----
-Desenvolvido com ❤️ pela equipe UniEventos.

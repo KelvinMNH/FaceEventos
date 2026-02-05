@@ -695,16 +695,54 @@ function ControleAcesso() {
                 </tr>
               </thead>
               <tbody>
-                {logs
-                  .filter(log => {
+                {(() => {
+                  // 1. Filtrar Acessos com Sucesso
+                  const successLogs = logs.filter(l => l.status_validacao === 'sucesso');
+
+                  // 2. Agrupar por Participante para pegar o primeiro acesso (mais antigo)
+                  // Os logs vêm do backend ordenados por createdAt DESC (mais recente primeiro).
+                  // Então, se iterarmos de trás para frente ou usarmos um Map sobrescrevendo,
+                  // precisamos garantir que pegamos o MAIS ANTIGO.
+
+                  const uniqueMap = new Map();
+
+                  // Ordenamos ASC (antigo pro novo) antes de processar
+                  const sortedAsc = [...successLogs].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+
+                  sortedAsc.forEach(log => {
+                    if (log.ParticipanteId && !uniqueMap.has(log.ParticipanteId)) {
+                      uniqueMap.set(log.ParticipanteId, log);
+                    }
+                  });
+
+                  // 3. Converter de volta para lista e aplicar filtro de busca
+                  const uniqueLogs = Array.from(uniqueMap.values());
+
+                  // 4. Ordenar para exibição (Mais recentes no topo? Ou alfabético? 
+                  // Vou manter mais recentes no topo para ver quem chegou por último, 
+                  // mas mostrando a hora que chegou).
+                  uniqueLogs.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+                  const displayedLogs = uniqueLogs.filter(log => {
                     if (!searchTerm) return true;
                     const term = searchTerm.toLowerCase();
                     const participante = log.Participante || {};
                     const nome = participante.nome || 'Desconhecido';
                     const documento = participante.documento || '';
                     return nome.toLowerCase().includes(term) || documento.toLowerCase().includes(term);
-                  })
-                  .map(log => (
+                  });
+
+                  if (displayedLogs.length === 0) {
+                    return (
+                      <tr>
+                        <td colSpan="4" style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>
+                          {logs.length === 0 ? "Aguardando registros..." : "Nenhum participante encontrado com este filtro."}
+                        </td>
+                      </tr>
+                    );
+                  }
+
+                  return displayedLogs.map(log => (
                     <tr key={log.id}>
                       <td>{new Date(log.createdAt).toLocaleTimeString()}</td>
                       <td>{formatName(log.Participante ? log.Participante.nome : 'Desconhecido')}</td>
@@ -712,17 +750,13 @@ function ControleAcesso() {
                         {log.Participante?.crm || '-'}
                       </td>
                       <td>
-                        <span className={`badge badge-${log.status_validacao === 'sucesso' ? 'success' : 'error'}`}>
-                          {log.status_validacao.toUpperCase()}
+                        <span className={`badge badge-success`}>
+                          SUCESSO
                         </span>
                       </td>
                     </tr>
-                  ))}
-                {logs.length === 0 && (
-                  <tr>
-                    <td colSpan="4" style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>Aguardando registros...</td>
-                  </tr>
-                )}
+                  ));
+                })()}
               </tbody>
             </table>
           </div>
