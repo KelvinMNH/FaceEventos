@@ -1,4 +1,4 @@
-# UniEventos 🏢🎫
+# UniEventos
 
 Sistema moderno de gestão de eventos e controle de acesso biométrico para hospitais e centros de convenções.
 
@@ -53,11 +53,19 @@ npm run dev
 
 ##  Configuração de Produção (Oracle)
 
+<<<<<<< HEAD
 O sistema está em desenvolvimento . Para migrar do SQLite para o Oracle:
+=======
+. Para migrar do SQLite para o Oracle:
+>>>>>>> 2e6ef26078a00f08b770173ab219d8d57bdeced3
 1. Altere o arquivo `backend/.env`.
 2. Configure `DB_DIALECT=oracle`.
 3. Preencha as credenciais do seu servidor Oracle.
 
----
 
 
+<<<<<<< HEAD
+=======
+
+
+>>>>>>> 2e6ef26078a00f08b770173ab219d8d57bdeced3
