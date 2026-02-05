@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 
-function EventReport() {
+function RelatorioEvento() {
     const { id } = useParams();
     const navigate = useNavigate();
     const [logs, setLogs] = useState([]);
@@ -204,4 +204,4 @@ function EventReport() {
     );
 }
 
-export default EventReport;
+export default RelatorioEvento;

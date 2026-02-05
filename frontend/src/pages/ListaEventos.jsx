@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import MessageModal from '../components/MessageModal';
 
-function EventList() {
+function ListaEventos() {
     const navigate = useNavigate();
     const location = useLocation();
     const [eventos, setEventos] = useState([]);
@@ -16,7 +16,8 @@ function EventList() {
         local: '',
         imagem: '',
         permitir_acompanhantes: false,
-        max_acompanhantes: 0
+        max_acompanhantes: 0,
+        habilitar_checkout: false
     });
     const [creating, setCreating] = useState(false);
     const [messageModal, setMessageModal] = useState({ open: false, title: '', message: '', type: 'info' });
@@ -84,7 +85,7 @@ function EventList() {
             if (res.ok) {
                 setIsModalOpen(false);
                 setIsModalOpen(false);
-                setFormData({ nome: '', data: '', hora: '', local: '', imagem: '', permitir_acompanhantes: false, max_acompanhantes: 0 });
+                setFormData({ nome: '', data: '', hora: '', local: '', imagem: '', permitir_acompanhantes: false, max_acompanhantes: 0, habilitar_checkout: false });
                 fetchEventos();
                 navigate('/access'); // Opcional: já ir para o painel ou ficar na lista? Mantendo comportamento original de ir pro painel.
             } else {
@@ -318,6 +319,24 @@ function EventList() {
                             )}
                         </div>
 
+                        <div className="form-group">
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+                                <input
+                                    type="checkbox"
+                                    id="habilitarCheckout"
+                                    checked={formData.habilitar_checkout}
+                                    onChange={e => setFormData({ ...formData, habilitar_checkout: e.target.checked })}
+                                    style={{ width: '1.2rem', height: '1.2rem', cursor: 'pointer' }}
+                                />
+                                <label htmlFor="habilitarCheckout" style={{ fontWeight: 600, color: 'var(--text-primary)', cursor: 'pointer', fontSize: '0.95rem' }}>
+                                    Habilitar Checkout (Registro de Saída)
+                                </label>
+                            </div>
+                            <p style={{ marginTop: '0.5rem', marginLeft: '2rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                                Permite registrar a hora de saída dos participantes
+                            </p>
+                        </div>
+
                         <button
                             type="submit"
                             disabled={creating}
@@ -341,4 +360,4 @@ function EventList() {
     );
 }
 
-export default EventList;
+export default ListaEventos;

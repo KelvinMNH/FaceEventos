@@ -95,6 +95,22 @@ function Navbar({ children, onOpenCreateModal }) {
                         Painel de Controle
                     </a>
 
+                    <a
+                        href="#"
+                        className={`sidebar-link ${location.pathname === '/totem' ? 'active' : ''}`}
+                        onClick={(e) => { e.preventDefault(); handleNavigate('/totem'); }}
+                    >
+                        🏥 Totem de Acesso
+                    </a>
+
+                    <a
+                        href="#"
+                        className={`sidebar-link ${location.pathname === '/totem-checkout' ? 'active' : ''}`}
+                        onClick={(e) => { e.preventDefault(); handleNavigate('/totem-checkout'); }}
+                    >
+                        🚪 Totem de Checkout
+                    </a>
+
                     {/* Espaço para futuros links */}
                 </div>
             </div>

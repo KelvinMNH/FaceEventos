@@ -1,46 +1,68 @@
-# UniEventos - Sistema de Controle de Acesso Biométrico
+# UniEventos 🏢🎫
 
-Este projeto é um protótipo funcional composto por Backend, Frontend e Bridge Biométrica.
+Sistema moderno de gestão de eventos e controle de acesso biométrico para hospitais e centros de convenções.
 
-## Estrutura do Projeto
+## 🚀 Sobre o Projeto
 
-- **backend/**: API REST em Node.js com SQLite.
-- **frontend/**: Aplicação React (Vite) para dashboard e visualização.
-- **bridge/**: Scripts para simulação (e futura integração) do leitor Futronic.
+O **UniEventos** é uma plataforma robusta projetada para gerenciar fluxos de entrada e saída em eventos de grande escala. O sistema utiliza tecnologia biométrica para garantir a identidade dos participantes e oferece dashboards em tempo real para os organizadores.
 
-## Como Rodar
+### ✨ Principais Funcionalidades
 
-### 1. Iniciar o Backend
-Terminal 1:
+*   **Painel Administrativo**: Criação e gestão de eventos com suporte a múltiplos formatos de imagem.
+*   **Controle de Acesso Biométrico**: Interface dedicada para recepção com feedback visual instantâneo.
+*   **Totens de Autoatendimento**: Telas otimizadas para totens de entrada (Check-in) e saída (Checkout).
+*   **Relatórios e Estatísticas**: Gráficos demográficos (gênero, faixa etária) e logs detalhados de presença.
+*   **Suporte Multi-Banco**: Compatível com **SQLite** (desenvolvimento) e **Oracle Database** (produção).
+*   **Gestão de Acompanhantes**: Controle flexível de acompanhantes por participante.
+
+---
+
+## 🏗️ Arquitetura do Sistema
+
+O projeto utiliza uma arquitetura modularizada para facilitar a manutenção:
+
+*   **`/backend`**: API RESTful desenvolvida com Node.js, Express e Sequelize (Arquitetura MVC).
+*   **`/frontend`**: Aplicação SPA construída com React, Vite e componentes estilizados modernos.
+*   **`/bridge`**: Camada de integração técnica para hardware biométrico (Futronic).
+
+---
+
+## 🚦 Como Iniciar
+
+### Pré-requisitos
+*   Node.js (v18+)
+*   NPM ou Yarn
+
+### 1. Backend
 ```bash
 cd backend
-npm install (se ainda não fez)
+npm install
 node server.js
 ```
-O servidor rodará em `http://localhost:3000`.
+*Configuração via `.env` (Ver README interno do backend).*
 
-### 2. Iniciar o Frontend
-Terminal 2:
+### 2. Frontend
 ```bash
 cd frontend
-npm install (se ainda não fez)
+npm install
 npm run dev
 ```
-Acesse `http://localhost:5173`.
+*Acesse em: `http://localhost:5173`*
 
-### 3. Simular Leitura Biométrica (Bridge)
-Terminal 3:
-```bash
-cd bridge
-# Teste com usuário cadastrado (Kelvin)
-node scanner_sim.js bio_kelvin_123
+---
 
-# Teste com biometria desconhecida
-node scanner_sim.js bio_errada
-```
+## ⚙️ Configuração de Produção (Oracle)
 
-## Funcionalidades Implementadas
-- Validação de entrada via API.
-- Dashboard em tempo real (Polling).
-- Modal de feedback visual ao receber novo acesso.
-- Banco de dados SQLite com dados iniciais (Seed).
+O sistema está pronto para produção. Para migrar do SQLite para o Oracle:
+1. Altere o arquivo `backend/.env`.
+2. Configure `DB_DIALECT=oracle`.
+3. Preencha as credenciais do seu servidor Oracle.
+
+---
+
+## 📄 Licença
+
+Este projeto é de uso exclusivo para fins corporativos/acadêmicos da UniEventos.
+
+---
+Desenvolvido com ❤️ pela equipe UniEventos.

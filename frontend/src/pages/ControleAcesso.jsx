@@ -5,7 +5,7 @@ import MessageModal from '../components/MessageModal';
 
 const API_URL = 'http://localhost:3000/api';
 
-function AccessControl() {
+function ControleAcesso() {
   const navigate = useNavigate();
   const [logs, setLogs] = useState([]);
   const [evento, setEvento] = useState(null);
@@ -70,9 +70,12 @@ function AccessControl() {
           setLogs(filteredLogs);
 
           const latest = filteredLogs[0];
-          // Se houver um novo log e for recente (ex: criado nos últimos 5 segundos)
-          // Na prática, comparamos IDs para não repetir
-          if (latest.id > lastLogId) {
+          // Se for a primeira carga (lastLogId === 0), apenas inicializamos o ID
+          // sem disparar o modal visual/sonoro.
+          if (lastLogId === 0) {
+            setLastLogId(latest.id);
+          } else if (latest.id > lastLogId) {
+            // Se o ID for maior que o anterior, é um novo acesso em tempo real
             setLastLogId(latest.id);
             if (latest.status_validacao === 'sucesso' || latest.status_validacao === 'nao_encontrado') {
               showModal(latest);
@@ -921,4 +924,4 @@ function AccessControl() {
   );
 }
 
-export default AccessControl;
+export default ControleAcesso;

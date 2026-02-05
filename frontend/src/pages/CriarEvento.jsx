@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 
-function CreateEvent() {
+function CriarEvento() {
     const navigate = useNavigate();
     const [formData, setFormData] = useState({
         nome: '',
@@ -178,4 +178,4 @@ function CreateEvent() {
     );
 }
 
-export default CreateEvent;
+export default CriarEvento;
