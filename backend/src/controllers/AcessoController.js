@@ -72,18 +72,26 @@ class AcessoController {
 
     async manualEntry(req, res) {
         try {
-            const { query } = req.body;
+            const { query, participanteId } = req.body;
             const evento = await Evento.findOne({ where: { status: 'ativo' } });
             if (!evento) return res.json({ success: false, msg: "Sem evento ativo" });
 
-            const participante = await Participante.findOne({
-                where: {
-                    [Op.or]: [
-                        { documento: query },
-                        { nome: { [Op.like]: `%${query}%` } }
-                    ]
-                }
-            });
+            let participante = null;
+
+            if (participanteId) {
+                participante = await Participante.findByPk(participanteId);
+            } else if (query) {
+                participante = await Participante.findOne({
+                    where: {
+                        [Op.or]: [
+                            { documento: query }, // Busca exata primeiro
+                            { cpf: query },
+                            { crm: query },
+                            { nome: { [Op.like]: `%${query}%` } } // Busca aproximada por nome
+                        ]
+                    }
+                });
+            }
 
             if (!participante) return res.json({ success: false, msg: "Participante não encontrado", not_found: true });
 

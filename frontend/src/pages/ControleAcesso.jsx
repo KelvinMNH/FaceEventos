@@ -24,6 +24,8 @@ function ControleAcesso() {
   const manualInputRef = useRef(null);
   const [manualMode, setManualMode] = useState('search'); // 'search' | 'create'
   const [newParticipant, setNewParticipant] = useState({ nome: '', documento: '', cpf: '', crm: '', data_nascimento: '', genero: 'Outro' });
+  const [manualSearchResults, setManualSearchResults] = useState([]); // Novos resultados da busca manual
+
 
   // Companion States
   const [companionModalOpen, setCompanionModalOpen] = useState(false);
@@ -177,11 +179,66 @@ function ControleAcesso() {
     return () => clearInterval(simInterval);
   }, [simulating]);
 
+  // Efeito para focar no input quando abrir modal ou mudar modo
   useEffect(() => {
-    if (manualModalOpen && manualInputRef.current) {
-      setTimeout(() => manualInputRef.current.focus(), 100);
+    if ((manualModalOpen && manualMode === 'search') || (companionModalOpen && !responsavelId)) {
+      setTimeout(() => {
+        if (manualInputRef.current) manualInputRef.current.focus();
+      }, 100);
     }
-  }, [manualModalOpen]);
+  }, [manualModalOpen, manualMode, companionModalOpen, responsavelId]);
+
+  // Função para buscar participantes para o modal MANUAL (entrada direta)
+  const handleManualSearchInput = async (term) => {
+    setManualDoc(term);
+    if (term.length < 3) {
+      setManualSearchResults([]);
+      return;
+    }
+    try {
+      const res = await fetch(`${API_URL}/participantes/busca?q=${term}`);
+      const data = await res.json();
+      setManualSearchResults(data || []);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const selectManualParticipant = async (p) => {
+    // Registra entrada direto com o ID selecionado
+    try {
+      const res = await fetch(`${API_URL}/manual-entry`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ participanteId: p.id })
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        setManualModalOpen(false);
+        setManualDoc('');
+        setManualSearchResults([]);
+        if (data.status === 'sucesso') {
+          const fakeLog = {
+            status_validacao: 'sucesso',
+            Participante: data.participante
+          };
+          showModal(fakeLog);
+        }
+      } else {
+        showMessage("Erro", data.msg || "Erro ao registrar entrada", "error");
+      }
+    } catch (e) {
+      showMessage("Erro", "Erro de comunicação com servidor", "error");
+    }
+  };
+
+  const openCreateMode = () => {
+    setManualMode('create');
+    // Tenta pré-preencher com o que foi digitado se parecer um nome ou documento
+    setNewParticipant({ ...newParticipant, documento: manualDoc, nome: manualDoc });
+    setManualSearchResults([]);
+  };
 
   const handleManualEntryClick = () => {
     setManualDoc('');
@@ -190,35 +247,13 @@ function ControleAcesso() {
     setManualModalOpen(true);
   };
 
+  // submitManualEntry original removido/simplificado pois agora o fluxo é via seleção ou criação.
+  // Mantemos apenas para casos de "Enter" direto (tenta pegar o primeiro ou criar)
   const submitManualEntry = async () => {
-    if (!manualDoc) return;
-    // Don't close modal yet
-
-    try {
-      const res = await fetch(`${API_URL}/manual-entry`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: manualDoc })
-      });
-      const data = await res.json();
-
-      if (data.success) {
-        setManualModalOpen(false);
-        const fakeLog = {
-          status_validacao: data.status,
-          Participante: data.participante || { nome: 'Desconhecido', documento: manualDoc }
-        };
-        showModal(fakeLog);
-      } else if (data.not_found) {
-        // Switch to create mode
-        setManualMode('create');
-        setNewParticipant({ ...newParticipant, documento: manualDoc });
-      } else {
-        // Generic error
-        showMessage("Erro", data.msg || "Erro ao processar entrada manual", "error");
-      }
-    } catch (e) {
-      showMessage("Erro", "Erro de comunicação com servidor", "error");
+    if (manualSearchResults.length > 0) {
+      selectManualParticipant(manualSearchResults[0]);
+    } else {
+      openCreateMode();
     }
   };
 
@@ -780,12 +815,55 @@ function ControleAcesso() {
                 className="modal-input"
                 placeholder="Digite Nome, CPF ou CRM"
                 value={manualDoc}
-                onChange={e => setManualDoc(e.target.value)}
+                onChange={e => handleManualSearchInput(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && submitManualEntry()}
+                style={{ marginBottom: '0.5rem' }}
               />
+
+              {/* Lista de Resultados da Busca Manual */}
+              {manualSearchResults.length > 0 ? (
+                <div style={{
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '8px',
+                  maxHeight: '200px',
+                  overflowY: 'auto',
+                  background: '#fff',
+                  marginBottom: '1rem'
+                }}>
+                  {manualSearchResults.map(p => (
+                    <div
+                      key={p.id}
+                      onClick={() => selectManualParticipant(p)}
+                      style={{
+                        padding: '0.8rem',
+                        borderBottom: '1px solid #eee',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center'
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f6f8fa'}
+                      onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                    >
+                      <div>
+                        <div style={{ fontWeight: 600 }}>{p.nome}</div>
+                        <div style={{ color: '#666', fontSize: '0.85rem' }}>{p.documento || p.cpf} {p.crm ? `| CRM: ${p.crm}` : ''}</div>
+                      </div>
+                      <span style={{ fontSize: '1.2rem' }}>➡️</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                manualDoc.length >= 3 && (
+                  <div style={{ textAlign: 'center', padding: '1rem', color: '#666' }}>
+                    Nenhum participante encontrado.
+                  </div>
+                )
+              )}
+
               <div className="modal-actions">
                 <button className="btn-secondary" onClick={() => { setManualModalOpen(false); setManualMode('search'); }}>Cancelar</button>
-                <button className="btn-primary" onClick={submitManualEntry}>Confirmar</button>
+                <button className="btn-primary" onClick={openCreateMode}>Cadastrar Nova Pessoa</button>
               </div>
             </>
           ) : (

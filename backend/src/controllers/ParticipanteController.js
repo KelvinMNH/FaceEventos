@@ -9,8 +9,10 @@ class ParticipanteController {
             const participantes = await Participante.findAll({
                 where: {
                     [Op.or]: [
-                        { documento: q },
-                        { nome: { [Op.like]: `%${q}%` } }
+                        { documento: { [Op.like]: `%${q}%` } },
+                        { nome: { [Op.like]: `%${q}%` } },
+                        { cpf: { [Op.like]: `%${q}%` } },
+                        { crm: { [Op.like]: `%${q}%` } }
                     ]
                 },
                 limit: 10
