@@ -118,8 +118,8 @@ function EventReport() {
                         style={{
                             marginLeft: 'auto',
                             padding: '0.5rem 1rem',
-                            backgroundColor: 'var(--accent-color)',
-                            color: '#000',
+                            backgroundColor: 'var(--secondary-green)', // Usando a cor secundária (laranja)
+                            color: '#fff',
                             border: 'none',
                             borderRadius: '4px',
                             cursor: 'pointer',

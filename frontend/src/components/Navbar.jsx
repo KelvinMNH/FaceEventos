@@ -39,13 +39,13 @@ function Navbar({ children, onOpenCreateModal }) {
                             style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.8rem' }}
                         >
                             <img
-                                src="/logo.jpg"
-                                alt="Logo UniEventos"
-                                style={{ height: '40px', backgroundColor: 'white', padding: '2px', borderRadius: '4px' }}
+                                src="/logo3.png"
+                                alt="Logo FaceEventos"
+                                className="navbar-logo"
                             />
                             <h1 className="navbar-title" style={{ margin: 0, display: 'flex', alignItems: 'baseline', gap: '0' }}>
-                                <span style={{ color: 'white' }}>Uni</span>
-                                <span style={{ color: '#b1d249' }}>Eventos</span>
+                                <span style={{ color: 'white' }}>Face</span>
+                                <span style={{ color: '#ff6600' }}>Eventos</span>
                             </h1>
                         </div>
                     </div>

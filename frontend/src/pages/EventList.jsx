@@ -164,17 +164,18 @@ function EventList() {
                                             onClick={() => handleSelectEvent(evento.id)}
                                             style={{
                                                 padding: '0.75rem',
-                                                backgroundColor: evento.status === 'ativo' ? 'var(--success-color)' : 'white',
+                                                backgroundColor: evento.status === 'ativo' ? 'var(--secondary-green)' : 'white',
                                                 color: evento.status === 'ativo' ? 'white' : 'var(--accent-color)',
                                                 border: `1px solid ${evento.status === 'ativo' ? 'transparent' : 'var(--border-color)'}`,
                                                 borderRadius: '6px',
                                                 fontWeight: 600,
                                                 cursor: 'pointer',
                                                 marginTop: 'auto',
-                                                transition: 'all 0.2s'
+                                                transition: 'all 0.2s',
+                                                fontSize: '1rem'
                                             }}
                                         >
-                                            {evento.status === 'ativo' ? 'Acessar Painel' : 'Selecionar Evento'}
+                                            {evento.status === 'ativo' ? '▶ Acessar Painel' : 'Selecionar Evento'}
                                         </button>
                                     </div>
                                 ))

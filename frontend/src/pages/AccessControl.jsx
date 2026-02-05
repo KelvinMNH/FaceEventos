@@ -626,7 +626,7 @@ function AccessControl() {
     const participante = modalData?.Participante || {};
 
     return (
-      <div className="access-panel-container" style={{ position: 'relative', minHeight: '450px', background: '#000', borderRadius: '12px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+      <div className="access-camera-box">
 
         {/* === CAMADA 1: WEBCAM SEMPRE ATIVA === */}
         <div style={{ flex: 1, position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 1 }}>
@@ -638,7 +638,8 @@ function AccessControl() {
             onUserMediaError={(e) => console.error('Erro Câmera:', e)}
             screenshotFormat="image/jpeg"
             videoConstraints={{ width: 1280, height: 720, facingMode: "user" }}
-            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center' }}
+            mirrored={true}
           />
 
           {!modalData && modelsLoaded && (
