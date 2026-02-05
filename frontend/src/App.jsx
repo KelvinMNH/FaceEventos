@@ -6,6 +6,7 @@ import AccessControl from './pages/AccessControl';
 import ParticipantRegistration from './pages/ParticipantRegistration';
 import ParticipantList from './pages/ParticipantList';
 import EventReport from './pages/EventReport';
+import Sorteios from './pages/Sorteios';
 
 function App() {
   return (
@@ -17,6 +18,7 @@ function App() {
         <Route path="/register" element={<ParticipantRegistration />} />
         <Route path="/participants" element={<ParticipantList />} />
         <Route path="/event/:id/report" element={<EventReport />} />
+        <Route path="/sorteios" element={<Sorteios />} />
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </Router>

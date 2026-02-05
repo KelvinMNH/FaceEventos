@@ -177,7 +177,8 @@ function ParticipantRegistration() {
                                     left: '0',
                                     right: '0',
                                     display: 'flex',
-                                    justifyContent: 'center'
+                                    justifyContent: 'center',
+                                    zIndex: 10
                                 }}>
                                     <button
                                         type="button"
@@ -198,6 +199,32 @@ function ParticipantRegistration() {
                                     >
                                         📸
                                     </button>
+                                </div>
+                                {/* Máscara Oval */}
+                                <div style={{
+                                    position: 'absolute',
+                                    top: '50%',
+                                    left: '50%',
+                                    transform: 'translate(-50%, -50%)',
+                                    width: '220px',
+                                    height: '300px',
+                                    borderRadius: '50%',
+                                    border: '2px solid rgba(255, 255, 255, 0.5)',
+                                    boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.5)',
+                                    pointerEvents: 'none'
+                                }}>
+                                    <div style={{
+                                        position: 'absolute',
+                                        top: '-30px',
+                                        width: '100%',
+                                        textAlign: 'center',
+                                        color: 'rgba(255,255,255,0.7)',
+                                        fontSize: '0.8rem',
+                                        fontWeight: '500',
+                                        letterSpacing: '1px'
+                                    }}>
+                                        POSICIONE O ROSTO
+                                    </div>
                                 </div>
                                 {!modelsLoaded && (
                                     <div style={{

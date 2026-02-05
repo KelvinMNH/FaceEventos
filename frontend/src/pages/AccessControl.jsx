@@ -166,15 +166,30 @@ function AccessControl() {
           setLogs(filteredLogs);
 
           const latest = filteredLogs[0];
-          // Se houver um novo log e for recente (ex: criado nos últimos 5 segundos)
-          // Na prática, comparamos IDs para não repetir
+          // Se houver um novo log (ID maior que o último visto)
           if (latest.id > lastLogId) {
-            setLastLogId(latest.id);
-            // Se o log já foi tratado localmente pelo loop de scan, não mostra modal de novo
-            if (handledLogIds.current.has(latest.id)) return;
 
-            if (latest.status_validacao === 'sucesso' || latest.status_validacao === 'nao_encontrado') {
-              showModal(latest);
+            // BUG FIX: Evitar mostrar modal de logs antigos ao carregar a página
+            // Só mostra se o log for realmente recente (menos de 10 segundos atrás)
+            // Se lastLogId for 0 (primeira carga), a gente só atualiza o ID sem mostrar modal,
+            // a não ser que o log seja muito muito recente.
+            const logTime = new Date(latest.createdAt).getTime();
+            const now = Date.now();
+            const isRecent = (now - logTime) < 10000; // 10 segundos
+
+            if (lastLogId === 0) {
+              // Primeira carga: Apenas sincroniza o ID, não mostra modal (a menos que seja MUITO recente, opcional)
+              // Aqui vamos optar por NÃO mostrar na primeira carga para evitar susto, 
+              // assumindo que se acabou de entrar na tela, quer ver coisas novas.
+              setLastLogId(latest.id);
+            } else {
+              setLastLogId(latest.id);
+              // Se o log já foi tratado localmente pelo loop de scan, não mostra modal de novo
+              if (handledLogIds.current.has(latest.id)) return;
+
+              if (isRecent && (latest.status_validacao === 'sucesso' || latest.status_validacao === 'nao_encontrado')) {
+                showModal(latest);
+              }
             }
           }
         } else {
@@ -308,7 +323,17 @@ function AccessControl() {
     }
   };
 
-  const confirmManualEntry = async (participante) => {
+  // Biometric Prompt State
+  const [biometricPromptData, setBiometricPromptData] = useState(null);
+
+  const confirmManualEntry = (participante) => {
+    // Fecha o modal de busca
+    setManualModalOpen(false);
+    // Abre o prompt de biometria
+    setBiometricPromptData(participante);
+  };
+
+  const executeAccessRegistration = async (participante) => {
     // Função auxiliar para processar resposta
     const processResponse = async (res) => {
       const text = await res.text();
@@ -387,8 +412,6 @@ function AccessControl() {
       showMessage("Erro", "Erro ao conectar", "error");
     }
   };
-
-
 
   const handleSearchResponsible = async (term) => {
     setResponsibleSearchTerm(term);
@@ -476,15 +499,50 @@ function AccessControl() {
     }
   };
 
-  const confirmCapture = () => {
+  const confirmCapture = async () => {
     if (tempDescriptor) {
-      setNewParticipant(prev => ({
-        ...prev,
-        template_biometrico: tempDescriptor,
-        foto: capturedImage
-      }));
-      setCaptureFeedbackOpen(false);
-      showMessage("Sucesso", "Biometria e foto vinculadas!", "success");
+      if (biometricPromptData) {
+        // Caso 1: Atualizando biometria de participante existente
+        try {
+          const res = await fetch(`${API_URL}/participantes/${biometricPromptData.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              ...biometricPromptData,
+              template_biometrico: tempDescriptor,
+              foto: capturedImage
+            })
+          });
+
+          if (res.ok) {
+            showMessage("Sucesso", "Biometria atualizada com sucesso!", "success");
+            // Prepara participante atualizado para registro
+            const updatedParticipant = {
+              ...biometricPromptData,
+              template_biometrico: tempDescriptor,
+              foto: capturedImage
+            };
+
+            setCaptureFeedbackOpen(false);
+            setBiometricPromptData(null); // Fecha o prompt
+            executeAccessRegistration(updatedParticipant); // Segue o fluxo
+          } else {
+            showMessage("Erro", "Falha ao salvar biometria.", "error");
+          }
+        } catch (e) {
+          console.error(e);
+          showMessage("Erro", "Erro de conexão ao salvar biometria.", "error");
+        }
+      } else {
+        // Caso 2: Criando novo participante (fluxo antigo)
+        setNewParticipant(prev => ({
+          ...prev,
+          template_biometrico: tempDescriptor,
+          foto: capturedImage
+        }));
+        setCaptureFeedbackOpen(false);
+        showMessage("Sucesso", "Biometria e foto vinculadas!", "success");
+      }
     }
     setScanCooldown(false);
   };
@@ -584,7 +642,31 @@ function AccessControl() {
           />
 
           {!modalData && modelsLoaded && (
-            <div style={{ position: 'absolute', top: '15%', left: '15%', right: '15%', bottom: '15%', border: '2px dashed rgba(255,255,255,0.4)', borderRadius: '16px', pointerEvents: 'none' }}></div>
+            <div style={{
+              position: 'absolute',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              width: '260px',
+              height: '340px',
+              borderRadius: '50%',
+              border: '2px solid rgba(255, 255, 255, 0.5)',
+              boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.5)',
+              pointerEvents: 'none'
+            }}>
+              <div style={{
+                position: 'absolute',
+                top: '-30px',
+                width: '100%',
+                textAlign: 'center',
+                color: 'rgba(255,255,255,0.7)',
+                fontSize: '0.8rem',
+                fontWeight: '500',
+                letterSpacing: '1px'
+              }}>
+                POSICIONE O ROSTO
+              </div>
+            </div>
           )}
 
           {/* Toast Notification (Aviso Discreto) */}
@@ -939,6 +1021,9 @@ function AccessControl() {
               <tbody>
                 {(() => {
                   const searchFiltered = logs.filter(log => {
+                    // Filtrar apenas sucessos para a Lista de Entrada
+                    if (log.status_validacao !== 'sucesso') return false;
+
                     if (!searchTerm) return true;
                     const term = searchTerm.toLowerCase();
                     const p = log.Participante || {};
@@ -1251,6 +1336,51 @@ function AccessControl() {
             <div className="modal-actions" style={{ justifyContent: 'center' }}>
               <button className="btn-secondary" onClick={cancelCapture}>Tentar Novamente</button>
               <button className="btn-primary" onClick={confirmCapture}>Confirmar Foto</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Modal Prompt de Biometria (Renovação/Inserção) */}
+      {biometricPromptData && (
+        <div className="modal-overlay open" style={{ zIndex: 1100 }}>
+          <div className="modal-content" style={{ maxWidth: '450px', textAlign: 'center' }}>
+            <h2 className="modal-header">Verificar Biometria</h2>
+            <div style={{ margin: '1.5rem 0' }}>
+              <p style={{ fontSize: '1.1rem', marginBottom: '0.5rem' }}>
+                Participante: <strong>{biometricPromptData.nome}</strong>
+              </p>
+              <p style={{ color: 'var(--text-secondary)' }}>
+                Deseja capturar/atualizar a biometria facial agora?
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+              <button
+                className="btn-primary"
+                onClick={captureFacialData}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
+              >
+                📸 Cadastrar/Renovar Biometria
+              </button>
+
+              <button
+                className="btn-secondary"
+                onClick={() => {
+                  const p = biometricPromptData;
+                  setBiometricPromptData(null);
+                  executeAccessRegistration(p);
+                }}
+              >
+                ⏩ Pular e Registrar Acesso
+              </button>
+
+              <button
+                className="btn-secondary"
+                style={{ marginTop: '1rem', border: 'none', background: 'none', color: 'var(--text-secondary)' }}
+                onClick={() => setBiometricPromptData(null)}
+              >
+                Cancelar Entrada
+              </button>
             </div>
           </div>
         </div>

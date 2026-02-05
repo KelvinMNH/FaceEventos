@@ -271,21 +271,23 @@ app.post('/api/manual-entry', async (req, res) => {
 // Endpoint para Cadastrar e Dar Entrada (Novo Participante)
 app.post('/api/cadastrar-entrada', async (req, res) => {
     try {
-        const { nome, documento, genero, data_nascimento } = req.body;
+        const { nome, documento, genero, data_nascimento, cpf, crm } = req.body;
         const evento = await Evento.findOne({ where: { status: 'ativo' } });
         if (!evento) return res.json({ success: false, msg: "Sem evento ativo" });
 
         // Verifica se já existe documento
-        let participante = await Participante.findOne({ where: { documento } });
+        let participante = await Participante.findOne({ where: { documento: documento || cpf } });
         if (participante) {
             return res.json({ success: false, msg: "Documento já cadastrado." });
         }
 
         participante = await Participante.create({
             nome,
-            documento,
+            documento: documento || cpf,
+            cpf: cpf || documento,
+            crm,
             genero: genero || 'Outro',
-            data_nascimento, // pode ser null
+            data_nascimento: data_nascimento === "" ? null : data_nascimento, // Tratamento para data vazia
             ativo: true,
             foto: req.body.foto,
             template_biometrico: req.body.template_biometrico || ('manual_' + Date.now())
