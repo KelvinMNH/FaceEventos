@@ -48,11 +48,39 @@ function EventReport() {
         return dateStr;
     };
 
-    // Função para formatar gênero
     const formatGender = (genero) => {
         if (genero === 'M') return 'H';
         if (genero === 'F') return 'M';
         return '-';
+    };
+
+    const exportToCSV = () => {
+        if (!logs.length) return;
+
+        const headers = ["Horário", "Participante", "CPF", "CRM", "Data de Nascimento", "Gênero"];
+        const csvContent = [
+            headers.join(","),
+            ...logs.map(log => {
+                const p = log.Participante || {};
+                return [
+                    `"${new Date(log.createdAt).toLocaleString()}"`,
+                    `"${p.nome || 'Desconhecido'}"`,
+                    `"${p.cpf || p.documento || ''}"`,
+                    `"${p.crm || ''}"`,
+                    `"${formatDate(p.data_nascimento)}"`,
+                    `"${formatGender(p.genero)}"`
+                ].join(",");
+            })
+        ].join("\n");
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", `relatorio_evento_${id || 'geral'}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     };
 
     return (
@@ -85,6 +113,29 @@ function EventReport() {
                         </button>
                         Relatório do Evento
                     </h1>
+                    <button
+                        onClick={exportToCSV}
+                        style={{
+                            marginLeft: 'auto',
+                            padding: '0.5rem 1rem',
+                            backgroundColor: 'var(--accent-color)',
+                            color: '#000',
+                            border: 'none',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            fontWeight: 'bold',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem'
+                        }}
+                    >
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                            <polyline points="7 10 12 15 17 10" />
+                            <line x1="12" y1="15" x2="12" y2="3" />
+                        </svg>
+                        Exportar CSV
+                    </button>
                 </div>
 
                 {/* Estatísticas Gerais */}

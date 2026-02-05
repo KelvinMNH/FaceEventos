@@ -111,13 +111,7 @@ function Navbar({ children, onOpenCreateModal }) {
                         Lista de Cadastrados
                     </a>
 
-                    <a
-                        href="#"
-                        className={`sidebar-link ${location.pathname === '/sorteios' ? 'active' : ''}`}
-                        onClick={(e) => { e.preventDefault(); handleNavigate('/sorteios'); }}
-                    >
-                        Sorteios
-                    </a>
+
 
                     {/* Espaço para futuros links */}
                 </div>

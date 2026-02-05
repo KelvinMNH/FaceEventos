@@ -1,6 +1,8 @@
 const express = require('express');
 const cors = require('cors');
 const { sequelize, Evento, Participante, RegistroAcesso, syncDB } = require('./models');
+const http = require('http');
+const { Server } = require("socket.io");
 
 const app = express();
 const PORT = 3000;
@@ -8,6 +10,14 @@ const PORT = 3000;
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
+
+const server = http.createServer(app);
+const io = new Server(server, {
+    cors: {
+        origin: "*",
+        methods: ["GET", "POST"]
+    }
+});
 
 // Helper para Distância Euclidiana (FaceID Matching)
 function euclideanDistance(desc1, desc2) {
@@ -487,6 +497,116 @@ app.get('/api/logs', async (req, res) => {
 // Endpoint de Status
 app.get('/api/status', (req, res) => res.json({ online: true, time: new Date() }));
 
+app.get('/api/status', (req, res) => res.json({ online: true, time: new Date() }));
+
+// --- Lógica de Sorteio (Socket.io) ---
+io.on('connection', (socket) => {
+    console.log('Cliente conectado ao Socket:', socket.id);
+
+    socket.on('iniciar-sorteio', async ({ usarApenasPresentes }) => {
+        try {
+            console.log("Iniciando sorteio...", { usarApenasPresentes });
+
+            let participantes = [];
+
+            if (usarApenasPresentes) {
+                const evento = await Evento.findOne({ where: { status: 'ativo' } });
+                if (!evento) {
+                    socket.emit('erro-sorteio', 'Não há evento ativo para buscar presentes.');
+                    return;
+                }
+
+                // Buscar registros de entrada com sucesso
+                const acessos = await RegistroAcesso.findAll({
+                    where: {
+                        EventoId: evento.id,
+                        status_validacao: 'sucesso',
+                        tipo_acesso: 'entrada'
+                    },
+                    include: [{ model: Participante }]
+                });
+
+                // Filtrar únicos (map por ID)
+                const map = new Map();
+                acessos.forEach(a => {
+                    if (a.Participante) map.set(a.Participante.id, a.Participante);
+                });
+                participantes = Array.from(map.values());
+
+            } else {
+                participantes = await Participante.findAll({ where: { ativo: true } });
+            }
+
+            if (participantes.length < 2) {
+                socket.emit('erro-sorteio', `Participantes insuficientes (${participantes.length}). Precisa de pelo menos 2.`);
+                return;
+            }
+
+            // Preparar tickets visuais (1 a N)
+            const tickets = participantes.map((p, i) => ({
+                id: p.id,
+                numero: i + 1,
+                nome: p.nome
+            }));
+
+            // Mapa auxiliar para recuperar o vencedor pelo número
+            const participantesMap = {};
+            tickets.forEach((t, i) => participantesMap[t.numero] = participantes[i]);
+
+            // Enviar preparação
+            io.emit('sorteio-preparar', { tickets });
+
+            // Delay antes de começar a eliminar
+            setTimeout(() => {
+                io.emit('sorteio-inicio');
+
+                let currentTickets = [...tickets];
+                // Velocidade: quanto mais gente, mais rápido, mas com limite
+                // ex: 50ms padrão
+                let speed = 100;
+
+                const ciclo = () => {
+                    if (currentTickets.length <= 1) {
+                        const vencedorTicket = currentTickets[0];
+                        const vencedorReal = participantesMap[vencedorTicket.numero];
+                        io.emit('sorteio-fim', {
+                            vencedor: { ...vencedorReal.toJSON(), numero: vencedorTicket.numero }
+                        });
+                        return;
+                    }
+
+                    // Escolher um para eliminar
+                    const idxEliminar = Math.floor(Math.random() * currentTickets.length);
+                    const eliminado = currentTickets[idxEliminar];
+
+                    // Remover do array local
+                    currentTickets.splice(idxEliminar, 1);
+
+                    // Avisar front
+                    io.emit('sorteio-eliminacao', {
+                        eliminado: eliminado.numero,
+                        restantes: currentTickets.length
+                    });
+
+                    // Acelerar conforme chega no fim (Battle Royale feeling)
+                    if (currentTickets.length < 10) speed = 300; // Slow motion no final
+                    else if (currentTickets.length < 50) speed = 50;
+                    else speed = 20;
+
+                    setTimeout(ciclo, speed);
+                };
+
+                ciclo();
+
+            }, 2000);
+
+        } catch (e) {
+            console.error("Erro no sorteio:", e);
+            socket.emit('erro-sorteio', 'Erro interno ao iniciar sorteio.');
+        }
+    });
+});
+
 // --- Rotas de Eventos ---
 
 // Listar eventos (incluindo finalizados para histórico)
@@ -566,8 +686,8 @@ app.get('/api/evento-ativo', async (req, res) => {
 });
 
 // Inicialização
-app.listen(PORT, async () => {
+server.listen(PORT, async () => {
     // Inicializar Banco e Seed
     await syncDB();
-    console.log(`Backend rodando na porta ${PORT}`);
+    console.log(`Backend config Socket.io rodando na porta ${PORT}`);
 });
