@@ -9,7 +9,6 @@ class ParticipanteController {
             const participantes = await Participante.findAll({
                 where: {
                     [Op.or]: [
-                        { documento: { [Op.like]: `%${q}%` } },
                         { nome: { [Op.like]: `%${q}%` } },
                         { cpf: { [Op.like]: `%${q}%` } },
                         { crm: { [Op.like]: `%${q}%` } }
@@ -52,7 +51,7 @@ class ParticipanteController {
             const uniqueDoc = `ACP-${responsavel_id}-${Date.now()}`;
             const acompanhante = await Participante.create({
                 nome: nome,
-                documento: uniqueDoc,
+                cpf: uniqueDoc, // Usando CPF como identificador único interno para acomp.
                 categoria: 'Outros',
                 ativo: true
             });

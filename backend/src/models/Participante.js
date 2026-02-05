@@ -3,7 +3,6 @@ const sequelize = require('../config/database');
 
 const Participante = sequelize.define('Participante', {
     nome: { type: DataTypes.STRING, allowNull: false },
-    documento: { type: DataTypes.STRING },
     cpf: { type: DataTypes.STRING },
     crm: { type: DataTypes.STRING },
     template_biometrico: { type: DataTypes.TEXT },

@@ -38,7 +38,7 @@ async function syncDB() {
 
             return {
                 nome,
-                documento: isMedico ? crm : cpf,
+                // documento removido
                 cpf,
                 crm,
                 template_biometrico: `bio_${i}`,

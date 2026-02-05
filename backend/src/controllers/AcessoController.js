@@ -27,7 +27,10 @@ class AcessoController {
             if (participante) {
                 return res.json({
                     autorizado: true,
-                    participante: { nome: participante.nome, documento: participante.documento },
+                    participante: {
+                        nome: participante.nome,
+                        documento: participante.categoria === 'Medico' ? participante.crm : participante.cpf
+                    },
                     mensagem: "Acesso Permitido",
                     access_id: acesso.id
                 });
@@ -84,7 +87,6 @@ class AcessoController {
                 participante = await Participante.findOne({
                     where: {
                         [Op.or]: [
-                            { documento: query }, // Busca exata primeiro
                             { cpf: query },
                             { crm: query },
                             { nome: { [Op.like]: `%${query}%` } } // Busca aproximada por nome
@@ -111,15 +113,15 @@ class AcessoController {
 
     async cadastrarEntrada(req, res) {
         try {
-            const { nome, documento, genero, data_nascimento } = req.body;
+            const { nome, cpf, crm, genero, data_nascimento } = req.body;
             const evento = await Evento.findOne({ where: { status: 'ativo' } });
             if (!evento) return res.json({ success: false, msg: "Sem evento ativo" });
 
-            let participante = await Participante.findOne({ where: { documento } });
-            if (participante) return res.json({ success: false, msg: "Documento já cadastrado." });
+            let participante = await Participante.findOne({ where: { cpf } });
+            if (participante) return res.json({ success: false, msg: "CPF já cadastrado." });
 
             participante = await Participante.create({
-                nome, documento, genero: genero || 'Outro', data_nascimento,
+                nome, cpf, crm, genero: genero || 'Outro', data_nascimento,
                 ativo: true, template_biometrico: 'manual_' + Date.now()
             });
 
