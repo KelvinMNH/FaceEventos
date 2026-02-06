@@ -177,7 +177,7 @@ class AcessoController {
                 limit: 1000,
                 include: [
                     { model: Participante, attributes: ['id', 'nome', 'cpf', 'crm', 'genero', 'data_nascimento'] },
-                    { model: Acompanhante, attributes: ['id', 'nome'] },
+                    { model: Acompanhante, attributes: ['id', 'nome', 'ParticipanteId'] },
 
                     { model: Evento, attributes: ['nome'] }
                 ]

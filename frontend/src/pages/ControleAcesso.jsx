@@ -725,7 +725,8 @@ function ControleAcesso() {
                 <tr>
                   <th style={{ width: '15%' }}>Horário</th>
                   <th>Participante</th>
-                  <th style={{ width: '18%' }}>CRM</th>
+                  <th style={{ width: '15%' }}>Tipo</th>
+                  <th style={{ width: '15%' }}>CRM</th>
                   <th style={{ width: '12%' }}>Status</th>
                 </tr>
               </thead>
@@ -745,18 +746,35 @@ function ControleAcesso() {
                   const sortedAsc = [...successLogs].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
 
                   sortedAsc.forEach(log => {
-                    if (log.ParticipanteId && !uniqueMap.has(log.ParticipanteId)) {
-                      uniqueMap.set(log.ParticipanteId, log);
+                    const key = log.ParticipanteId ? `P-${log.ParticipanteId}` : (log.AcompanhanteId ? `A-${log.AcompanhanteId}` : null);
+                    if (key && !uniqueMap.has(key)) {
+                      uniqueMap.set(key, log);
                     }
                   });
 
                   // 3. Converter de volta para lista e aplicar filtro de busca
                   const uniqueLogs = Array.from(uniqueMap.values());
 
-                  // 4. Ordenar para exibição (Mais recentes no topo? Ou alfabético? 
-                  // Vou manter mais recentes no topo para ver quem chegou por último, 
-                  // mas mostrando a hora que chegou).
+                  // 4. Ordenar para exibição
                   uniqueLogs.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+                  // 5. Calcular índices dos acompanhantes
+                  const responsibleCounters = new Map(); // Map<ParticipanteId, count>
+                  const companionIndexMap = new Map();   // Map<AcompanhanteId, index>
+
+                  // Ordenar por data CRESCENTE para numerar na ordem de chegada
+                  const sortedForIndexing = [...uniqueLogs].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+
+                  sortedForIndexing.forEach(log => {
+                    const isAcompanhante = !!log.AcompanhanteId;
+                    if (isAcompanhante && log.Acompanhante && log.Acompanhante.ParticipanteId) {
+                      const respId = log.Acompanhante.ParticipanteId;
+                      const currentCount = (responsibleCounters.get(respId) || 0) + 1;
+                      responsibleCounters.set(respId, currentCount);
+                      companionIndexMap.set(log.AcompanhanteId, currentCount);
+                    }
+                  });
+
 
                   const displayedLogs = uniqueLogs.filter(log => {
                     if (!searchTerm) return true;
@@ -768,30 +786,68 @@ function ControleAcesso() {
                     return nome.toLowerCase().includes(term) || cpf.toLowerCase().includes(term) || crm.toLowerCase().includes(term);
                   });
 
+                  // Display sorted descending (newest first)
+                  displayedLogs.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
                   if (displayedLogs.length === 0) {
                     return (
                       <tr>
-                        <td colSpan="4" style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>
+                        <td colSpan="5" style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>
                           {logs.length === 0 ? "Aguardando registros..." : "Nenhum participante encontrado com este filtro."}
                         </td>
                       </tr>
                     );
                   }
 
-                  return displayedLogs.map(log => (
-                    <tr key={log.id}>
-                      <td>{new Date(log.createdAt).toLocaleTimeString()}</td>
-                      <td>{formatName(log.Participante ? log.Participante.nome : (log.Acompanhante ? log.Acompanhante.nome : 'Desconhecido'))}</td>
-                      <td style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                        {log.Participante?.crm || (log.Acompanhante ? 'Acompanhante' : '-')}
-                      </td>
-                      <td>
-                        <span className={`badge badge-success`}>
-                          SUCESSO
-                        </span>
-                      </td>
-                    </tr>
-                  ));
+                  return displayedLogs.map(log => {
+                    const isAcompanhante = !!log.AcompanhanteId;
+                    const pessoa = log.Participante || log.Acompanhante || { nome: 'Desconhecido' };
+                    let badgeText = '';
+                    let badgeColor = '';
+                    let badgeBg = '';
+
+                    if (isAcompanhante) {
+                      const index = companionIndexMap.get(log.AcompanhanteId) || '?';
+                      badgeText = `Acompanhante ${index}`;
+                      badgeBg = '#e9ecef';
+                      badgeColor = '#495057';
+                    } else {
+                      badgeText = 'Participante';
+                      badgeBg = '#e7f5ff';
+                      badgeColor = '#1c7ed6';
+                    }
+
+                    return (
+                      <tr key={log.id}>
+                        <td>{new Date(log.createdAt).toLocaleTimeString()}</td>
+                        <td>
+                          {formatName(pessoa.nome)}
+                        </td>
+                        <td>
+                          <span style={{
+                            fontSize: '0.7rem',
+                            backgroundColor: badgeBg,
+                            color: badgeColor,
+                            padding: '2px 6px',
+                            borderRadius: '4px',
+                            border: `1px solid ${badgeBg}`,
+                            fontWeight: '600',
+                            whiteSpace: 'nowrap'
+                          }}>
+                            {badgeText}
+                          </span>
+                        </td>
+                        <td style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                          {log.Participante?.crm || (isAcompanhante ? '-' : '-')}
+                        </td>
+                        <td>
+                          <span className={`badge badge-success`}>
+                            SUCESSO
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  });
                 })()}
               </tbody>
             </table>
