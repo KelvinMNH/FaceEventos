@@ -53,7 +53,13 @@ class ParticipanteController {
             const uniqueDoc = `ACP-${responsavel_id}-${Date.now()}`;
             const acompanhante = await Acompanhante.create({
                 nome: nome,
+<<<<<<< HEAD
                 ParticipanteId: responsavel_id
+=======
+                cpf: uniqueDoc, // Usando CPF como identificador único interno para acomp.
+                categoria: 'Outros',
+                ativo: true
+>>>>>>> 5da5d04e02c4f43de131d0f5b7d9743b458be59b
             });
 
             await RegistroAcesso.create({

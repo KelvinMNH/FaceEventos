@@ -51,6 +51,10 @@ async function syncDB() {
 
             return {
                 nome,
+<<<<<<< HEAD
+=======
+                // documento removido
+>>>>>>> 5da5d04e02c4f43de131d0f5b7d9743b458be59b
                 cpf,
                 crm,
                 template_biometrico: `bio_${i}`,
