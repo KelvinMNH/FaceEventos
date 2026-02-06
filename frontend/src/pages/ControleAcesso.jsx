@@ -91,8 +91,8 @@ function ControleAcesso() {
         const presentesMap = new Map();
         filteredLogs.forEach(log => {
           if (log.status_validacao === 'sucesso' && log.Participante) {
-            // Não incluir acompanhantes nas estatísticas (eles não têm dados demográficos completos)
-            if (log.Participante.documento !== 'Acompanhante') {
+            // Não incluir acompanhantes nas estatísticas demográficas (eles estão em log.Acompanhante)
+            if (log.Participante) {
               if (!presentesMap.has(log.Participante.id)) {
                 presentesMap.set(log.Participante.id, log.Participante);
               }
@@ -243,7 +243,7 @@ function ControleAcesso() {
   const handleManualEntryClick = () => {
     setManualDoc('');
     setManualMode('search');
-    setNewParticipant({ nome: '', documento: '', genero: 'Outro' });
+    setNewParticipant({ nome: '', cpf: '', crm: '', data_nascimento: '', genero: 'Outro' });
     setManualModalOpen(true);
   };
 
@@ -274,7 +274,7 @@ function ControleAcesso() {
       if (data.success) {
         setManualModalOpen(false);
         setManualMode('search');
-        setNewParticipant({ nome: '', documento: '', cpf: '', crm: '', data_nascimento: '', genero: 'Outro' });
+        setNewParticipant({ nome: '', cpf: '', crm: '', data_nascimento: '', genero: 'Outro' });
         showMessage("Sucesso", "Participante cadastrado com sucesso!", "success");
         const fakeLog = {
           status_validacao: 'sucesso',
@@ -338,7 +338,7 @@ function ControleAcesso() {
         showMessage("Sucesso", "Acompanhante registrado com sucesso!", "success");
         showModal({
           status_validacao: 'sucesso',
-          Participante: { nome: companionName, documento: 'Acompanhante' },
+          Acompanhante: { nome: companionName },
           Responsavel: selectedResponsible
         });
       } else {
@@ -435,7 +435,7 @@ function ControleAcesso() {
 
     const isSuccess = modalData.status_validacao === 'sucesso';
     const statusClass = isSuccess ? 'success' : 'error';
-    const participante = modalData.Participante || {};
+    const participante = modalData.Participante || modalData.Acompanhante || {};
 
     return (
       <div className={`access-panel ${statusClass}`} style={{ position: 'relative', overflow: 'hidden', padding: '1.5rem 1rem', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
@@ -462,7 +462,7 @@ function ControleAcesso() {
             <div className="info-grid" style={{ gap: '0.6rem', width: '100%' }}>
               <div className="info-item" style={{ padding: '0.5rem', textAlign: 'left' }}>
                 <span className="info-label" style={{ fontSize: '0.7rem' }}>CPF</span>
-                <span className="info-value" style={{ fontSize: '0.95rem' }}>{participante.cpf || participante.documento || '-'}</span>
+                <span className="info-value" style={{ fontSize: '0.95rem' }}>{participante.cpf || '-'}</span>
               </div>
               <div className="info-item" style={{ padding: '0.5rem', textAlign: 'left' }}>
                 <span className="info-label" style={{ fontSize: '0.7rem' }}>CRM</span>
@@ -592,7 +592,7 @@ function ControleAcesso() {
               {/* Barra de Participantes vs Acompanhantes */}
               {logs.length > 0 && (() => {
                 const totalSuccess = logs.filter(l => l.status_validacao === 'sucesso').length;
-                const companions = logs.filter(l => l.status_validacao === 'sucesso' && l.Participante?.documento === 'Acompanhante').length;
+                const companions = logs.filter(l => l.status_validacao === 'sucesso' && l.AcompanhanteId).length;
                 const participants = totalSuccess - companions;
                 const percentParticipants = totalSuccess > 0 ? Math.round((participants / totalSuccess) * 100) : 0;
                 const percentCompanions = totalSuccess > 0 ? Math.round((companions / totalSuccess) * 100) : 0;
@@ -618,7 +618,7 @@ function ControleAcesso() {
             </div>
             <div className="card">
               <h2>Acompanhantes Presentes</h2>
-              <div className="stat-value">{logs.filter(l => l.status_validacao === 'sucesso' && l.Participante?.documento === 'Acompanhante').length}</div>
+              <div className="stat-value">{logs.filter(l => l.status_validacao === 'sucesso' && l.AcompanhanteId).length}</div>
             </div>
             <div className="card">
               <h2>Faixa Etária Principal</h2>
@@ -761,10 +761,11 @@ function ControleAcesso() {
                   const displayedLogs = uniqueLogs.filter(log => {
                     if (!searchTerm) return true;
                     const term = searchTerm.toLowerCase();
-                    const participante = log.Participante || {};
+                    const participante = log.Participante || log.Acompanhante || {};
                     const nome = participante.nome || 'Desconhecido';
-                    const documento = participante.documento || '';
-                    return nome.toLowerCase().includes(term) || documento.toLowerCase().includes(term);
+                    const cpf = participante.cpf || (log.Acompanhante ? 'Acompanhante' : '');
+                    const crm = participante.crm || '';
+                    return nome.toLowerCase().includes(term) || cpf.toLowerCase().includes(term) || crm.toLowerCase().includes(term);
                   });
 
                   if (displayedLogs.length === 0) {
@@ -780,9 +781,9 @@ function ControleAcesso() {
                   return displayedLogs.map(log => (
                     <tr key={log.id}>
                       <td>{new Date(log.createdAt).toLocaleTimeString()}</td>
-                      <td>{formatName(log.Participante ? log.Participante.nome : 'Desconhecido')}</td>
+                      <td>{formatName(log.Participante ? log.Participante.nome : (log.Acompanhante ? log.Acompanhante.nome : 'Desconhecido'))}</td>
                       <td style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                        {log.Participante?.crm || '-'}
+                        {log.Participante?.crm || (log.Acompanhante ? 'Acompanhante' : '-')}
                       </td>
                       <td>
                         <span className={`badge badge-success`}>
@@ -847,7 +848,7 @@ function ControleAcesso() {
                     >
                       <div>
                         <div style={{ fontWeight: 600 }}>{p.nome}</div>
-                        <div style={{ color: '#666', fontSize: '0.85rem' }}>{p.documento || p.cpf} {p.crm ? `| CRM: ${p.crm}` : ''}</div>
+                        <div style={{ color: '#666', fontSize: '0.85rem' }}>{p.cpf ? `CPF: ${p.cpf}` : ''} {p.crm ? `| CRM: ${p.crm}` : ''}</div>
                       </div>
                       <span style={{ fontSize: '1.2rem' }}>➡️</span>
                     </div>
@@ -882,7 +883,7 @@ function ControleAcesso() {
                   className="modal-input"
                   placeholder="CPF *"
                   value={newParticipant.cpf}
-                  onChange={e => setNewParticipant({ ...newParticipant, cpf: e.target.value, documento: e.target.value })}
+                  onChange={e => setNewParticipant({ ...newParticipant, cpf: e.target.value })}
                 />
                 <input
                   type="text"
@@ -909,7 +910,7 @@ function ControleAcesso() {
                 </select>
               </div>
               <div className="modal-actions">
-                <button className="btn-secondary" onClick={() => { setManualMode('search'); setNewParticipant({ nome: '', documento: '', cpf: '', crm: '', data_nascimento: '', genero: 'Outro' }); }}>Voltar</button>
+                <button className="btn-secondary" onClick={() => { setManualMode('search'); setNewParticipant({ nome: '', cpf: '', crm: '', data_nascimento: '', genero: 'Outro' }); }}>Voltar</button>
                 <button className="btn-primary" onClick={submitCreateEntry}>Cadastrar e Registrar Entrada</button>
               </div>
             </>
@@ -979,7 +980,7 @@ function ControleAcesso() {
                       onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
                     >
                       <span style={{ fontWeight: 600 }}>{r.nome}</span>
-                      <span style={{ color: '#666', fontSize: '0.9rem' }}>{r.documento}</span>
+                      <span style={{ color: '#666', fontSize: '0.9rem' }}>{r.cpf || r.crm}</span>
                     </div>
                   ))}
                 </div>

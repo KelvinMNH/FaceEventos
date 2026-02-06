@@ -1,4 +1,4 @@
-const { Participante, Evento, RegistroAcesso } = require('../models');
+const { Participante, Evento, Acompanhante, RegistroAcesso } = require('../models');
 const { Op } = require('sequelize');
 
 class ParticipanteController {
@@ -9,7 +9,6 @@ class ParticipanteController {
             const participantes = await Participante.findAll({
                 where: {
                     [Op.or]: [
-                        { documento: { [Op.like]: `%${q}%` } },
                         { nome: { [Op.like]: `%${q}%` } },
                         { cpf: { [Op.like]: `%${q}%` } },
                         { crm: { [Op.like]: `%${q}%` } }
@@ -19,7 +18,8 @@ class ParticipanteController {
             });
             res.json(participantes);
         } catch (e) {
-            res.status(500).json({ error: "Erro na busca" });
+            console.error("Erro na busca de participantes:", e);
+            res.status(500).json({ error: "Erro na busca", details: e.message });
         }
     }
 
@@ -28,7 +28,8 @@ class ParticipanteController {
             const participantes = await Participante.findAll({ order: [['nome', 'ASC']] });
             res.json(participantes);
         } catch (e) {
-            res.status(500).json({ error: "Erro ao listar participantes" });
+            console.error("Erro ao listar participantes:", e);
+            res.status(500).json({ error: "Erro ao listar participantes", details: e.message });
         }
     }
 
@@ -50,11 +51,9 @@ class ParticipanteController {
             }
 
             const uniqueDoc = `ACP-${responsavel_id}-${Date.now()}`;
-            const acompanhante = await Participante.create({
+            const acompanhante = await Acompanhante.create({
                 nome: nome,
-                documento: uniqueDoc,
-                categoria: 'Outros',
-                ativo: true
+                ParticipanteId: responsavel_id
             });
 
             await RegistroAcesso.create({
@@ -62,7 +61,7 @@ class ParticipanteController {
                 status_validacao: 'sucesso',
                 device_id: 'manual_companion',
                 EventoId: evento.id,
-                ParticipanteId: acompanhante.id,
+                AcompanhanteId: acompanhante.id,
                 responsavel_id: responsavel_id
             });
 

@@ -1,6 +1,7 @@
 const sequelize = require('../config/database');
 const Evento = require('./Evento');
 const Participante = require('./Participante');
+const Acompanhante = require('./Acompanhante');
 const RegistroAcesso = require('./RegistroAcesso');
 
 // Relacionamentos
@@ -11,9 +12,21 @@ Participante.hasMany(RegistroAcesso);
 RegistroAcesso.belongsTo(Participante);
 RegistroAcesso.belongsTo(Participante, { as: 'Responsavel', foreignKey: 'responsavel_id' });
 
+Participante.hasMany(Acompanhante);
+Acompanhante.belongsTo(Participante);
+
+Acompanhante.hasMany(RegistroAcesso, { onDelete: 'CASCADE' });
+RegistroAcesso.belongsTo(Acompanhante);
+
 async function syncDB() {
-    await sequelize.sync({ alter: true });
-    console.log("✅ Banco de dados sincronizado.");
+    try {
+        await sequelize.sync({ alter: true });
+        console.log("✅ Banco de dados sincronizado (com alter).");
+    } catch (error) {
+        console.warn("⚠️ Falha ao sincronizar com alter: true. Tentando sincronização padrão...", error.message);
+        await sequelize.sync();
+        console.log("✅ Banco de dados sincronizado (sem alter).");
+    }
 
     const count = await Participante.count();
     if (count === 0) {
@@ -38,13 +51,11 @@ async function syncDB() {
 
             return {
                 nome,
-                documento: isMedico ? crm : cpf,
                 cpf,
                 crm,
                 template_biometrico: `bio_${i}`,
                 genero,
                 data_nascimento: `${year}-${month}-${day}`,
-                categoria: isMedico ? 'Medico' : 'Outros',
                 ativo: true
             };
         });
@@ -69,6 +80,7 @@ module.exports = {
     sequelize,
     Evento,
     Participante,
+    Acompanhante,
     RegistroAcesso,
     syncDB
 };

@@ -6,6 +6,13 @@ const RegistroAcesso = sequelize.define('RegistroAcesso', {
     status_validacao: { type: DataTypes.ENUM('sucesso', 'falha', 'nao_encontrado'), allowNull: false },
     device_id: { type: DataTypes.STRING },
     responsavel_id: { type: DataTypes.INTEGER, allowNull: true }
+}, {
+    indexes: [
+        { fields: ['EventoId'] },
+        { fields: ['ParticipanteId'] },
+        { fields: ['AcompanhanteId'] },
+        { fields: ['createdAt'] }
+    ]
 });
 
 module.exports = RegistroAcesso;

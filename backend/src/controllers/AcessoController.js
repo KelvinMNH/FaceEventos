@@ -1,4 +1,4 @@
-const { Evento, Participante, RegistroAcesso } = require('../models');
+const { Evento, Participante, Acompanhante, RegistroAcesso } = require('../models');
 const { Op } = require('sequelize');
 
 class AcessoController {
@@ -27,7 +27,7 @@ class AcessoController {
             if (participante) {
                 return res.json({
                     autorizado: true,
-                    participante: { nome: participante.nome, documento: participante.documento },
+                    participante: { nome: participante.nome, cpf: participante.cpf, crm: participante.crm },
                     mensagem: "Acesso Permitido",
                     access_id: acesso.id
                 });
@@ -66,7 +66,8 @@ class AcessoController {
 
             res.json({ success: true, status });
         } catch (e) {
-            res.status(500).json({ error: "Erro na simulação" });
+            console.error("Erro na simulação:", e);
+            res.status(500).json({ error: "Erro na simulação", details: e.message });
         }
     }
 
@@ -84,10 +85,9 @@ class AcessoController {
                 participante = await Participante.findOne({
                     where: {
                         [Op.or]: [
-                            { documento: query }, // Busca exata primeiro
                             { cpf: query },
                             { crm: query },
-                            { nome: { [Op.like]: `%${query}%` } } // Busca aproximada por nome
+                            { nome: { [Op.like]: `%${query}%` } }
                         ]
                     }
                 });
@@ -105,21 +105,22 @@ class AcessoController {
 
             res.json({ success: true, status: 'sucesso', participante });
         } catch (e) {
-            res.status(500).json({ error: "Erro na entrada manual" });
+            console.error("Erro na entrada manual:", e);
+            res.status(500).json({ error: "Erro na entrada manual", details: e.message });
         }
     }
 
     async cadastrarEntrada(req, res) {
         try {
-            const { nome, documento, genero, data_nascimento } = req.body;
+            const { nome, cpf, crm, genero, data_nascimento } = req.body;
             const evento = await Evento.findOne({ where: { status: 'ativo' } });
             if (!evento) return res.json({ success: false, msg: "Sem evento ativo" });
 
-            let participante = await Participante.findOne({ where: { documento } });
-            if (participante) return res.json({ success: false, msg: "Documento já cadastrado." });
+            let participante = await Participante.findOne({ where: { cpf } });
+            if (participante) return res.json({ success: false, msg: "CPF já cadastrado." });
 
             participante = await Participante.create({
-                nome, documento, genero: genero || 'Outro', data_nascimento,
+                nome, cpf, crm, genero: genero || 'Outro', data_nascimento,
                 ativo: true, template_biometrico: 'manual_' + Date.now()
             });
 
@@ -133,7 +134,8 @@ class AcessoController {
 
             res.json({ success: true, status: 'sucesso', participante });
         } catch (e) {
-            res.status(500).json({ error: "Erro ao cadastrar entrada" });
+            console.error("Erro ao cadastrar entrada:", e);
+            res.status(500).json({ error: "Erro ao cadastrar entrada", details: e.message });
         }
     }
 
@@ -163,7 +165,8 @@ class AcessoController {
 
             res.json({ success: true, participante });
         } catch (e) {
-            res.status(500).json({ error: "Erro ao registrar saída" });
+            console.error("Erro ao registrar saída:", e);
+            res.status(500).json({ error: "Erro ao registrar saída", details: e.message });
         }
     }
 
@@ -173,7 +176,8 @@ class AcessoController {
                 order: [['createdAt', 'DESC']],
                 limit: 1000,
                 include: [
-                    { model: Participante, attributes: ['id', 'nome', 'documento', 'cpf', 'crm', 'genero', 'data_nascimento', 'categoria'] },
+                    { model: Participante, attributes: ['id', 'nome', 'cpf', 'crm', 'genero', 'data_nascimento'] },
+                    { model: Acompanhante, attributes: ['id', 'nome'] },
                     { model: Participante, as: 'Responsavel', attributes: ['nome'] },
                     { model: Evento, attributes: ['nome'] }
                 ]
