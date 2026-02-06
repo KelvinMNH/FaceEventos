@@ -42,8 +42,8 @@ class ParticipanteController {
             if (!evento.permitir_acompanhantes) return res.status(400).json({ success: false, msg: "Evento não permite acompanhantes" });
 
             if (evento.max_acompanhantes > 0) {
-                const currentCompanions = await RegistroAcesso.count({
-                    where: { EventoId: evento.id, responsavel_id: responsavel_id }
+                const currentCompanions = await Acompanhante.count({
+                    where: { ParticipanteId: responsavel_id }
                 });
                 if (currentCompanions >= evento.max_acompanhantes) {
                     return res.status(400).json({ success: false, msg: `Limite de ${evento.max_acompanhantes} acompanhantes atingido.` });
@@ -53,13 +53,10 @@ class ParticipanteController {
             const uniqueDoc = `ACP-${responsavel_id}-${Date.now()}`;
             const acompanhante = await Acompanhante.create({
                 nome: nome,
-<<<<<<< HEAD
-                ParticipanteId: responsavel_id
-=======
+                ParticipanteId: responsavel_id,
                 cpf: uniqueDoc, // Usando CPF como identificador único interno para acomp.
                 categoria: 'Outros',
                 ativo: true
->>>>>>> 5da5d04e02c4f43de131d0f5b7d9743b458be59b
             });
 
             await RegistroAcesso.create({
@@ -67,8 +64,7 @@ class ParticipanteController {
                 status_validacao: 'sucesso',
                 device_id: 'manual_companion',
                 EventoId: evento.id,
-                AcompanhanteId: acompanhante.id,
-                responsavel_id: responsavel_id
+                AcompanhanteId: acompanhante.id
             });
 
             res.json({ success: true, msg: "Acompanhante registrado com sucesso!" });

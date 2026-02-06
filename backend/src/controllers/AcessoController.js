@@ -27,14 +27,7 @@ class AcessoController {
             if (participante) {
                 return res.json({
                     autorizado: true,
-<<<<<<< HEAD
                     participante: { nome: participante.nome, cpf: participante.cpf, crm: participante.crm },
-=======
-                    participante: {
-                        nome: participante.nome,
-                        documento: participante.categoria === 'Medico' ? participante.crm : participante.cpf
-                    },
->>>>>>> 5da5d04e02c4f43de131d0f5b7d9743b458be59b
                     mensagem: "Acesso Permitido",
                     access_id: acesso.id
                 });
@@ -185,7 +178,7 @@ class AcessoController {
                 include: [
                     { model: Participante, attributes: ['id', 'nome', 'cpf', 'crm', 'genero', 'data_nascimento'] },
                     { model: Acompanhante, attributes: ['id', 'nome'] },
-                    { model: Participante, as: 'Responsavel', attributes: ['nome'] },
+
                     { model: Evento, attributes: ['nome'] }
                 ]
             });
