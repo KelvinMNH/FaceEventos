@@ -1,17 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
+import { useAuth } from '../contexts/AuthContext';
 
 function RelatorioEvento() {
     const { id } = useParams();
     const navigate = useNavigate();
+    const { token } = useAuth();
     const [logs, setLogs] = useState([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         const fetchLogs = async () => {
+            if (!token) return;
             try {
-                const res = await fetch('http://localhost:3000/api/logs');
+                const res = await fetch('http://localhost:3000/api/logs', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
                 const data = await res.json();
                 // Filtrar apenas sucessos e com participante válido
                 const successLogs = data.filter(log =>
@@ -27,7 +32,7 @@ function RelatorioEvento() {
             }
         };
         fetchLogs();
-    }, [id]);
+    }, [id, token]);
 
     // Função para mascarar CPF (mostra apenas alguns dígitos)
     const maskCPF = (cpf) => {

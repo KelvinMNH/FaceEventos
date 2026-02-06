@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 
 const API_URL = 'http://localhost:3000/api';
 
 function TotemAcesso() {
     const navigate = useNavigate();
+    const { token } = useAuth();
     const [evento, setEvento] = useState(null);
     const [status, setStatus] = useState('aguardando'); // aguardando, processando, sucesso, erro
     const [participante, setParticipante] = useState(null);
@@ -22,8 +24,11 @@ function TotemAcesso() {
     // Buscar evento ativo
     useEffect(() => {
         const fetchEvento = async () => {
+            if (!token) return;
             try {
-                const res = await fetch(`${API_URL}/evento-ativo`);
+                const res = await fetch(`${API_URL}/evento-ativo`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
                 const data = await res.json();
                 if (data) {
                     setEvento(data);
@@ -38,7 +43,7 @@ function TotemAcesso() {
             }
         };
         fetchEvento();
-    }, []);
+    }, [token]);
 
     // Simular leitura de biometria
     const handleBiometriaLeitura = async (simularSucesso = true) => {
@@ -50,7 +55,9 @@ function TotemAcesso() {
             try {
                 if (simularSucesso) {
                     console.log('✅ Tentando simular SUCESSO...');
-                    const res = await fetch(`${API_URL}/participantes`);
+                    const res = await fetch(`${API_URL}/participantes`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
                     console.log('📡 Resposta da API:', res.status);
 
                     const participantes = await res.json();
@@ -71,7 +78,10 @@ function TotemAcesso() {
                             try {
                                 const resAcesso = await fetch(`${API_URL}/registrar-acesso-id`, {
                                     method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                        'Authorization': `Bearer ${token}`
+                                    },
                                     body: JSON.stringify({ participanteId: participanteAleatorio.id })
                                 });
                                 console.log('📝 Acesso registrado:', resAcesso.status);

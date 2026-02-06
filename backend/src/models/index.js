@@ -3,6 +3,7 @@ const Evento = require('./Evento');
 const Participante = require('./Participante');
 const Acompanhante = require('./Acompanhante');
 const RegistroAcesso = require('./RegistroAcesso');
+const Usuario = require('./Usuario');
 
 // Relacionamentos
 Evento.hasMany(RegistroAcesso);
@@ -74,6 +75,27 @@ async function syncDB() {
         }
         console.log("✨ Dados seed criados.");
     }
+
+    // Seed de Usuários
+    const usuarioCount = await Usuario.count();
+    if (usuarioCount === 0) {
+        console.log("👤 Criando usuários iniciais...");
+        await Usuario.bulkCreate([
+            {
+                nome: 'Administrador',
+                username: 'admin',
+                password: 'admin123', // Será hashado pelo hook
+                perfil: 'admin'
+            },
+            {
+                nome: 'Operador Padrão',
+                username: 'operador',
+                password: 'operador123', // Será hashado pelo hook
+                perfil: 'operador'
+            }
+        ], { individualHooks: true }); // Necessário para disparar o beforeCreate/beforeUpdate e criar o hash
+        console.log("✅ Usuários Admin e Operador criados.");
+    }
 }
 
 module.exports = {
@@ -82,5 +104,6 @@ module.exports = {
     Participante,
     Acompanhante,
     RegistroAcesso,
+    Usuario,
     syncDB
 };

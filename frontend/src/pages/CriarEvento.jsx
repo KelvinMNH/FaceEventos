@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
+import { useAuth } from '../contexts/AuthContext';
 
 function CriarEvento() {
     const navigate = useNavigate();
+    const { token } = useAuth();
     const [formData, setFormData] = useState({
         nome: '',
         data: '',
@@ -20,7 +22,10 @@ function CriarEvento() {
         try {
             const res = await fetch('http://localhost:3000/api/eventos', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
                 body: JSON.stringify(formData)
             });
 

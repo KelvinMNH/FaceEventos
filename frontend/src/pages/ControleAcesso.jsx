@@ -2,11 +2,13 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import MessageModal from '../components/MessageModal';
+import { useAuth } from '../contexts/AuthContext';
 
 const API_URL = 'http://localhost:3000/api';
 
 function ControleAcesso() {
   const navigate = useNavigate();
+  const { token } = useAuth();
   const [logs, setLogs] = useState([]);
   const [evento, setEvento] = useState(null);
   const [lastLogId, setLastLogId] = useState(0);
@@ -37,6 +39,7 @@ function ControleAcesso() {
 
   // Modal Finish State
   const [finishModalOpen, setFinishModalOpen] = useState(false);
+  const [finishConfirmText, setFinishConfirmText] = useState('');
   const [messageModal, setMessageModal] = useState({ open: false, title: '', message: '', type: 'info', onOk: null });
 
   const showMessage = (title, message, type = 'info', onOk = null) => {
@@ -46,8 +49,11 @@ function ControleAcesso() {
   useEffect(() => {
     // Buscar evento ativo
     const fetchEvento = async () => {
+      if (!token) return;
       try {
-        const res = await fetch(`${API_URL}/evento-ativo`);
+        const res = await fetch(`${API_URL}/evento-ativo`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
         const data = await res.json();
         if (data) setEvento(data);
         else {
@@ -59,10 +65,12 @@ function ControleAcesso() {
 
     const fetchLogs = async () => {
       // Só buscar logs se houver evento ativo
-      if (!evento) return;
+      if (!evento || !token) return;
 
       try {
-        const res = await fetch(`${API_URL}/logs`);
+        const res = await fetch(`${API_URL}/logs`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
         const data = await res.json();
 
         // Filtrar apenas logs do evento ativo atual
@@ -164,7 +172,7 @@ function ControleAcesso() {
     fetchLogs(); // Primeira chamada
 
     return () => clearInterval(interval);
-  }, [lastLogId, navigate, evento]);
+  }, [lastLogId, navigate, evento, token]);
 
   // Simulação Loop
   useEffect(() => {
@@ -172,7 +180,10 @@ function ControleAcesso() {
     if (simulating) {
       simInterval = setInterval(async () => {
         try {
-          await fetch(`${API_URL}/simulate`, { method: 'POST' });
+          await fetch(`${API_URL}/simulate`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
         } catch (e) { console.error("Erro simulação", e); }
       }, 7000); // A cada 7 segundos gera um log
     }
@@ -196,7 +207,9 @@ function ControleAcesso() {
       return;
     }
     try {
-      const res = await fetch(`${API_URL}/participantes/busca?q=${term}`);
+      const res = await fetch(`${API_URL}/participantes/busca?q=${term}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
       const data = await res.json();
       setManualSearchResults(data || []);
     } catch (e) {
@@ -209,7 +222,10 @@ function ControleAcesso() {
     try {
       const res = await fetch(`${API_URL}/manual-entry`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({ participanteId: p.id })
       });
       const data = await res.json();
@@ -266,7 +282,10 @@ function ControleAcesso() {
     try {
       const res = await fetch(`${API_URL}/cadastrar-entrada`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify(newParticipant)
       });
       const data = await res.json();
@@ -298,7 +317,9 @@ function ControleAcesso() {
       return;
     }
     try {
-      const res = await fetch(`${API_URL}/participantes/busca?q=${term}`);
+      const res = await fetch(`${API_URL}/participantes/busca?q=${term}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
       const data = await res.json();
       setResponsibleResults(data || []);
     } catch (e) {
@@ -328,7 +349,10 @@ function ControleAcesso() {
     try {
       const res = await fetch(`${API_URL}/registrar-acompanhante`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({ nome: companionName, responsavel_id: responsavelId })
       });
       const data = await res.json();
@@ -351,6 +375,7 @@ function ControleAcesso() {
 
   const handleFinishClick = () => {
     if (!evento) return;
+    setFinishConfirmText('');
     setFinishModalOpen(true);
   };
 
@@ -359,7 +384,10 @@ function ControleAcesso() {
     if (!evento) return;
 
     try {
-      const res = await fetch(`${API_URL}/eventos/${evento.id}/finalizar`, { method: 'POST' });
+      const res = await fetch(`${API_URL}/eventos/${evento.id}/finalizar`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
       if (res.ok) {
         // Pequeno delay para visualização
         showMessage("Sucesso", "Evento finalizado com sucesso!", "success", () => navigate('/'));
@@ -978,16 +1006,42 @@ function ControleAcesso() {
       < div className={`modal-overlay ${finishModalOpen ? 'open' : ''}`} onClick={() => setFinishModalOpen(false)}>
         <div className="modal-content" onClick={e => e.stopPropagation()} style={{ textAlign: 'center' }}>
           <div className="modal-header" style={{ color: 'var(--error-color)' }}>Finalizar Evento?</div>
-          <p style={{ marginBottom: '2rem', color: 'var(--text-secondary)' }}>
+          <p style={{ marginBottom: '1rem', color: 'var(--text-secondary)' }}>
             Tem certeza que deseja encerrar <strong>{evento?.nome}</strong>? <br />
             Essa ação não pode ser desfeita.
           </p>
+
+          <div style={{ marginBottom: '1.5rem', textAlign: 'left' }}>
+            <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.5rem', color: '#666' }}>
+              Digite <strong>FINALIZAR EVENTO</strong> para confirmar:
+            </label>
+            <input
+              type="text"
+              value={finishConfirmText}
+              onChange={e => setFinishConfirmText(e.target.value)}
+              placeholder="FINALIZAR EVENTO"
+              style={{
+                width: '100%',
+                padding: '0.6rem',
+                border: '1px solid var(--border-color)',
+                borderRadius: '6px',
+                fontSize: '1rem',
+                boxSizing: 'border-box'
+              }}
+              onPaste={e => e.preventDefault()} // Opcional: impedir colar para forçar digitação
+            />
+          </div>
+
           <div className="modal-actions">
             <button className="btn-secondary" onClick={() => setFinishModalOpen(false)}>Cancelar</button>
             <button
               className="btn-primary"
               onClick={confirmFinishEvent}
-              style={{ backgroundColor: 'var(--error-color)' }}
+              disabled={finishConfirmText !== 'FINALIZAR EVENTO'}
+              style={{
+                backgroundColor: finishConfirmText === 'FINALIZAR EVENTO' ? 'var(--error-color)' : '#ccc',
+                cursor: finishConfirmText === 'FINALIZAR EVENTO' ? 'pointer' : 'not-allowed'
+              }}
             >
               Finalizar Evento
             </button>

@@ -2,10 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import MessageModal from '../components/MessageModal';
+import { useAuth } from '../contexts/AuthContext';
 
 function ListaEventos() {
     const navigate = useNavigate();
     const location = useLocation();
+    const { token, isAdmin } = useAuth();
     const [eventos, setEventos] = useState([]);
     const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -29,17 +31,21 @@ function ListaEventos() {
     const closeMessage = () => setMessageModal({ ...messageModal, open: false });
 
     useEffect(() => {
-        fetchEventos();
-        if (location.state?.openModal) {
+        if (token) {
+            fetchEventos();
+        }
+        if (location.state?.openModal && isAdmin()) {
             setIsModalOpen(true);
-            // clean state to prevent reopening on refresh
             window.history.replaceState({}, document.title);
         }
-    }, [location]);
+    }, [location, token]);
 
     const fetchEventos = async () => {
         try {
-            const res = await fetch('http://localhost:3000/api/eventos');
+            const res = await fetch('http://localhost:3000/api/eventos', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (res.status === 401 || res.status === 403) return;
             const data = await res.json();
             setEventos(Array.isArray(data) ? data : []);
         } catch (err) {
@@ -51,7 +57,10 @@ function ListaEventos() {
 
     const handleSelectEvent = async (id) => {
         try {
-            const res = await fetch(`http://localhost:3000/api/eventos/${id}/ativar`, { method: 'POST' });
+            const res = await fetch(`http://localhost:3000/api/eventos/${id}/ativar`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
             if (res.ok) {
                 navigate('/access');
             }
@@ -78,7 +87,10 @@ function ListaEventos() {
         try {
             const res = await fetch('http://localhost:3000/api/eventos', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
                 body: JSON.stringify(formData)
             });
 
@@ -87,7 +99,7 @@ function ListaEventos() {
                 setIsModalOpen(false);
                 setFormData({ nome: '', data: '', hora: '', local: '', imagem: '', permitir_acompanhantes: false, max_acompanhantes: 0, habilitar_checkout: false });
                 fetchEventos();
-                navigate('/access'); // Opcional: já ir para o painel ou ficar na lista? Mantendo comportamento original de ir pro painel.
+                navigate('/access');
             } else {
                 showMessage("Erro", "Erro ao criar evento", "error");
             }
@@ -105,23 +117,25 @@ function ListaEventos() {
             <div className="page-container">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
                     <h1 style={{ fontSize: '2rem', color: 'var(--text-primary)' }}>Eventos Disponíveis</h1>
-                    <button
-                        onClick={() => setIsModalOpen(true)}
-                        style={{
-                            padding: '0.8rem 2rem', // Padding aumentado
-                            backgroundColor: 'var(--accent-color)',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '6px',
-                            fontSize: '1rem',
-                            fontWeight: 'bold',
-                            cursor: 'pointer',
-                            boxShadow: '0 4px 6px rgba(46, 164, 79, 0.2)',
-                            transition: 'transform 0.1s'
-                        }}
-                    >
-                        + Novo Evento
-                    </button>
+                    {isAdmin() && (
+                        <button
+                            onClick={() => setIsModalOpen(true)}
+                            style={{
+                                padding: '0.8rem 2rem',
+                                backgroundColor: 'var(--accent-color)',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '6px',
+                                fontSize: '1rem',
+                                fontWeight: 'bold',
+                                cursor: 'pointer',
+                                boxShadow: '0 4px 6px rgba(46, 164, 79, 0.2)',
+                                transition: 'transform 0.1s'
+                            }}
+                        >
+                            + Novo Evento
+                        </button>
+                    )}
                 </div>
 
                 {loading ? (
@@ -175,7 +189,7 @@ function ListaEventos() {
                             )}
                         </div>
 
-                        {eventos.filter(e => e.status === 'finalizado').length > 0 && (
+                        {eventos.filter(e => e.status === 'finalizado').length > 0 && isAdmin() && (
                             <>
                                 <h2 style={{ fontSize: '1.5rem', color: 'var(--text-primary)', marginTop: '3rem', marginBottom: '1.5rem', borderTop: '1px solid var(--border-color)', paddingTop: '2rem' }}>
                                     Histórico de Eventos
