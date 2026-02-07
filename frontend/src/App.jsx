@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import EventList from './pages/EventList';
 import CreateEvent from './pages/CreateEvent';
 import AccessControl from './pages/AccessControl';
