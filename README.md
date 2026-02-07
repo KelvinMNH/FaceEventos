@@ -1,46 +1,60 @@
-# UniEventos - Sistema de Controle de Acesso Biométrico
+# UniEventos - Sistema de Controle de Acesso Biomérico (Frontend Serverless)
 
-Este projeto é um protótipo funcional composto por Backend, Frontend e Bridge Biométrica.
+Este projeto foi migrado para uma arquitetura **Serverless (Frontend Only)**. Ele utiliza o `localStorage` do navegador para persistência de dados, eliminando a necessidade de um backend Node.js e banco de dados SQLite para fins de demonstração em portfólio.
+
+## Tecnologias
+
+- **Frontend**: React, Vite
+- **Biometria**: face-api.js (Detecção e reconhecimento facial no navegador)
+- **Persistência**: LocalStorage (Dados salvos no navegador)
+- **Estilização**: CSS Modules / Vanilla CSS
 
 ## Estrutura do Projeto
 
-- **backend/**: API REST em Node.js com SQLite.
-- **frontend/**: Aplicação React (Vite) para dashboard e visualização.
-- **bridge/**: Scripts para simulação (e futura integração) do leitor Futronic.
+- **frontend/**: Código fonte da aplicação.
+  - **src/services/LocalStorageService.js**: Serviço que simula o backend, gerenciando dados no `localStorage`.
+  - **src/services/SeedData.js**: Dados iniciais para popular o sistema na primeira execução.
 
 ## Como Rodar
 
-### 1. Iniciar o Backend
-Terminal 1:
-```bash
-cd backend
-npm install (se ainda não fez)
-node server.js
-```
-O servidor rodará em `http://localhost:3000`.
+### Pré-requisitos
+- Node.js instalado.
 
-### 2. Iniciar o Frontend
-Terminal 2:
-```bash
-cd frontend
-npm install (se ainda não fez)
-npm run dev
-```
-Acesse `http://localhost:5173`.
+### Passos
 
-### 3. Simular Leitura Biométrica (Bridge)
-Terminal 3:
-```bash
-cd bridge
-# Teste com usuário cadastrado (Kelvin)
-node scanner_sim.js bio_kelvin_123
+1. Abra o terminal na pasta `frontend`:
+   ```bash
+   cd frontend
+   ```
 
-# Teste com biometria desconhecida
-node scanner_sim.js bio_errada
-```
+2. Instale as dependências:
+   ```bash
+   npm install
+   ```
 
-## Funcionalidades Implementadas
-- Validação de entrada via API.
-- Dashboard em tempo real (Polling).
-- Modal de feedback visual ao receber novo acesso.
-- Banco de dados SQLite com dados iniciais (Seed).
+3. Inicie o servidor de desenvolvimento:
+   ```bash
+   npm run dev
+   ```
+
+4. Acesse a aplicação no navegador (geralmente em `http://localhost:5173`).
+
+## Funcionalidades
+
+- **Gestão de Eventos**: Criar, listar e ativar eventos.
+- **Controle de Acesso**:
+  - **Reconhecimento Facial**: Simulado usando `face-api.js`.
+  - **Validação**: Verifica se o participante está cadastrado e registra o acesso.
+  - **Simulação**: Modo de teste que gera acessos aleatórios para visualizar o dashboard.
+- **Gestão de Participantes**: Cadastrar, listar, editar e remover participantes (com foto e biometria).
+- **Dashboard**: Estatísticas em tempo real de participantes presentes, gênero e faixa etária.
+- **Relatórios**: Visualização e exportação (CSV) dos logs de acesso.
+
+## Notas Importantes
+
+- **Persistência**: Como os dados são salvos no `localStorage`, limpar o cache do navegador removerá todos os registros criados.
+- **Biometria**: A validação biométrica é realizada localmente no navegador comparando descritores faciais.
+
+## Autor
+
+Desenvolvido por Kelvin Higino.

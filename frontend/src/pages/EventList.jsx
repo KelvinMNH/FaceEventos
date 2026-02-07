@@ -3,6 +3,8 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import MessageModal from '../components/MessageModal';
 
+import { db } from '../services/LocalStorageService';
+
 function EventList() {
     const navigate = useNavigate();
     const location = useLocation();
@@ -38,8 +40,7 @@ function EventList() {
 
     const fetchEventos = async () => {
         try {
-            const res = await fetch('http://localhost:3000/api/eventos');
-            const data = await res.json();
+            const data = db.getEventos();
             setEventos(Array.isArray(data) ? data : []);
         } catch (err) {
             console.error(err);
@@ -50,8 +51,8 @@ function EventList() {
 
     const handleSelectEvent = async (id) => {
         try {
-            const res = await fetch(`http://localhost:3000/api/eventos/${id}/ativar`, { method: 'POST' });
-            if (res.ok) {
+            const activated = db.ativarEvento(id);
+            if (activated) {
                 navigate('/access');
             }
         } catch (err) {
@@ -75,13 +76,18 @@ function EventList() {
         setCreating(true);
 
         try {
-            const res = await fetch('http://localhost:3000/api/eventos', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(formData)
+            const newEvento = db.createEvento({
+                nome: formData.nome,
+                data_inicio: formData.data,
+                hora_inicio: formData.hora,
+                local: formData.local,
+                imagem: formData.imagem,
+                permitir_acompanhantes: formData.permitir_acompanhantes,
+                max_acompanhantes: formData.max_acompanhantes
             });
 
-            if (res.ok) {
+
+            if (newEvento) {
                 setIsModalOpen(false);
                 setIsModalOpen(false);
                 setFormData({ nome: '', data: '', hora: '', local: '', imagem: '', permitir_acompanhantes: false, max_acompanhantes: 0 });

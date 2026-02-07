@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
+import { db } from '../services/LocalStorageService';
 
 function EventReport() {
     const { id } = useParams();
@@ -9,10 +10,9 @@ function EventReport() {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const fetchLogs = async () => {
+        const fetchLogs = () => {
             try {
-                const res = await fetch('http://localhost:3000/api/logs');
-                const data = await res.json();
+                const data = db.getLogs(id);
                 // Filtrar apenas sucessos e com participante válido
                 const successLogs = data.filter(log =>
                     log.status_validacao === 'sucesso' &&
@@ -57,7 +57,7 @@ function EventReport() {
     const exportToCSV = () => {
         if (!logs.length) return;
 
-        const headers = ["Horário", "Participante", "CPF", "CRM", "Data de Nascimento", "Gênero"];
+        const headers = ["Horário", "Participante", "CPF", "Matrícula", "Data de Nascimento", "Gênero"];
         const csvContent = [
             headers.join(","),
             ...logs.map(log => {
@@ -66,7 +66,7 @@ function EventReport() {
                     `"${new Date(log.createdAt).toLocaleString()}"`,
                     `"${p.nome || 'Desconhecido'}"`,
                     `"${p.cpf || p.documento || ''}"`,
-                    `"${p.crm || ''}"`,
+                    `"${p.matricula || ''}"`,
                     `"${formatDate(p.data_nascimento)}"`,
                     `"${formatGender(p.genero)}"`
                 ].join(",");
@@ -217,7 +217,7 @@ function EventReport() {
                                     <th>Horário</th>
                                     <th>Participante</th>
                                     <th>CPF</th>
-                                    <th>CRM</th>
+                                    <th>Matrícula</th>
                                     <th>Data de Nascimento</th>
                                     <th style={{ width: '80px' }}>Gênero</th>
                                 </tr>
@@ -231,7 +231,7 @@ function EventReport() {
                                             {maskCPF(log.Participante?.cpf || log.Participante?.documento)}
                                         </td>
                                         <td style={{ fontSize: '0.85rem' }}>
-                                            {log.Participante?.crm || '-'}
+                                            {log.Participante?.matricula || '-'}
                                         </td>
                                         <td style={{ fontSize: '0.85rem' }}>
                                             {formatDate(log.Participante?.data_nascimento)}

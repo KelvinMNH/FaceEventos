@@ -4,7 +4,9 @@ import Webcam from 'react-webcam';
 import * as faceapi from 'face-api.js';
 import ConfirmationModal from '../components/ConfirmationModal';
 
-const API_URL = 'http://localhost:3000/api';
+// const API_URL = 'http://localhost:3000/api';
+
+import { db } from '../services/LocalStorageService';
 
 function ParticipantList() {
     const [participants, setParticipants] = useState([]);
@@ -61,42 +63,14 @@ function ParticipantList() {
     const fetchParticipants = async (p = 1) => {
         setLoading(true);
         try {
-            const res = await fetch(`${API_URL}/participantes?page=${p}&limit=20`);
-            const text = await res.text();
-            let data;
-            try {
-                data = JSON.parse(text);
-            } catch (jsonErr) {
-                throw new Error("Resposta inválida (404/HTML)");
-            }
-
-            if (res.ok && data.data) {
+            const data = db.getParticipantes(p, 20);
+            if (data) {
                 setParticipants(data.data);
                 setTotalPages(data.totalPages);
                 setTotal(data.total);
-            } else {
-                throw new Error(data.msg || "Erro na API");
             }
         } catch (e) {
-            console.warn("API de lista falhou, ativando fallback temporário...", e);
-            try {
-                const resLogs = await fetch(`${API_URL}/logs`);
-                if (resLogs.ok) {
-                    const logs = await resLogs.json();
-                    const uniqueMap = new Map();
-                    logs.forEach(log => {
-                        if (log.Participante && log.Participante.id) {
-                            uniqueMap.set(log.Participante.id, log.Participante);
-                        }
-                    });
-                    const uniqueParticipants = Array.from(uniqueMap.values());
-                    setParticipants(uniqueParticipants);
-                    setTotal(uniqueParticipants.length);
-                    setTotalPages(1);
-                }
-            } catch (errFallback) {
-                console.error("Fallback também falhou", errFallback);
-            }
+            console.error("Erro ao buscar participantes", e);
         }
         setLoading(false);
     };
@@ -119,15 +93,14 @@ function ParticipantList() {
     const performDelete = async (id) => {
         closeModal();
         try {
-            const res = await fetch(`${API_URL}/participantes/${id}`, { method: 'DELETE' });
-            if (res.ok) {
+            const success = db.deleteParticipante(id);
+            if (success) {
                 fetchParticipants(page);
             } else {
-                const data = await res.json();
                 setModalConfig({
                     isOpen: true,
                     title: 'Erro',
-                    message: data.msg || "Erro ao excluir participante.",
+                    message: "Erro ao excluir participante.",
                     isDanger: true,
                     confirmText: 'OK',
                     onConfirm: closeModal,
@@ -139,7 +112,7 @@ function ParticipantList() {
             setModalConfig({
                 isOpen: true,
                 title: 'Erro',
-                message: "Erro ao conectar ao servidor.",
+                message: "Erro ao realizar operação.",
                 isDanger: true,
                 confirmText: 'OK',
                 onConfirm: closeModal,
@@ -157,16 +130,12 @@ function ParticipantList() {
             setModalConfig(prev => ({ ...prev, isOpen: false }));
 
             try {
-                const res = await fetch(`${API_URL}/participantes/${editingParticipant.id}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        ...editingParticipant,
-                        template_biometrico: descriptorToUse
-                    })
+                const updated = db.updateParticipante(editingParticipant.id, {
+                    ...editingParticipant,
+                    template_biometrico: descriptorToUse
                 });
 
-                if (res.ok) {
+                if (updated) {
                     setFormMessage({ type: 'success', text: "Cadastro atualizado com sucesso!" });
                     // Fecha modal e atualiza após breve delay para leitura
                     setTimeout(() => {
@@ -175,12 +144,11 @@ function ParticipantList() {
                         fetchParticipants(page || 1);
                     }, 1500);
                 } else {
-                    const data = await res.json();
-                    setFormMessage({ type: 'error', text: data.msg || data.error || "Erro ao atualizar." });
+                    setFormMessage({ type: 'error', text: "Erro ao atualizar." });
                 }
             } catch (err) {
                 console.error(err);
-                setFormMessage({ type: 'error', text: "Erro ao conectar ao servidor" });
+                setFormMessage({ type: 'error', text: "Erro ao conectar ao serviço" });
             }
             setLoading(false);
         };
@@ -256,7 +224,7 @@ function ParticipantList() {
                             <thead>
                                 <tr style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
                                     <th style={{ padding: '1rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Nome</th>
-                                    <th style={{ padding: '1rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Documento</th>
+                                    <th style={{ padding: '1rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Matrícula</th>
                                     <th style={{ padding: '1rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Gênero</th>
 
                                     <th style={{ padding: '1rem', textAlign: 'center', fontSize: '0.75rem', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Biometria</th>
@@ -276,7 +244,7 @@ function ParticipantList() {
                                     participants.map(p => (
                                         <tr key={p.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
                                             <td style={{ padding: '1rem', fontWeight: '500', color: '#111827' }}>{p.nome}</td>
-                                            <td style={{ padding: '1rem', color: '#6b7280' }}>{p.documento || p.cpf || '-'}</td>
+                                            <td style={{ padding: '1rem', color: '#6b7280' }}>{p.matricula || '-'}</td>
                                             <td style={{ padding: '1rem', color: '#6b7280' }}>{p.genero}</td>
 
                                             <td style={{ padding: '1rem', textAlign: 'center' }}>
@@ -381,12 +349,12 @@ function ParticipantList() {
                                         />
                                     </div>
                                     <div style={{ textAlign: 'left' }}>
-                                        <label className="info-label">CRM (Opcional)</label>
+                                        <label className="info-label">Matrícula (Opcional)</label>
                                         <input
                                             className="modal-input"
                                             style={{ textAlign: 'left' }}
-                                            value={editingParticipant.crm || ''}
-                                            onChange={e => setEditingParticipant({ ...editingParticipant, crm: e.target.value })}
+                                            value={editingParticipant.matricula || ''}
+                                            onChange={e => setEditingParticipant({ ...editingParticipant, matricula: e.target.value })}
                                         />
                                     </div>
                                 </div>

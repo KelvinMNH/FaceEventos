@@ -5,7 +5,9 @@ import MessageModal from '../components/MessageModal';
 import Webcam from 'react-webcam';
 import * as faceapi from 'face-api.js';
 
-const API_URL = 'http://localhost:3000/api';
+import { db } from '../services/LocalStorageService';
+
+// const API_URL = 'http://localhost:3000/api';
 
 const globalValidations = new Map();
 
@@ -55,7 +57,8 @@ function AccessControl() {
   // Loop de detecção
   useEffect(() => {
     let interval;
-    if (modelsLoaded && !scanCooldown && !modalData) {
+    // Só roda detecção se houver evento ativo
+    if (modelsLoaded && !scanCooldown && !modalData && evento) {
       interval = setInterval(async () => {
         if (webcamRef.current && webcamRef.current.video && webcamRef.current.video.readyState === 4) {
           try {
@@ -65,12 +68,10 @@ function AccessControl() {
             if (detection) {
               const descriptor = Array.from(detection.descriptor);
 
-              const res = await fetch(`${API_URL}/biometria/validar`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ descriptor })
-              });
-              const data = await res.json();
+              // Já temos evento no state, mas podemos confirmar se ainda é o mesmo ou usar o do state
+              // Como 'evento' está nas dependências, se mudar, o loop reinicia com o novo.
+
+              const data = db.validarBiometria(descriptor, evento.id);
 
               if (data.authorized) {
                 const pid = String(data.participante.id);
@@ -88,7 +89,7 @@ function AccessControl() {
                     status_validacao: 'sucesso',
                     Participante: data.participante
                   });
-                  fetchLogs();
+                  // fetchLogs(); // fetchLogs is inside another hook, let's trigger it via event or just wait for polling
                   setScanCooldown(true);
                   setTimeout(() => setScanCooldown(false), 2000);
                 }
@@ -108,7 +109,7 @@ function AccessControl() {
       }, 800);
     }
     return () => clearInterval(interval);
-  }, [modelsLoaded, modalData, scanCooldown]);
+  }, [modelsLoaded, modalData, scanCooldown, evento]);
 
   const audioRef = useRef(new Audio('https://assets.mixkit.co/sfx/preview/mixkit-software-interface-start-2574.mp3')); // Som de exemplo
   const modalTimeoutRef = useRef(null);
@@ -119,7 +120,7 @@ function AccessControl() {
   const manualInputRef = useRef(null);
   const [manualMode, setManualMode] = useState('search'); // 'search' | 'create'
   const [manualSearchResults, setManualSearchResults] = useState([]); // Array de resultados da busca
-  const [newParticipant, setNewParticipant] = useState({ nome: '', documento: '', cpf: '', crm: '', data_nascimento: '', genero: 'Outro' });
+  const [newParticipant, setNewParticipant] = useState({ nome: '', documento: '', cpf: '', matricula: '', data_nascimento: '', genero: 'Outro' });
 
   // Companion States
   const [companionModalOpen, setCompanionModalOpen] = useState(false);
@@ -139,28 +140,31 @@ function AccessControl() {
 
   useEffect(() => {
     // Buscar evento ativo
-    const fetchEvento = async () => {
+    const fetchEvento = () => {
       try {
-        const res = await fetch(`${API_URL}/evento-ativo`);
-        const data = await res.json();
-        if (data) setEvento(data);
-        else {
-          showMessage("Aviso", "Nenhum evento ativo. Você será redirecionado.", "info", () => navigate('/'));
+        const data = db.getEventoAtivo();
+        if (data) {
+          // Avoid infinite loop: only update if data changed significantly
+          setEvento(prev => {
+            if (!prev) return data;
+            if (prev.id !== data.id || prev.updatedAt !== data.updatedAt) return data;
+            return prev;
+          });
+        } else {
+          // Only redirect if we were previously expecting an event or on initial load
+          // But to be safe content-wise, let's just warn or redirect once
+          if (evento) setEvento(null); // Clear event if it disappeared
+          // showMessage("Aviso", "Nenhum evento ativo.", "info"); // Optional: could act as guard
         }
       } catch (e) { console.error(e); }
     };
-    fetchEvento();
 
-    const fetchLogs = async () => {
-      // Só buscar logs se houver evento ativo
-      if (!evento) return;
+    const fetchLogs = () => {
+      const currentEvento = db.getEventoAtivo();
+      if (!currentEvento) return;
 
       try {
-        const res = await fetch(`${API_URL}/logs`);
-        const data = await res.json();
-
-        // Filtrar apenas logs do evento ativo atual
-        const filteredLogs = data.filter(log => log.EventoId === evento.id);
+        const filteredLogs = db.getLogs(currentEvento.id);
 
         if (filteredLogs && filteredLogs.length > 0) {
           setLogs(filteredLogs);
@@ -171,16 +175,11 @@ function AccessControl() {
 
             // BUG FIX: Evitar mostrar modal de logs antigos ao carregar a página
             // Só mostra se o log for realmente recente (menos de 10 segundos atrás)
-            // Se lastLogId for 0 (primeira carga), a gente só atualiza o ID sem mostrar modal,
-            // a não ser que o log seja muito muito recente.
             const logTime = new Date(latest.createdAt).getTime();
             const now = Date.now();
             const isRecent = (now - logTime) < 10000; // 10 segundos
 
             if (lastLogId === 0) {
-              // Primeira carga: Apenas sincroniza o ID, não mostra modal (a menos que seja MUITO recente, opcional)
-              // Aqui vamos optar por NÃO mostrar na primeira carga para evitar susto, 
-              // assumindo que se acabou de entrar na tela, quer ver coisas novas.
               setLastLogId(latest.id);
             } else {
               setLastLogId(latest.id);
@@ -268,25 +267,43 @@ function AccessControl() {
       }
     };
 
-    // Polling a cada 2 segundos
-    const interval = setInterval(fetchLogs, 2000);
-    fetchLogs(); // Primeira chamada
+    // Initial fetch
+    fetchEvento();
+    fetchLogs();
+
+    // Polling a cada 2 segundos for BOTH event and logs
+    const interval = setInterval(() => {
+      fetchEvento();
+      fetchLogs();
+    }, 2000);
 
     return () => clearInterval(interval);
-  }, [lastLogId, navigate, evento]);
+  }, [lastLogId]); // Removed 'evento' and 'navigate' to avoid loops. navigate is stable usually.
 
   // Simulação Loop
   useEffect(() => {
     let simInterval;
-    if (simulating) {
+    if (simulating && evento) {
       simInterval = setInterval(async () => {
         try {
-          await fetch(`${API_URL}/simulate`, { method: 'POST' });
+          // Simular acesso aleatório
+          const res = db.getParticipantes(1, 100);
+          const parts = res.data;
+
+          if (parts.length > 0) {
+            const randomPart = parts[Math.floor(Math.random() * parts.length)];
+            // 80% chance de sucesso
+            if (Math.random() > 0.2) {
+              db.registrarAcesso(randomPart.id, evento.id, 'sucesso');
+            } else {
+              db.registrarAcesso(null, evento.id, 'nao_encontrado');
+            }
+          }
         } catch (e) { console.error("Erro simulação", e); }
       }, 7000); // A cada 7 segundos gera um log
     }
     return () => clearInterval(simInterval);
-  }, [simulating]);
+  }, [simulating, evento]);
 
   useEffect(() => {
     if (manualModalOpen && manualInputRef.current) {
@@ -307,9 +324,7 @@ function AccessControl() {
     setManualSearchResults([]);
 
     try {
-      // Buscar participantes em vez de tentar registrar direto
-      const res = await fetch(`${API_URL}/participantes/busca?q=${manualDoc}`);
-      const data = await res.json();
+      const data = db.buscarParticipantes(manualDoc);
 
       if (data && data.length > 0) {
         setManualSearchResults(data);
@@ -319,7 +334,7 @@ function AccessControl() {
         setNewParticipant({ ...newParticipant, documento: manualDoc, cpf: manualDoc }); // Assumindo que pode ser CPF
       }
     } catch (e) {
-      showMessage("Erro", "Erro de comunicação com servidor", "error");
+      showMessage("Erro", "Erro de comunicação com serviço local", "error");
     }
   };
 
@@ -334,46 +349,19 @@ function AccessControl() {
   };
 
   const executeAccessRegistration = async (participante) => {
-    // Função auxiliar para processar resposta
-    const processResponse = async (res) => {
-      const text = await res.text();
-      try {
-        return JSON.parse(text);
-      } catch (e) {
-        throw new Error("Resposta inválida do servidor (HTML/Erro 404)");
-      }
-    };
-
     try {
-      console.log("Tentando registrar via ID...");
-      const res = await fetch(`${API_URL}/registrar-acesso-id`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ participanteId: participante.id })
-      });
+      if (!evento) return;
 
-      let data;
-      try {
-        data = await processResponse(res);
-      } catch (e) {
-        // Se falhar (provavelmente rota nova não existe no backend rodando), tenta fallback
-        console.warn("Rota nova falhou, tentando fallback para rota antiga...");
-        const resFallback = await fetch(`${API_URL}/manual-entry`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ query: participante.documento || participante.cpf })
-        });
-        data = await processResponse(resFallback);
-      }
+      const log = db.registrarAcesso(participante.id, evento.id, 'sucesso');
 
-      if (data.success) {
+      if (log) {
         setManualModalOpen(false);
         showModal({
           status_validacao: 'sucesso',
           Participante: participante
         });
       } else {
-        showMessage("Erro", data.msg || "Erro ao registrar acesso", "error");
+        showMessage("Erro", "Erro ao registrar acesso", "error");
       }
     } catch (e) {
       console.error("Erro fetch:", e);
@@ -388,28 +376,26 @@ function AccessControl() {
     }
 
     try {
-      const res = await fetch(`${API_URL}/cadastrar-entrada`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newParticipant)
-      });
-      const data = await res.json();
+      const created = db.createParticipante(newParticipant);
 
-      if (data.success) {
+      if (created) {
+        // Registrar acesso também
+        if (evento) db.registrarAcesso(created.id, evento.id, 'sucesso');
+
         setManualModalOpen(false);
         setManualMode('search');
-        setNewParticipant({ nome: '', documento: '', cpf: '', crm: '', data_nascimento: '', genero: 'Outro', foto: null });
+        setNewParticipant({ nome: '', documento: '', cpf: '', matricula: '', data_nascimento: '', genero: 'Outro', foto: null });
         showMessage("Sucesso", "Participante cadastrado com sucesso!", "success");
         const fakeLog = {
           status_validacao: 'sucesso',
-          Participante: data.participante
+          Participante: created
         };
         showModal(fakeLog);
       } else {
-        showMessage("Erro", data.msg || "Erro ao cadastrar", "error");
+        showMessage("Erro", "Erro ao cadastrar", "error");
       }
     } catch (e) {
-      showMessage("Erro", "Erro ao conectar", "error");
+      showMessage("Erro", e.message || "Erro ao criar", "error");
     }
   };
 
@@ -420,8 +406,7 @@ function AccessControl() {
       return;
     }
     try {
-      const res = await fetch(`${API_URL}/participantes/busca?q=${term}`);
-      const data = await res.json();
+      const data = db.buscarParticipantes(term);
       setResponsibleResults(data || []);
     } catch (e) {
       console.error(e);
@@ -448,23 +433,25 @@ function AccessControl() {
     if (!companionName || !responsavelId) return;
 
     try {
-      const res = await fetch(`${API_URL}/registrar-acompanhante`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nome: companionName, responsavel_id: responsavelId })
+      const acomp = db.createParticipante({
+        nome: companionName,
+        documento: 'Acompanhante',
+        responsavel_id: responsavelId,
+        genero: 'Outro'
       });
-      const data = await res.json();
 
-      if (data.success) {
+      if (evento) db.registrarAcesso(acomp.id, evento.id, 'sucesso');
+
+      if (acomp) {
         resetCompanionModal();
         showMessage("Sucesso", "Acompanhante registrado com sucesso!", "success");
         showModal({
           status_validacao: 'sucesso',
-          Participante: { nome: companionName, documento: 'Acompanhante' },
+          Participante: { nome: companionName, documento: 'Acompanhante', responsavel_id: responsavelId },
           Responsavel: selectedResponsible
         });
       } else {
-        showMessage("Erro", data.msg || "Erro ao registrar acompanhante", "error");
+        showMessage("Erro", "Erro ao registrar acompanhante", "error");
       }
     } catch (e) {
       showMessage("Erro", "Erro na conexão", "error");
@@ -504,17 +491,12 @@ function AccessControl() {
       if (biometricPromptData) {
         // Caso 1: Atualizando biometria de participante existente
         try {
-          const res = await fetch(`${API_URL}/participantes/${biometricPromptData.id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              ...biometricPromptData,
-              template_biometrico: tempDescriptor,
-              foto: capturedImage
-            })
+          const updated = db.updateParticipante(biometricPromptData.id, {
+            template_biometrico: tempDescriptor,
+            foto: capturedImage
           });
 
-          if (res.ok) {
+          if (updated) {
             showMessage("Sucesso", "Biometria atualizada com sucesso!", "success");
             // Prepara participante atualizado para registro
             const updatedParticipant = {
@@ -564,8 +546,8 @@ function AccessControl() {
     if (!evento) return;
 
     try {
-      const res = await fetch(`${API_URL}/eventos/${evento.id}/finalizar`, { method: 'POST' });
-      if (res.ok) {
+      const success = db.finalizarEvento(evento.id);
+      if (success) {
         // Pequeno delay para visualização
         showMessage("Sucesso", "Evento finalizado com sucesso!", "success", () => navigate('/'));
       } else {
@@ -722,9 +704,9 @@ function AccessControl() {
                       </span>
                     </div>
                     <div className="info-item" style={{ flex: 2, background: 'rgba(0,0,0,0.03)', padding: '0.8rem', borderRadius: '8px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center' }}>
-                      <span className="info-label" style={{ fontSize: '0.7rem', color: '#666', textTransform: 'uppercase', marginBottom: '2px' }}>CRM</span>
+                      <span className="info-label" style={{ fontSize: '0.7rem', color: '#666', textTransform: 'uppercase', marginBottom: '2px' }}>Matrícula</span>
                       <span className="info-value" style={{ fontWeight: 'bold', color: '#333', fontSize: '1.2rem' }}>
-                        {participante.crm || '-'}
+                        {participante.matricula || '-'}
                       </span>
                     </div>
                   </div>
@@ -994,7 +976,7 @@ function AccessControl() {
           <div className="table-filter" style={{ marginBottom: '0' }}>
             <input
               type="text"
-              placeholder="Localizar por Nome, CPF ou CRM..."
+              placeholder="Localizar por Nome, CPF ou Matrícula..."
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
               style={{
@@ -1015,7 +997,7 @@ function AccessControl() {
                 <tr>
                   <th style={{ width: '15%' }}>Horário</th>
                   <th>Participante</th>
-                  <th style={{ width: '18%' }}>CRM</th>
+                  <th style={{ width: '18%' }}>Matrícula</th>
                   <th style={{ width: '12%' }}>Status</th>
                 </tr>
               </thead>
@@ -1060,7 +1042,7 @@ function AccessControl() {
                       <td>{new Date(log.createdAt).toLocaleTimeString()}</td>
                       <td>{formatName(log.Participante ? log.Participante.nome : 'Desconhecido')}</td>
                       <td style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                        {log.Participante?.crm || '-'}
+                        {log.Participante?.matricula || '-'}
                       </td>
                       <td>
                         <span className={`badge badge-${log.status_validacao === 'sucesso' ? 'success' : 'error'}`}>
@@ -1109,7 +1091,7 @@ function AccessControl() {
                     <div>
                       <div style={{ fontWeight: 'bold' }}>{p.nome}</div>
                       <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                        CPF: {p.documento} {p.crm ? `| CRM: ${p.crm}` : ''}
+                        CPF: {p.documento} {p.matricula ? `| Matrícula: ${p.matricula}` : ''}
                       </div>
                     </div>
                     <div style={{ color: 'var(--accent-color)', fontWeight: 'bold' }}>Selecionar</div>
@@ -1127,7 +1109,7 @@ function AccessControl() {
                 ref={manualInputRef}
                 type="text"
                 className="modal-input"
-                placeholder="Digite Nome, CPF ou CRM"
+                placeholder="Digite Nome, CPF ou Matrícula"
                 value={manualDoc}
                 onChange={e => setManualDoc(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && submitManualEntry()}
@@ -1158,9 +1140,9 @@ function AccessControl() {
                 <input
                   type="text"
                   className="modal-input"
-                  placeholder="CRM (opcional)"
-                  value={newParticipant.crm}
-                  onChange={e => setNewParticipant({ ...newParticipant, crm: e.target.value })}
+                  placeholder="Matrícula (opcional)"
+                  value={newParticipant.matricula}
+                  onChange={e => setNewParticipant({ ...newParticipant, matricula: e.target.value })}
                 />
                 <input
                   type="date"
@@ -1202,7 +1184,7 @@ function AccessControl() {
                 </div>
               </div>
               <div className="modal-actions">
-                <button className="btn-secondary" onClick={() => { setManualMode('search'); setNewParticipant({ nome: '', documento: '', cpf: '', crm: '', data_nascimento: '', genero: 'Outro' }); }}>Voltar</button>
+                <button className="btn-secondary" onClick={() => { setManualMode('search'); setNewParticipant({ nome: '', documento: '', cpf: '', matricula: '', data_nascimento: '', genero: 'Outro' }); }}>Voltar</button>
                 <button className="btn-primary" onClick={submitCreateEntry}>Cadastrar e Registrar Entrada</button>
               </div>
             </>
@@ -1243,7 +1225,7 @@ function AccessControl() {
                 type="text"
                 className="modal-input"
                 autoFocus
-                placeholder="Buscar Responsável (Nome ou CPF/CRM)"
+                placeholder="Buscar Responsável (Nome ou CPF/Matrícula)"
                 value={responsibleSearchTerm}
                 onChange={e => handleSearchResponsible(e.target.value)}
                 style={{ marginBottom: '0.5rem' }}

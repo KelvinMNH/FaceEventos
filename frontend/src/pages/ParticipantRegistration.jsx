@@ -4,8 +4,9 @@ import Webcam from 'react-webcam';
 import * as faceapi from 'face-api.js';
 import Navbar from '../components/Navbar';
 import { useNavigate } from 'react-router-dom';
+import { db } from '../services/LocalStorageService';
 
-const API_URL = 'http://localhost:3000/api';
+// const API_URL = 'http://localhost:3000/api';
 
 function ParticipantRegistration() {
     const webcamRef = useRef(null);
@@ -14,7 +15,7 @@ function ParticipantRegistration() {
     const [formData, setFormData] = useState({
         nome: '',
         cpf: '',
-        crm: '',
+        matricula: '',
         genero: 'Outro',
         data_nascimento: ''
     });
@@ -83,24 +84,19 @@ function ParticipantRegistration() {
                 template_biometrico: descriptor || (imgSrc ? `PHOTO_ONLY_${Date.now()}` : null)
             };
 
-            const res = await fetch(`${API_URL}/cadastrar-entrada`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            const data = await res.json();
+            const created = db.createParticipante(payload);
 
-            if (data.success) {
+            if (created) {
                 setMsg({ type: 'success', text: 'Cadastro realizado com sucesso!' });
-                setFormData({ nome: '', cpf: '', crm: '', genero: 'Outro', data_nascimento: '' });
+                setFormData({ nome: '', cpf: '', matricula: '', genero: 'Outro', data_nascimento: '' });
                 setImgSrc(null);
             } else {
-                setMsg({ type: 'error', text: data.msg || 'Erro ao cadastrar' });
+                setMsg({ type: 'error', text: 'Erro ao cadastrar' });
             }
 
         } catch (e) {
             console.error(e);
-            setMsg({ type: 'error', text: 'Erro ao conectar ao servidor.' });
+            setMsg({ type: 'error', text: e.message || 'Erro ao salvar.' });
         }
         setLoading(false);
     };
@@ -137,8 +133,8 @@ function ParticipantRegistration() {
                                 <input className="modal-input" placeholder="000.000.000-00" value={formData.cpf} onChange={e => setFormData({ ...formData, cpf: e.target.value })} required />
                             </div>
                             <div className="form-group">
-                                <label className="input-label">CRM (Opcional)</label>
-                                <input className="modal-input" placeholder="CRM/UF 12345" value={formData.crm} onChange={e => setFormData({ ...formData, crm: e.target.value })} />
+                                <label className="input-label">Matrícula (Opcional)</label>
+                                <input className="modal-input" placeholder="Matrícula" value={formData.matricula} onChange={e => setFormData({ ...formData, matricula: e.target.value })} />
                             </div>
                             <div className="form-group">
                                 <label className="input-label">Data de Nascimento</label>
