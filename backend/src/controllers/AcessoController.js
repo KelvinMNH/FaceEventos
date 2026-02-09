@@ -17,16 +17,12 @@ class AcessoController {
 
             // Verificação de dupla entrada
             if (participante) {
-                const jaEntrou = await RegistroAcesso.findOne({
-                    where: {
-                        EventoId: evento.id,
-                        ParticipanteId: participante.id,
-                        tipo_acesso: 'entrada',
-                        status_validacao: 'sucesso'
-                    }
+                const ultimoLog = await RegistroAcesso.findOne({
+                    where: { EventoId: evento.id, ParticipanteId: participante.id },
+                    order: [['createdAt', 'DESC']]
                 });
 
-                if (jaEntrou) {
+                if (ultimoLog && ultimoLog.tipo_acesso === 'entrada' && ultimoLog.status_validacao === 'sucesso') {
                     // Log tentativa duplicada mas não cria registro de sucesso
                     await RegistroAcesso.create({
                         tipo_acesso: 'entrada',
@@ -125,16 +121,12 @@ class AcessoController {
             if (!participante) return res.json({ success: false, msg: "Participante não encontrado", not_found: true });
 
             // Verificação de dupla entrada Manual
-            const jaEntrou = await RegistroAcesso.findOne({
-                where: {
-                    EventoId: evento.id,
-                    ParticipanteId: participante.id,
-                    tipo_acesso: 'entrada',
-                    status_validacao: 'sucesso'
-                }
+            const ultimoLog = await RegistroAcesso.findOne({
+                where: { EventoId: evento.id, ParticipanteId: participante.id },
+                order: [['createdAt', 'DESC']]
             });
 
-            if (jaEntrou) {
+            if (ultimoLog && ultimoLog.tipo_acesso === 'entrada' && ultimoLog.status_validacao === 'sucesso') {
                 return res.json({ success: false, msg: "Participante já validado neste evento!", already_in: true });
             }
 
@@ -192,11 +184,20 @@ class AcessoController {
             const participante = await Participante.findByPk(participanteId);
             if (!participante) return res.json({ success: false, msg: "Participante não encontrado" });
 
-            const jaFezCheckout = await RegistroAcesso.findOne({
-                where: { EventoId: evento.id, ParticipanteId: participanteId, tipo_acesso: 'saida' }
+            // Verificar o ÚLTIMO status do participante neste evento (para permitir reentradas)
+            const ultimoLog = await RegistroAcesso.findOne({
+                where: { EventoId: evento.id, ParticipanteId: participante.id },
+                order: [['createdAt', 'DESC']]
             });
 
-            if (jaFezCheckout) return res.json({ success: false, msg: "Checkout já realizado", already_checked_out: true });
+            // Se não tem log ou o último foi SAÍDA, não pode fazer checkout
+            if (!ultimoLog || ultimoLog.tipo_acesso === 'saida') {
+                if (ultimoLog && ultimoLog.tipo_acesso === 'saida') {
+                    return res.json({ success: false, msg: "Checkout já realizado (Usuário já saiu)", already_checked_out: true });
+                } else {
+                    return res.json({ success: false, msg: "Participante não possui entrada registrada." });
+                }
+            }
 
             await RegistroAcesso.create({
                 tipo_acesso: 'saida',
