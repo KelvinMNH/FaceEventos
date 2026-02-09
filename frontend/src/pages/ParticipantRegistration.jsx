@@ -23,6 +23,49 @@ function ParticipantRegistration() {
     const [msg, setMsg] = useState(null);
     const navigate = useNavigate();
 
+    // Estado para input de data visual (DD/MM/AAAA)
+    const [birthDateText, setBirthDateText] = useState('');
+    const dateInputRef = useRef(null);
+
+    const handleDateTextChange = (e) => {
+        let v = e.target.value.replace(/\D/g, '');
+        if (v.length > 8) v = v.slice(0, 8);
+
+        let formatted = v;
+        if (v.length >= 5) {
+            formatted = `${v.slice(0, 2)}/${v.slice(2, 4)}/${v.slice(4)}`;
+        } else if (v.length >= 3) {
+            formatted = `${v.slice(0, 2)}/${v.slice(2)}`;
+        }
+
+        setBirthDateText(formatted);
+
+        if (v.length === 8) {
+            const day = parseInt(v.slice(0, 2), 10);
+            const month = parseInt(v.slice(2, 4), 10);
+            const year = parseInt(v.slice(4, 8), 10);
+            const date = new Date(year, month - 1, day);
+
+            // Valida se a data é real
+            if (date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day) {
+                const isoDate = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                setFormData(prev => ({ ...prev, data_nascimento: isoDate }));
+            }
+        } else if (formData.data_nascimento) {
+            setFormData(prev => ({ ...prev, data_nascimento: '' }));
+        }
+    };
+
+    const runDatePicker = () => {
+        if (dateInputRef.current) {
+            if (dateInputRef.current.showPicker) {
+                dateInputRef.current.showPicker();
+            } else {
+                dateInputRef.current.focus();
+            }
+        }
+    };
+
     useEffect(() => {
         const loadModels = async () => {
             try {
@@ -89,6 +132,7 @@ function ParticipantRegistration() {
             if (created) {
                 setMsg({ type: 'success', text: 'Cadastro realizado com sucesso!' });
                 setFormData({ nome: '', cpf: '', matricula: '', genero: 'Outro', data_nascimento: '' });
+                setBirthDateText('');
                 setImgSrc(null);
             } else {
                 setMsg({ type: 'error', text: 'Erro ao cadastrar' });
@@ -138,7 +182,58 @@ function ParticipantRegistration() {
                             </div>
                             <div className="form-group">
                                 <label className="input-label">Data de Nascimento</label>
-                                <input type="date" className="modal-input" value={formData.data_nascimento} onChange={e => setFormData({ ...formData, data_nascimento: e.target.value })} required />
+                                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                                    <input
+                                        type="text"
+                                        className="modal-input"
+                                        placeholder="DD/MM/AAAA"
+                                        value={birthDateText}
+                                        onChange={handleDateTextChange}
+                                        maxLength="10"
+                                        required
+                                        style={{ paddingRight: '40px' }}
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={runDatePicker}
+                                        style={{
+                                            position: 'absolute',
+                                            right: '10px',
+                                            top: '50%',
+                                            transform: 'translateY(-50%)',
+                                            background: 'transparent',
+                                            border: 'none',
+                                            cursor: 'pointer',
+                                            fontSize: '1.2rem',
+                                            padding: '5px'
+                                        }}
+                                        title="Escolher data"
+                                    >
+                                        📅
+                                    </button>
+                                    <input
+                                        type="date"
+                                        ref={dateInputRef}
+                                        style={{
+                                            position: 'absolute',
+                                            opacity: 0,
+                                            pointerEvents: 'none',
+                                            bottom: 0,
+                                            left: 0,
+                                            width: '1px',
+                                            height: '1px'
+                                        }}
+                                        tabIndex={-1}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            if (val) {
+                                                setFormData(prev => ({ ...prev, data_nascimento: val }));
+                                                const [y, m, dstr] = val.split('-');
+                                                setBirthDateText(`${dstr}/${m}/${y}`);
+                                            }
+                                        }}
+                                    />
+                                </div>
                             </div>
                             <div className="form-group">
                                 <label className="input-label">Gênero</label>
