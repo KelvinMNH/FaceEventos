@@ -19,11 +19,95 @@ function TotemAcesso() {
 
     const searchInputRef = useRef(null);
 
+    const [scannedImage, setScannedImage] = useState(null);
+    const wsRef = useRef(null);
+
     // Atualizar hora
     useEffect(() => {
         const interval = setInterval(() => setHoraAtual(new Date()), 1000);
         return () => clearInterval(interval);
     }, []);
+
+    // WebSocket Bridge Conexão
+    useEffect(() => {
+        const connectBridge = () => {
+            try {
+                const ws = new WebSocket('ws://localhost:4000');
+                wsRef.current = ws;
+
+                ws.onopen = () => {
+                    console.log('WS Bridge Conectado');
+                    ws.send('START_CAPTURE');
+                };
+
+                ws.onmessage = (event) => {
+                    try {
+                        const data = JSON.parse(event.data);
+                        if (data.type === 'IMAGE_DATA') {
+                            // Guardar dados para renderizar no Canvas
+                            setScannedImage({
+                                buffer: data.image,
+                                width: data.width,
+                                height: data.height
+                            });
+                            handleBiometricScan(data);
+                        } else if (data.type === 'STATUS') {
+                            console.log('Bridge Status:', data.message);
+                        }
+                    } catch (e) {
+                        console.error('Erro WS msg:', e);
+                    }
+                };
+
+                ws.onerror = (e) => console.log('WS Erro (normal se bridge desligado):', e);
+            } catch (e) { console.log('Erro conexão bridge'); }
+        };
+
+        connectBridge();
+        return () => {
+            if (wsRef.current) wsRef.current.close();
+        };
+    }, []);
+
+    // Reiniciar captura ao voltar para tela inicial
+    useEffect(() => {
+        if (view === 'welcome' && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+            console.log('Reiniciando captura...');
+            wsRef.current.send('START_CAPTURE');
+        }
+    }, [view]);
+
+    const handleBiometricScan = async (data) => {
+        // Enviar para API verificar
+        // NOTA: O backend espera template string para achar "exact match". 
+        // Imagem raw não vai dar match. Mas vamos enviar para logar tentativa.
+        try {
+            const res = await fetch(`${API_URL}/scan`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    device_id: 'TOTEM_FS80H',
+                    template: data.image // Enviando imagem como template (provisório) 
+                })
+            });
+            const resp = await res.json();
+            if (resp.autorizado && resp.participante) {
+                setStatusMessage(`Bem-vindo(a), ${resp.participante.nome}!`);
+                setView('success');
+                setTimeout(() => { setView('welcome'); setScannedImage(null); }, 4000);
+            } else {
+                // Se falhar (o que vai acontecer sem matching real), mostramos erro
+                setStatusMessage(resp.mensagem || "Biometria não identificada");
+                setView('error');
+                setTimeout(() => { setView('welcome'); setScannedImage(null); }, 3000);
+            }
+        } catch (e) {
+            console.error('Erro API Scan', e);
+        }
+    };
 
     // Buscar evento ativo
     useEffect(() => {
@@ -179,17 +263,52 @@ function TotemAcesso() {
                             className="totem-circle totem-circle-animated"
                             style={{
                                 backgroundColor: '#e9ffe9',
-                                color: '#198754', // Cor da borda animada (currentColor)
+                                color: '#198754',
                                 margin: '0 auto 3rem',
                                 boxShadow: '0 10px 30px rgba(25,135,84,0.2)',
-                                border: '4px solid #198754'
+                                border: '4px solid #198754',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                overflow: 'hidden', position: 'relative'
                             }}
                         >
-                            <span style={{ fontSize: '6rem' }}>👋</span>
+                            {scannedImage ? (
+                                <canvas
+                                    ref={canvas => {
+                                        if (canvas && scannedImage) {
+                                            const ctx = canvas.getContext('2d');
+                                            const { width, height, buffer } = scannedImage;
+                                            canvas.width = width;
+                                            canvas.height = height;
+
+                                            // Converte Base64 para ArrayBuffer
+                                            const binaryString = window.atob(buffer);
+                                            const len = binaryString.length;
+                                            const bytes = new Uint8Array(len);
+                                            for (let i = 0; i < len; i++) {
+                                                bytes[i] = binaryString.charCodeAt(i);
+                                            }
+
+                                            // Cria ImageData (Grayscale para RGBA)
+                                            const imgData = ctx.createImageData(width, height);
+                                            for (let i = 0; i < len; i++) {
+                                                const val = bytes[i];
+                                                imgData.data[i * 4] = val;     // R
+                                                imgData.data[i * 4 + 1] = val; // G
+                                                imgData.data[i * 4 + 2] = val; // B
+                                                imgData.data[i * 4 + 3] = 255; // A
+                                            }
+                                            ctx.putImageData(imgData, 0, 0);
+                                        }
+                                    }}
+                                    style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                                />
+                            ) : (
+                                <span style={{ fontSize: '6rem' }}>👋</span>
+                            )}
                         </div>
 
                         <p style={{ fontSize: '1.2rem', color: '#666', marginBottom: '3rem' }}>
-                            Coloque seu dedo no leitor biométrico para fazer  o check-in.
+                            {scannedImage ? 'Processando biometria...' : 'Coloque seu dedo no leitor biométrico'}
                         </p>
 
                         <button
