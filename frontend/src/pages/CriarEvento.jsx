@@ -32,7 +32,9 @@ function CriarEvento() {
             if (res.ok) {
                 navigate('/access');
             } else {
-                alert('Erro ao criar evento');
+                const errorData = await res.json().catch(() => ({}));
+                console.error('Erro do servidor:', errorData);
+                alert(`Erro ao criar evento: ${errorData.details || errorData.msg || 'Erro desconhecido'}`);
             }
         } catch (err) {
             console.error(err);

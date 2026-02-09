@@ -28,7 +28,12 @@ class EventoController {
             });
             res.json({ success: true, evento: novoEvento });
         } catch (error) {
-            res.status(500).json({ error: "Erro ao criar evento" });
+            console.error('❌ Erro detalhado ao criar evento:', error);
+            res.status(500).json({
+                error: "Erro ao criar evento",
+                details: error.message,
+                validationErrors: error.errors ? error.errors.map(e => e.message) : null
+            });
         }
     }
 
