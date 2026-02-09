@@ -25,8 +25,12 @@ const startServer = async () => {
             console.log(`📍 API Base: http://localhost:${PORT}/api`);
         });
     } catch (error) {
-        console.error('❌ Erro ao iniciar o servidor:', error);
-        process.exit(1);
+        console.error('❌ Erro ao iniciar o servidor (syncDB ignorado):', error);
+        // process.exit(1);
+        app.listen(PORT, () => {
+            console.log(`🚀 Servidor pronto na porta ${PORT} (Modo de Recuperação)`);
+            console.log(`📍 API Base: http://localhost:${PORT}/api`);
+        });
     }
 };
 

@@ -120,13 +120,20 @@ function CriarEvento() {
                             </div>
                             <div className="form-group">
                                 <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Hora</label>
-                                <input
-                                    type="time"
+                                <select
                                     required
                                     value={formData.hora}
                                     onChange={e => setFormData({ ...formData, hora: e.target.value })}
-                                    style={{ width: '100%', padding: '0.8rem', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '1rem', boxSizing: 'border-box' }}
-                                />
+                                    style={{ width: '100%', padding: '0.8rem', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '1rem', boxSizing: 'border-box', backgroundColor: 'white' }}
+                                >
+                                    <option value="">Selecione um horário</option>
+                                    {Array.from({ length: 24 * 4 }).map((_, i) => {
+                                        const hour = Math.floor(i / 4).toString().padStart(2, '0');
+                                        const minute = ((i % 4) * 15).toString().padStart(2, '0');
+                                        const time = `${hour}:${minute}`;
+                                        return <option key={time} value={time}>{time}</option>;
+                                    })}
+                                </select>
                             </div>
                         </div>
 

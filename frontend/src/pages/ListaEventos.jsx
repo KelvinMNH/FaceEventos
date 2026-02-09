@@ -151,11 +151,14 @@ function ListaEventos() {
                                         onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 8px 16px rgba(0,0,0,0.1)'; }}
                                         onMouseLeave={(e) => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'none'; }}
                                     >
-                                        {evento.imagem && (
-                                            <div style={{ height: '140px', overflow: 'hidden', borderRadius: '6px', marginBottom: '0.5rem' }}>
-                                                <img src={evento.imagem} alt={evento.nome} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                            </div>
-                                        )}
+                                        <div style={{ height: '140px', overflow: 'hidden', borderRadius: '6px', marginBottom: '0.5rem' }}>
+                                            <img
+                                                src={evento.imagem || '/logo.jpg'}
+                                                alt={evento.nome}
+                                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                onError={(e) => { e.target.onerror = null; e.target.src = '/logo.jpg'; }}
+                                            />
+                                        </div>
                                         <div>
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '0.8rem' }}>
                                                 <h2 style={{ fontSize: '1.25rem', color: 'var(--text-primary)', margin: 0, lineHeight: 1.3 }}>{evento.nome}</h2>
@@ -197,11 +200,14 @@ function ListaEventos() {
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1.5rem', opacity: 0.8 }}>
                                     {eventos.filter(e => e.status === 'finalizado').map(evento => (
                                         <div key={evento.id} className="card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                                            {evento.imagem && (
-                                                <div style={{ height: '140px', overflow: 'hidden', borderRadius: '6px', marginBottom: '0.5rem' }}>
-                                                    <img src={evento.imagem} alt={evento.nome} style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'grayscale(100%)' }} />
-                                                </div>
-                                            )}
+                                            <div style={{ height: '140px', overflow: 'hidden', borderRadius: '6px', marginBottom: '0.5rem' }}>
+                                                <img
+                                                    src={evento.imagem || '/logo.jpg'}
+                                                    alt={evento.nome}
+                                                    style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'grayscale(100%)' }}
+                                                    onError={(e) => { e.target.onerror = null; e.target.src = '/logo.jpg'; }}
+                                                />
+                                            </div>
                                             <div>
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '0.8rem' }}>
                                                     <h2 style={{ fontSize: '1.25rem', color: 'var(--text-secondary)', margin: 0 }}>{evento.nome}</h2>
@@ -271,13 +277,40 @@ function ListaEventos() {
                             </div>
                             <div className="form-group">
                                 <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Hora</label>
-                                <input
-                                    type="time"
-                                    required
-                                    value={formData.hora}
-                                    onChange={e => setFormData({ ...formData, hora: e.target.value })}
-                                    style={{ width: '100%', padding: '0.8rem', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '1rem', boxSizing: 'border-box' }}
-                                />
+                                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                    <select
+                                        required
+                                        value={formData.hora ? formData.hora.split(':')[0] : ''}
+                                        onChange={e => {
+                                            const hour = e.target.value;
+                                            const minute = formData.hora ? formData.hora.split(':')[1] : '00';
+                                            setFormData({ ...formData, hora: `${hour}:${minute}` });
+                                        }}
+                                        style={{ flex: 1, padding: '0.8rem', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '1rem', boxSizing: 'border-box', backgroundColor: 'white' }}
+                                    >
+                                        <option value="">Hora</option>
+                                        {Array.from({ length: 24 }).map((_, i) => {
+                                            const hour = i.toString().padStart(2, '0');
+                                            return <option key={hour} value={hour}>{hour}</option>;
+                                        })}
+                                    </select>
+                                    <span style={{ display: 'flex', alignItems: 'center', fontWeight: 'bold' }}>:</span>
+                                    <select
+                                        required
+                                        value={formData.hora ? formData.hora.split(':')[1] : ''}
+                                        onChange={e => {
+                                            const minute = e.target.value;
+                                            const hour = formData.hora ? formData.hora.split(':')[0] : '00';
+                                            setFormData({ ...formData, hora: `${hour}:${minute}` });
+                                        }}
+                                        style={{ flex: 1, padding: '0.8rem', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '1rem', boxSizing: 'border-box', backgroundColor: 'white' }}
+                                    >
+                                        <option value="">Min</option>
+                                        {['00', '15', '30', '45'].map(minute => (
+                                            <option key={minute} value={minute}>{minute}</option>
+                                        ))}
+                                    </select>
+                                </div>
                             </div>
                         </div>
 

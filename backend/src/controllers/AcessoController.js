@@ -15,6 +15,35 @@ class AcessoController {
                 participante = await Participante.findOne({ where: { template_biometrico: template } });
             }
 
+            // Verificação de dupla entrada
+            if (participante) {
+                const jaEntrou = await RegistroAcesso.findOne({
+                    where: {
+                        EventoId: evento.id,
+                        ParticipanteId: participante.id,
+                        tipo_acesso: 'entrada',
+                        status_validacao: 'sucesso'
+                    }
+                });
+
+                if (jaEntrou) {
+                    // Log tentativa duplicada mas não cria registro de sucesso
+                    await RegistroAcesso.create({
+                        tipo_acesso: 'entrada',
+                        status_validacao: 'falha', // duplicado
+                        device_id: device_id || 'unknown',
+                        EventoId: evento.id,
+                        ParticipanteId: participante.id
+                    });
+
+                    return res.json({
+                        autorizado: false,
+                        mensagem: "Participante já validado!",
+                        participante: { nome: participante.nome }
+                    });
+                }
+            }
+
             const status = participante ? 'sucesso' : 'nao_encontrado';
             const acesso = await RegistroAcesso.create({
                 tipo_acesso: 'entrada',
@@ -94,6 +123,20 @@ class AcessoController {
             }
 
             if (!participante) return res.json({ success: false, msg: "Participante não encontrado", not_found: true });
+
+            // Verificação de dupla entrada Manual
+            const jaEntrou = await RegistroAcesso.findOne({
+                where: {
+                    EventoId: evento.id,
+                    ParticipanteId: participante.id,
+                    tipo_acesso: 'entrada',
+                    status_validacao: 'sucesso'
+                }
+            });
+
+            if (jaEntrou) {
+                return res.json({ success: false, msg: "Participante já validado neste evento!", already_in: true });
+            }
 
             await RegistroAcesso.create({
                 tipo_acesso: 'entrada',
