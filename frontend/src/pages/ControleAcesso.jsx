@@ -565,6 +565,46 @@ function ControleAcesso() {
         >
           Finalizar Evento
         </button>
+        <div style={{ height: '24px', width: '1px', backgroundColor: 'rgba(255,255,255,0.3)', margin: '0 0.5rem' }}></div>
+        <button
+          onClick={() => window.open('/totem', '_blank')}
+          style={{
+            backgroundColor: 'transparent',
+            border: '1px solid rgba(255,255,255,0.5)',
+            color: 'white',
+            padding: '0.5rem 1rem',
+            borderRadius: '6px',
+            cursor: 'pointer',
+            fontSize: '0.8rem',
+            marginRight: '0.5rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.3rem'
+          }}
+          title="Abrir Totem de Entrada em nova aba"
+        >
+          <span style={{ fontSize: '1rem' }}>🖥️</span> Totem Entrada
+        </button>
+        {evento && evento.habilitar_checkout && (
+          <button
+            onClick={() => window.open('/totem-checkout', '_blank')}
+            style={{
+              backgroundColor: 'transparent',
+              border: '1px solid rgba(255,255,255,0.5)',
+              color: 'white',
+              padding: '0.5rem 1rem',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontSize: '0.8rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.3rem'
+            }}
+            title="Abrir Totem de Saída em nova aba"
+          >
+            <span style={{ fontSize: '1rem' }}>🚪</span> Totem Saída
+          </button>
+        )}
       </Navbar>
 
       <div className="main-layout">
@@ -644,7 +684,7 @@ function ControleAcesso() {
               <h2>Participantes Presentes</h2>
               <div className="stat-value">{logs.filter(l => l.status_validacao === 'sucesso').length}</div>
             </div>
-            <div className="card">
+            <div className="card" style={{ opacity: (evento && !evento.permitir_acompanhantes) ? 0.5 : 1 }}>
               <h2>Acompanhantes Presentes</h2>
               <div className="stat-value">{logs.filter(l => l.status_validacao === 'sucesso' && l.AcompanhanteId).length}</div>
             </div>
@@ -717,12 +757,13 @@ function ControleAcesso() {
                   color: 'white',
                   padding: '0.4rem 0.8rem',
                   borderRadius: '4px',
-                  cursor: 'pointer',
+                  cursor: (evento && !evento.permitir_acompanhantes) ? 'not-allowed' : 'pointer',
                   fontWeight: 'bold',
                   fontSize: '0.8rem',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '0.3rem'
+                  gap: '0.3rem',
+                  opacity: (evento && !evento.permitir_acompanhantes) ? 0.5 : 1
                 }}
               >
                 <span>+</span> Registrar Acompanhante

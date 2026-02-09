@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -8,16 +8,20 @@ function TotemAcesso() {
     const navigate = useNavigate();
     const { token } = useAuth();
     const [evento, setEvento] = useState(null);
-    const [status, setStatus] = useState('aguardando'); // aguardando, processando, sucesso, erro
-    const [participante, setParticipante] = useState(null);
-    const [mensagem, setMensagem] = useState('');
     const [horaAtual, setHoraAtual] = useState(new Date());
 
-    // Atualizar hora a cada segundo
+    // View State: 'welcome', 'search', 'confirm', 'success', 'error'
+    const [view, setView] = useState('welcome');
+    const [searchTerm, setSearchTerm] = useState('');
+    const [searchResults, setSearchResults] = useState([]);
+    const [selectedParticipant, setSelectedParticipant] = useState(null);
+    const [statusMessage, setStatusMessage] = useState('');
+
+    const searchInputRef = useRef(null);
+
+    // Atualizar hora
     useEffect(() => {
-        const interval = setInterval(() => {
-            setHoraAtual(new Date());
-        }, 1000);
+        const interval = setInterval(() => setHoraAtual(new Date()), 1000);
         return () => clearInterval(interval);
     }, []);
 
@@ -30,516 +34,281 @@ function TotemAcesso() {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const data = await res.json();
-                if (data) {
-                    setEvento(data);
-                } else {
-                    setMensagem('Nenhum evento ativo no momento');
-                    setStatus('erro');
-                }
+                if (data) setEvento(data);
+                else setView('error');
             } catch (e) {
                 console.error(e);
-                setMensagem('Erro ao conectar com o servidor');
-                setStatus('erro');
+                setView('error');
             }
         };
         fetchEvento();
     }, [token]);
 
-    // Simular leitura de biometria
-    const handleBiometriaLeitura = async (simularSucesso = true) => {
-        console.log('🔍 Iniciando simulação. Sucesso?', simularSucesso);
-        setStatus('processando');
-        setMensagem('Processando biometria...');
+    // Focar no input quando entrar na tela de busca
+    useEffect(() => {
+        if (view === 'search' && searchInputRef.current) {
+            searchInputRef.current.focus();
+        }
+    }, [view]);
 
-        setTimeout(async () => {
-            try {
-                if (simularSucesso) {
-                    console.log('✅ Tentando simular SUCESSO...');
-                    const res = await fetch(`${API_URL}/participantes`, {
-                        headers: { 'Authorization': `Bearer ${token}` }
-                    });
-                    console.log('📡 Resposta da API:', res.status);
+    // Busca manual
+    const handleSearch = async (term) => {
+        setSearchTerm(term);
+        if (term.length < 3) {
+            setSearchResults([]);
+            return;
+        }
+        try {
+            const res = await fetch(`${API_URL}/participantes/busca?q=${term}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const data = await res.json();
+            setSearchResults(data || []);
+        } catch (e) {
+            console.error(e);
+        }
+    };
 
-                    const participantes = await res.json();
-                    console.log('👥 Participantes encontrados:', participantes.length);
+    const handleSelectParticipant = (p) => {
+        setSelectedParticipant(p);
+        setView('confirm');
+    };
 
-                    if (participantes && participantes.length > 0) {
-                        const participantesAtivos = participantes.filter(p => p.ativo !== false);
-                        console.log('👥 Participantes ativos:', participantesAtivos.length);
+    const handleConfirmCheckin = async () => {
+        if (!selectedParticipant) return;
 
-                        if (participantesAtivos.length > 0) {
-                            const participanteAleatorio = participantesAtivos[Math.floor(Math.random() * participantesAtivos.length)];
-                            console.log('🎯 Participante selecionado:', participanteAleatorio.nome);
+        try {
+            // Verificar duplicidade antes de confirmar visualmente (embora backend bloqueie)
+            const res = await fetch(`${API_URL}/manual-entry`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ participanteId: selectedParticipant.id })
+            });
+            const data = await res.json();
 
-                            setStatus('sucesso');
-                            setParticipante(participanteAleatorio);
-                            setMensagem(`Bem-vindo(a), Dr(a). ${participanteAleatorio.nome}!`);
-
-                            try {
-                                const resAcesso = await fetch(`${API_URL}/registrar-acesso-id`, {
-                                    method: 'POST',
-                                    headers: {
-                                        'Content-Type': 'application/json',
-                                        'Authorization': `Bearer ${token}`
-                                    },
-                                    body: JSON.stringify({ participanteId: participanteAleatorio.id })
-                                });
-                                console.log('📝 Acesso registrado:', resAcesso.status);
-                            } catch (err) {
-                                console.error('❌ Erro ao registrar acesso:', err);
-                            }
-
-                            setTimeout(() => {
-                                setStatus('aguardando');
-                                setParticipante(null);
-                                setMensagem('');
-                            }, 3000);
-                        } else {
-                            console.warn('⚠️ Nenhum participante ativo');
-                            setStatus('erro');
-                            setMensagem('Nenhum participante ativo cadastrado');
-                            setTimeout(() => {
-                                setStatus('aguardando');
-                                setMensagem('');
-                            }, 3000);
-                        }
-                    } else {
-                        console.warn('⚠️ Nenhum participante no banco');
-                        setStatus('erro');
-                        setMensagem('Nenhum participante cadastrado');
-                        setTimeout(() => {
-                            setStatus('aguardando');
-                            setMensagem('');
-                        }, 3000);
-                    }
-                } else {
-                    console.log('❌ Simulando FALHA...');
-                    setStatus('erro');
-                    setMensagem('Biometria não reconhecida. Tente novamente.');
-
-                    setTimeout(() => {
-                        setStatus('aguardando');
-                        setMensagem('');
-                    }, 3000);
-                }
-            } catch (e) {
-                console.error('💥 Erro na simulação:', e);
-                setStatus('erro');
-                setMensagem('Erro ao processar biometria: ' + e.message);
-
-                setTimeout(() => {
-                    setStatus('aguardando');
-                    setMensagem('');
-                }, 3000);
+            if (data.success) {
+                setStatusMessage(`Bem-vindo(a), ${selectedParticipant.nome.split(' ')[0]}!`);
+                setView('success');
+            } else {
+                setStatusMessage(data.msg || "Erro ao registrar entrada");
+                setView('error');
             }
-        }, 1500);
+        } catch (e) {
+            setStatusMessage("Erro de comunicação");
+            setView('error');
+        }
+
+        // Reset após delay
+        setTimeout(() => {
+            setView('welcome');
+            setSearchTerm('');
+            setSearchResults([]);
+            setSelectedParticipant(null);
+            setStatusMessage('');
+        }, 4000);
     };
 
-    const formatDate = (date) => {
-        return date.toLocaleDateString('pt-BR', {
-            weekday: 'long',
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric'
-        });
+    // Simulação de Biometria (Mantida para testes)
+    const simulateBiometricScan = async (success = true) => {
+        if (view !== 'welcome') return; // Só aceita biometria na tela inicial
+
+        if (success) {
+            // Simular sucesso pegando um aleatório
+            try {
+                const res = await fetch(`${API_URL}/participantes`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const parts = await res.json();
+                if (parts && parts.length > 0) {
+                    const p = parts[Math.floor(Math.random() * parts.length)];
+                    setSelectedParticipant(p);
+                    // Auto-confirma
+                    handleConfirmCheckin();
+                }
+            } catch (e) { }
+        } else {
+            setStatusMessage("Biometria não reconhecida");
+            setView('error');
+            setTimeout(() => setView('welcome'), 3000);
+        }
     };
 
-    const formatTime = (date) => {
-        return date.toLocaleTimeString('pt-BR', {
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit'
-        });
-    };
+    const formatDate = (date) => date.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
+    const formatTime = (date) => date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
     return (
-        <div style={{
-            minHeight: '100vh',
-            background: 'linear-gradient(135deg, #198754 0%, #20c997 100%)',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '2rem',
-            position: 'relative'
-        }}>
-            {/* Botão Admin (pequeno, no canto) */}
-            <button
-                onClick={() => navigate('/')}
-                style={{
-                    position: 'absolute',
-                    top: '1rem',
-                    right: '1rem',
-                    background: 'rgba(255,255,255,0.1)',
-                    border: '1px solid rgba(255,255,255,0.3)',
-                    color: 'white',
-                    padding: '0.5rem 1rem',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    fontSize: '0.9rem',
-                    opacity: 0.6,
-                    transition: 'opacity 0.3s'
-                }}
-                onMouseEnter={(e) => e.target.style.opacity = '1'}
-                onMouseLeave={(e) => e.target.style.opacity = '0.6'}
-            >
-                ⚙️ Admin
-            </button>
-
-            {/* Header com data e hora - AUMENTADO */}
-            <div style={{
-                position: 'absolute',
-                top: '2rem',
-                left: '2rem',
-                color: 'white',
-                textAlign: 'left'
-            }}>
-                <div style={{ fontSize: '1.5rem', opacity: 0.9, marginBottom: '0.5rem' }}>
-                    {formatDate(horaAtual)}
+        <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: '#f8f9fa', overflow: 'hidden' }}>
+            {/* Topbar */}
+            <div style={{ backgroundColor: '#198754', color: 'white', padding: '1rem 2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                    <img src="/logo.jpg" alt="Logo" style={{ height: '50px', borderRadius: '4px', backgroundColor: 'white', padding: '2px' }} />
+                    <div>
+                        <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 'bold' }}>Totem de Check-in</h1>
+                        <div style={{ fontSize: '1.1rem', fontWeight: 'bold' }}>{evento ? evento.nome : 'Carregando...'}</div>
+                        {evento && (
+                            <div style={{ fontSize: '0.8rem', opacity: 0.9, display: 'flex', gap: '1rem', marginTop: '0.2rem' }}>
+                                <span>📅 Data: {new Date(evento.data_inicio).toLocaleDateString('pt-BR')}</span>
+                                <span>🕐 Início: {evento.hora_inicio}</span>
+                                <span>📍 Local: {evento.local}</span>
+                            </div>
+                        )}
+                    </div>
                 </div>
-                <div style={{ fontSize: '4rem', fontWeight: 'bold', fontFamily: 'monospace', lineHeight: 1 }}>
-                    {formatTime(horaAtual)}
+                <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: '3rem', fontWeight: 'bold', fontFamily: 'monospace' }}>{formatTime(horaAtual)}</div>
+                    <div style={{ fontSize: '1.2rem' }}>{formatDate(horaAtual)}</div>
                 </div>
             </div>
 
-            {/* Container Principal - LAYOUT DUAS COLUNAS */}
-            <div style={{
-                display: 'flex',
-                gap: '3rem',
-                maxWidth: '1400px',
-                width: '100%',
-                alignItems: 'stretch'
-            }}>
-                {/* COLUNA ESQUERDA - Dados do Evento */}
-                {evento && (
-                    <div style={{
-                        flex: '1',
-                        background: 'white',
-                        borderRadius: '20px',
-                        padding: '3rem',
-                        boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '2rem'
-                    }}>
-                        {/* Imagem do Evento */}
-                        {evento.imagem && (
-                            <div style={{
-                                width: '100%',
-                                height: '300px',
-                                borderRadius: '12px',
-                                overflow: 'hidden',
-                                boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
-                            }}>
-                                <img
-                                    src={evento.imagem}
-                                    alt={evento.nome}
-                                    style={{
-                                        width: '100%',
-                                        height: '100%',
-                                        objectFit: 'cover'
-                                    }}
-                                />
+            {/* Main Content */}
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
+
+                {view === 'welcome' && (
+                    <div style={{ textAlign: 'center', animation: 'fadeIn 0.5s' }}>
+                        <div style={{
+                            width: '200px', height: '200px', borderRadius: '50%', backgroundColor: '#e9ffe9',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 3rem',
+                            boxShadow: '0 10px 30px rgba(25,135,84,0.2)', border: '4px solid #198754'
+                        }}>
+                            <span style={{ fontSize: '6rem' }}>👋</span>
+                        </div>
+                        <h2 style={{ fontSize: '2.5rem', color: '#333', marginBottom: '1rem' }}>Seja Bem-vindo(a)!</h2>
+                        <p style={{ fontSize: '1.2rem', color: '#666', marginBottom: '3rem' }}>
+                            Coloque seu dedo no leitor biométrico para fazer  o check-in.
+                        </p>
+
+                        <button
+                            onClick={() => setView('search')}
+                            style={{
+                                padding: '1.2rem 3rem', fontSize: '1.3rem', backgroundColor: '#198754', color: 'white',
+                                border: 'none', borderRadius: '50px', cursor: 'pointer', boxShadow: '0 4px 15px rgba(25,135,84,0.3)',
+                                transition: 'transform 0.2s', fontWeight: 'bold'
+                            }}
+                        >
+                            🔍 Buscar meu Cadastro
+                        </button>
+                    </div>
+                )}
+
+                {view === 'search' && (
+                    <div style={{ width: '100%', maxWidth: '800px', animation: 'slideUp 0.3s' }}>
+                        <h2 style={{ textAlign: 'center', marginBottom: '2rem', color: '#333' }}>Buscar Participante</h2>
+
+                        <input
+                            ref={searchInputRef}
+                            type="text"
+                            placeholder="Digite seu Nome, CPF ou CRM..."
+                            value={searchTerm}
+                            onChange={e => handleSearch(e.target.value)}
+                            style={{
+                                width: '100%', padding: '1.5rem', fontSize: '1.5rem', borderRadius: '12px',
+                                border: '2px solid #ddd', marginBottom: '2rem', boxShadow: '0 4px 10px rgba(0,0,0,0.05)'
+                            }}
+                        />
+
+                        {searchResults.length > 0 ? (
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '1rem', maxHeight: '50vh', overflowY: 'auto' }}>
+                                {searchResults.map(p => (
+                                    <div
+                                        key={p.id}
+                                        onClick={() => handleSelectParticipant(p)}
+                                        style={{
+                                            backgroundColor: 'white', padding: '1.5rem', borderRadius: '10px',
+                                            boxShadow: '0 2px 5px rgba(0,0,0,0.05)', cursor: 'pointer', border: '1px solid #eee',
+                                            transition: 'transform 0.1s'
+                                        }}
+                                        onMouseDown={e => e.currentTarget.style.transform = 'scale(0.98)'}
+                                        onMouseUp={e => e.currentTarget.style.transform = 'scale(1)'}
+                                    >
+                                        <div style={{ fontWeight: 'bold', fontSize: '1.1rem', marginBottom: '0.5rem' }}>{p.nome}</div>
+                                        <div style={{ color: '#666' }}>CPF: {p.cpf || '-'}</div>
+                                    </div>
+                                ))}
                             </div>
+                        ) : (
+                            searchTerm.length > 2 && <p style={{ textAlign: 'center', color: '#666', fontSize: '1.2rem' }}>Nenhum resultado encontrado.</p>
                         )}
 
-                        {/* Nome do Evento */}
-                        <h1 style={{
-                            fontSize: '2.5rem',
-                            color: '#198754',
-                            margin: 0,
-                            fontWeight: 'bold',
-                            lineHeight: 1.2
-                        }}>
-                            {evento.nome}
-                        </h1>
+                        <button
+                            onClick={() => { setView('welcome'); setSearchTerm(''); setSearchResults([]); }}
+                            style={{
+                                position: 'absolute', bottom: '2rem', left: '2rem', padding: '1rem 2rem',
+                                backgroundColor: '#ccc', border: 'none', borderRadius: '8px', fontSize: '1.1rem', cursor: 'pointer'
+                            }}
+                        >
+                            ⬅ Voltar
+                        </button>
+                    </div>
+                )}
 
-                        {/* Informações do Evento */}
-                        <div style={{
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: '1.5rem',
-                            fontSize: '1.3rem',
-                            color: '#333'
-                        }}>
-                            {/* Data */}
-                            {evento.data_inicio && (
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                                    <span style={{ fontSize: '2rem' }}>📅</span>
-                                    <div>
-                                        <div style={{ fontWeight: '600', color: '#666', fontSize: '0.9rem' }}>Data</div>
-                                        <div style={{ fontWeight: 'bold' }}>
-                                            {new Date(evento.data_inicio).toLocaleDateString('pt-BR', {
-                                                weekday: 'long',
-                                                year: 'numeric',
-                                                month: 'long',
-                                                day: 'numeric'
-                                            })}
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
+                {view === 'confirm' && selectedParticipant && (
+                    <div style={{ textAlign: 'center', animation: 'fadeIn 0.3s', backgroundColor: 'white', padding: '3rem', borderRadius: '20px', boxShadow: '0 10px 40px rgba(0,0,0,0.1)' }}>
+                        <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>👤</div>
+                        <h2 style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>Confirmar Identidade</h2>
+                        <p style={{ fontSize: '1.1rem', color: '#666', marginBottom: '2rem' }}>Você é esta pessoa?</p>
 
-                            {/* Hora */}
-                            {evento.hora_inicio && (
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                                    <span style={{ fontSize: '2rem' }}>🕐</span>
-                                    <div>
-                                        <div style={{ fontWeight: '600', color: '#666', fontSize: '0.9rem' }}>Horário</div>
-                                        <div style={{ fontWeight: 'bold' }}>{evento.hora_inicio}</div>
-                                    </div>
-                                </div>
-                            )}
+                        <div style={{ fontSize: '1.8rem', fontWeight: 'bold', color: '#198754', marginBottom: '0.5rem' }}>
+                            {selectedParticipant.nome}
+                        </div>
+                        <div style={{ fontSize: '1.2rem', color: '#555', marginBottom: '3rem' }}>
+                            CPF: {selectedParticipant.cpf || 'Não informado'}
+                        </div>
 
-                            {/* Local */}
-                            {evento.local && (
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                                    <span style={{ fontSize: '2rem' }}>📍</span>
-                                    <div>
-                                        <div style={{ fontWeight: '600', color: '#666', fontSize: '0.9rem' }}>Local</div>
-                                        <div style={{ fontWeight: 'bold' }}>{evento.local}</div>
-                                    </div>
-                                </div>
-                            )}
+                        <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+                            <button
+                                onClick={() => setView('search')}
+                                style={{
+                                    padding: '1rem 2rem', fontSize: '1.1rem', backgroundColor: '#f8d7da', color: '#842029',
+                                    border: 'none', borderRadius: '8px', cursor: 'pointer'
+                                }}
+                            >
+                                Não sou eu
+                            </button>
+                            <button
+                                onClick={handleConfirmCheckin}
+                                style={{
+                                    padding: '1rem 3rem', fontSize: '1.3rem', backgroundColor: '#198754', color: 'white',
+                                    border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold',
+                                    boxShadow: '0 4px 10px rgba(25,135,84,0.3)'
+                                }}
+                            >
+                                ✅ Sim, Confirmar Entrada
+                            </button>
                         </div>
                     </div>
                 )}
 
-                {/* COLUNA DIREITA - Validação Biométrica */}
-                <div style={{
-                    flex: '1',
-                    background: 'white',
-                    borderRadius: '20px',
-                    padding: '3rem',
-                    boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'center'
-                }}>
-                    <div style={{
-                        textAlign: 'center',
-                        marginBottom: '2rem'
-                    }}>
-                        <h2 style={{
-                            fontSize: '1.8rem',
-                            color: '#198754',
-                            marginBottom: '0.5rem',
-                            fontWeight: 'bold'
-                        }}>
-                            Check-in
-                        </h2>
-                        <p style={{ color: '#666', fontSize: '1.1rem', margin: 0 }}>
-                            Sistema de Acesso por Biometria
-                        </p>
+                {view === 'success' && (
+                    <div style={{ textAlign: 'center', animation: 'popIn 0.5s' }}>
+                        <div style={{ fontSize: '6rem', color: '#198754', marginBottom: '1rem' }}>✅</div>
+                        <h2 style={{ fontSize: '2.5rem', color: '#198754', marginBottom: '1rem' }}>Entrada Confirmada!</h2>
+                        <p style={{ fontSize: '1.5rem', color: '#333' }}>{statusMessage}</p>
                     </div>
+                )}
 
-                    {/* Área de Status */}
-                    <div style={{
-                        minHeight: '300px',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        marginBottom: '2rem'
-                    }}>
-                        {status === 'aguardando' && (
-                            <>
-                                <div style={{
-                                    width: '150px',
-                                    height: '150px',
-                                    borderRadius: '50%',
-                                    background: 'linear-gradient(135deg, #002147 0%, #004080 100%)',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    marginBottom: '2rem',
-                                    animation: 'pulse 2s infinite'
-                                }}>
-                                    <span style={{ fontSize: '4rem' }}>👆</span>
-                                </div>
-                                <h2 style={{ fontSize: '1.8rem', color: '#333', marginBottom: '1rem' }}>
-                                    Bem-vindo(a)!
-                                </h2>
-                                <p style={{ fontSize: '1.2rem', color: '#198754', fontWeight: '600', marginBottom: '1rem' }}>
-                                    É um prazer tê-lo(a) conosco!
-                                </p>
-                                <p style={{ color: '#666', fontSize: '1.1rem' }}>
-                                    Posicione seu dedo no leitor para registrar sua entrada
-                                </p>
-                            </>
-                        )}
-
-                        {status === 'processando' && (
-                            <>
-                                <div style={{
-                                    width: '150px',
-                                    height: '150px',
-                                    borderRadius: '50%',
-                                    background: '#ff6600',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    marginBottom: '2rem',
-                                    animation: 'spin 1s linear infinite'
-                                }}>
-                                    <span style={{ fontSize: '4rem', color: 'white' }}>⏳</span>
-                                </div>
-                                <h2 style={{ fontSize: '1.8rem', color: '#333' }}>
-                                    {mensagem}
-                                </h2>
-                            </>
-                        )}
-
-                        {status === 'sucesso' && participante && (
-                            <>
-                                <div style={{
-                                    width: '150px',
-                                    height: '150px',
-                                    borderRadius: '50%',
-                                    background: '#198754',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    marginBottom: '2rem',
-                                    animation: 'scaleIn 0.3s ease-out'
-                                }}>
-                                    <span style={{ fontSize: '4rem', color: 'white' }}>✓</span>
-                                </div>
-                                <h2 style={{ fontSize: '2rem', color: '#198754', marginBottom: '1rem', fontWeight: 'bold' }}>
-                                    Acesso Autorizado!
-                                </h2>
-                                <p style={{ fontSize: '1.5rem', color: '#333', marginBottom: '0.5rem' }}>
-                                    Dr(a). {participante.nome}
-                                </p>
-                                {participante.crm && (
-                                    <p style={{ fontSize: '1.2rem', color: '#666', marginBottom: '1rem' }}>
-                                        CRM: {participante.crm}
-                                    </p>
-                                )}
-                                <p style={{ fontSize: '1.1rem', color: '#198754', fontWeight: '600' }}>
-                                    Aproveite o evento!
-                                </p>
-                            </>
-                        )}
-
-                        {status === 'erro' && (
-                            <>
-                                <div style={{
-                                    width: '150px',
-                                    height: '150px',
-                                    borderRadius: '50%',
-                                    background: '#cf222e',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    marginBottom: '2rem',
-                                    animation: 'shake 0.5s'
-                                }}>
-                                    <span style={{ fontSize: '4rem', color: 'white' }}>✕</span>
-                                </div>
-                                <h2 style={{ fontSize: '1.8rem', color: '#cf222e', marginBottom: '1rem' }}>
-                                    Acesso Negado
-                                </h2>
-                                <p style={{ fontSize: '1.1rem', color: '#666' }}>
-                                    {mensagem || 'Biometria não reconhecida'}
-                                </p>
-                            </>
-                        )}
+                {view === 'error' && (
+                    <div style={{ textAlign: 'center', animation: 'shake 0.5s' }}>
+                        <div style={{ fontSize: '6rem', color: '#dc3545', marginBottom: '1rem' }}>🚫</div>
+                        <h2 style={{ fontSize: '2.5rem', color: '#dc3545', marginBottom: '1rem' }}>Atenção</h2>
+                        <p style={{ fontSize: '1.5rem', color: '#333' }}>{statusMessage || 'Erro ao processar'}</p>
                     </div>
-
-                    {/* Botões de Teste (remover em produção) */}
-                    {status === 'aguardando' && (
-                        <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
-                            <button
-                                onClick={() => handleBiometriaLeitura(true)}
-                                style={{
-                                    background: 'linear-gradient(135deg, #198754 0%, #20c997 100%)',
-                                    color: 'white',
-                                    border: 'none',
-                                    padding: '1rem 2rem',
-                                    borderRadius: '50px',
-                                    fontSize: '1.1rem',
-                                    fontWeight: 'bold',
-                                    cursor: 'pointer',
-                                    boxShadow: '0 4px 15px rgba(25,135,84,0.3)',
-                                    transition: 'transform 0.2s, box-shadow 0.2s'
-                                }}
-                                onMouseEnter={(e) => {
-                                    e.target.style.transform = 'translateY(-2px)';
-                                    e.target.style.boxShadow = '0 6px 20px rgba(25,135,84,0.4)';
-                                }}
-                                onMouseLeave={(e) => {
-                                    e.target.style.transform = 'translateY(0)';
-                                    e.target.style.boxShadow = '0 4px 15px rgba(25,135,84,0.3)';
-                                }}
-                            >
-                                ✓ Simular Sucesso
-                            </button>
-
-                            <button
-                                onClick={() => handleBiometriaLeitura(false)}
-                                style={{
-                                    background: 'linear-gradient(135deg, #cf222e 0%, #ff4444 100%)',
-                                    color: 'white',
-                                    border: 'none',
-                                    padding: '1rem 2rem',
-                                    borderRadius: '50px',
-                                    fontSize: '1.1rem',
-                                    fontWeight: 'bold',
-                                    cursor: 'pointer',
-                                    boxShadow: '0 4px 15px rgba(207,34,46,0.3)',
-                                    transition: 'transform 0.2s, box-shadow 0.2s'
-                                }}
-                                onMouseEnter={(e) => {
-                                    e.target.style.transform = 'translateY(-2px)';
-                                    e.target.style.boxShadow = '0 6px 20px rgba(207,34,46,0.4)';
-                                }}
-                                onMouseLeave={(e) => {
-                                    e.target.style.transform = 'translateY(0)';
-                                    e.target.style.boxShadow = '0 4px 15px rgba(207,34,46,0.3)';
-                                }}
-                            >
-                                ✕ Simular Falha
-                            </button>
-                        </div>
-                    )}
-                </div>
+                )}
             </div>
 
-            {/* Rodapé */}
-            <div style={{
-                position: 'absolute',
-                bottom: '2rem',
-                color: 'white',
-                opacity: 0.7,
-                fontSize: '0.9rem'
-            }}>
-                Em caso de problemas, procure a recepção
+            {/* Hidden Simulation Buttons (for debug/demo) */}
+            <div style={{ position: 'absolute', bottom: '1rem', right: '1rem', opacity: 0.1 }}>
+                <button onClick={() => simulateBiometricScan(true)}>Simular Bio OK</button>
             </div>
 
-            {/* Animações CSS */}
             <style>{`
-        @keyframes pulse {
-          0%, 100% { transform: scale(1); opacity: 1; }
-          50% { transform: scale(1.05); opacity: 0.8; }
-        }
-        
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-        
-        @keyframes scaleIn {
-          from { transform: scale(0); }
-          to { transform: scale(1); }
-        }
-        
-        @keyframes shake {
-          0%, 100% { transform: translateX(0); }
-          25% { transform: translateX(-10px); }
-          75% { transform: translateX(10px); }
-        }
-      `}</style>
+                @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+                @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+                @keyframes popIn { 0% { transform: scale(0.8); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+                @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+            `}</style>
         </div>
     );
 }

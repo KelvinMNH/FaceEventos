@@ -183,21 +183,7 @@ function Navbar({ children, onOpenCreateModal }) {
                         Painel do Evento
                     </a>
 
-                    <a
-                        href="#"
-                        className={`sidebar-link ${location.pathname === '/totem' ? 'active' : ''}`}
-                        onClick={(e) => { e.preventDefault(); handleNavigate('/totem'); }}
-                    >
-                        Totem de Acesso
-                    </a>
 
-                    <a
-                        href="#"
-                        className={`sidebar-link ${location.pathname === '/totem-checkout' ? 'active' : ''}`}
-                        onClick={(e) => { e.preventDefault(); handleNavigate('/totem-checkout'); }}
-                    >
-                        Totem de Checkout
-                    </a>
 
                     <a
                         href="#"
