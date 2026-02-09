@@ -16,6 +16,7 @@ router.post('/eventos', AuthController.verifyToken, AuthController.requireAdmin,
 router.post('/eventos/:id/ativar', AuthController.verifyToken, EventoController.ativar);
 router.post('/eventos/:id/finalizar', AuthController.verifyToken, EventoController.finalizar); // Finalizar requer token (confirmação será logica no front/back)
 router.get('/evento-ativo', AuthController.verifyToken, EventoController.getAtivo);
+router.get('/eventos/:id', AuthController.verifyToken, EventoController.buscarPorId);
 
 // Rotas de Acesso (Algumas podem precisar de token se o totem for autenticado, por hora vamos proteger tudo que é "sistema")
 // Scan e Simulate geralmente são públicos ou token de maquina, mas aqui é web, então protege.

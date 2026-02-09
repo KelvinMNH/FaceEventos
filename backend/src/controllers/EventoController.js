@@ -69,6 +69,17 @@ class EventoController {
             res.status(500).json({ error: e.message });
         }
     }
+
+    async buscarPorId(req, res) {
+        try {
+            const { id } = req.params;
+            const evento = await Evento.findByPk(id);
+            if (!evento) return res.status(404).json({ error: "Evento não encontrado" });
+            res.json(evento);
+        } catch (e) {
+            res.status(500).json({ error: e.message });
+        }
+    }
 }
 
 module.exports = new EventoController();

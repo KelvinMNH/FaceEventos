@@ -86,12 +86,13 @@ function RelatorioEventoContent() {
                 }
 
                 // Filtrar logs deste evento (sucesso)
-                const eventLogs = allLogs.filter(log =>
-                    log &&
-                    log.status_validacao === 'sucesso' &&
-                    (log.Participante || log.Acompanhante) &&
-                    (log.EventoId === parseInt(id) || (log.Evento && log.Evento.id === parseInt(id)))
-                );
+                const eventLogs = allLogs.filter(log => {
+                    const logEventoId = log.EventoId || (log.Evento && log.Evento.id);
+                    return log &&
+                        log.status_validacao === 'sucesso' &&
+                        (log.Participante || log.Acompanhante) &&
+                        (String(logEventoId) === String(id));
+                });
 
                 if (!eventoNome && eventLogs.length > 0) {
                     const firstLogWithEvento = eventLogs.find(l => l.Evento && l.Evento.nome);
@@ -167,7 +168,9 @@ function RelatorioEventoContent() {
                     // LÓGICA DE SAÍDA AUTOMÁTICA
                     let saidaAutomatica = false;
                     if (primeiraEntrada && !ultimaSaida && eventoInfo && eventoInfo.status === 'finalizado') {
-                        ultimaSaida = new Date(eventoInfo.updatedAt);
+                        // Prioriza data_fim se disponível, senão usa updatedAt
+                        const finalDate = eventoInfo.data_fim ? new Date(eventoInfo.data_fim) : new Date(eventoInfo.updatedAt);
+                        ultimaSaida = finalDate;
                         saidaAutomatica = true;
                     }
 
@@ -322,6 +325,20 @@ function RelatorioEventoContent() {
                         </svg>
                     </button>
                     Relatório: {eventoNome || 'Evento sem nome'}
+                    {eventoDetalhes && (
+                        <span style={{
+                            marginLeft: '1rem',
+                            fontSize: '0.9rem',
+                            padding: '0.2rem 0.6rem',
+                            borderRadius: '20px',
+                            backgroundColor: eventoDetalhes.status === 'finalizado' ? '#e7f5ff' : '#fff3bf',
+                            color: eventoDetalhes.status === 'finalizado' ? '#0d6efd' : '#f08c00',
+                            border: '1px solid currentColor',
+                            fontWeight: 'normal'
+                        }}>
+                            {eventoDetalhes.status.toUpperCase()}
+                        </span>
+                    )}
                 </h1>
 
                 <button

@@ -8,6 +8,7 @@ const Evento = sequelize.define('Evento', {
     local: { type: DataTypes.STRING(255) },
     imagem: { type: DataTypes.TEXT },
     status: { type: DataTypes.ENUM('agendado', 'ativo', 'finalizado'), defaultValue: 'ativo' },
+    data_fim: { type: DataTypes.DATE },
     permitir_acompanhantes: { type: DataTypes.BOOLEAN, defaultValue: false },
     max_acompanhantes: { type: DataTypes.INTEGER, defaultValue: 0 },
     habilitar_checkout: { type: DataTypes.BOOLEAN, defaultValue: false }
