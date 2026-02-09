@@ -143,21 +143,26 @@ function TotemAcesso() {
         <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: '#f8f9fa', overflow: 'hidden' }}>
             {/* Topbar */}
             <div style={{ backgroundColor: '#198754', color: 'white', padding: '1rem 2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                    <img src="/logo.jpg" alt="Logo" style={{ height: '50px', borderRadius: '4px', backgroundColor: 'white', padding: '2px' }} />
-                    <div>
-                        <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 'bold' }}>Totem de Check-in</h1>
-                        <div style={{ fontSize: '1.1rem', fontWeight: 'bold' }}>{evento ? evento.nome : 'Carregando...'}</div>
-                        {evento && (
-                            <div style={{ fontSize: '0.8rem', opacity: 0.9, display: 'flex', gap: '1rem', marginTop: '0.2rem' }}>
-                                <span>📅 Data: {new Date(evento.data_inicio).toLocaleDateString('pt-BR')}</span>
-                                <span>🕐 Início: {evento.hora_inicio}</span>
-                                <span>📍 Local: {evento.local}</span>
-                            </div>
-                        )}
-                    </div>
+                {/* Lado Esquerdo: Logo */}
+                <div style={{ flex: '1', display: 'flex', alignItems: 'center' }}>
+                    <img src="/logo.jpg" alt="Logo" style={{ height: '60px', borderRadius: '4px', backgroundColor: 'white', padding: '2px' }} />
                 </div>
-                <div style={{ textAlign: 'right' }}>
+
+                {/* Centro: Título e Informações do Evento */}
+                <div style={{ flex: '2', textAlign: 'center' }}>
+                    <h1 style={{ margin: 0, fontSize: '2rem', fontWeight: 'bold' }}>Totem de Check-in</h1>
+                    <div style={{ fontSize: '1.3rem', fontWeight: 'bold' }}>{evento ? evento.nome : 'Carregando...'}</div>
+                    {evento && (
+                        <div style={{ fontSize: '0.9rem', opacity: 0.9, display: 'flex', gap: '1.5rem', marginTop: '0.3rem', justifyContent: 'center' }}>
+                            <span>📅 {new Date(evento.data_inicio).toLocaleDateString('pt-BR')}</span>
+                            <span>🕐 {evento.hora_inicio}</span>
+                            <span>📍 {evento.local}</span>
+                        </div>
+                    )}
+                </div>
+
+                {/* Lado Direito: Relógio */}
+                <div style={{ flex: '1', textAlign: 'right' }}>
                     <div style={{ fontSize: '4.5rem', fontWeight: 'bold', fontFamily: 'monospace', lineHeight: 1 }}>{formatTime(horaAtual)}</div>
                     <div style={{ fontSize: '1.6rem', marginTop: '5px' }}>{formatDate(horaAtual)}</div>
                 </div>
@@ -168,14 +173,21 @@ function TotemAcesso() {
 
                 {view === 'welcome' && (
                     <div style={{ textAlign: 'center', animation: 'fadeIn 0.5s' }}>
-                        <div style={{
-                            width: '200px', height: '200px', borderRadius: '50%', backgroundColor: '#e9ffe9',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 3rem',
-                            boxShadow: '0 10px 30px rgba(25,135,84,0.2)', border: '4px solid #198754'
-                        }}>
+                        <h2 style={{ fontSize: '2.5rem', color: '#333', marginBottom: '3rem' }}>Seja Bem-vindo(a)!</h2>
+
+                        <div
+                            className="totem-circle totem-circle-animated"
+                            style={{
+                                backgroundColor: '#e9ffe9',
+                                color: '#198754', // Cor da borda animada (currentColor)
+                                margin: '0 auto 3rem',
+                                boxShadow: '0 10px 30px rgba(25,135,84,0.2)',
+                                border: '4px solid #198754'
+                            }}
+                        >
                             <span style={{ fontSize: '6rem' }}>👋</span>
                         </div>
-                        <h2 style={{ fontSize: '2.5rem', color: '#333', marginBottom: '1rem' }}>Seja Bem-vindo(a)!</h2>
+
                         <p style={{ fontSize: '1.2rem', color: '#666', marginBottom: '3rem' }}>
                             Coloque seu dedo no leitor biométrico para fazer  o check-in.
                         </p>
