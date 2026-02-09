@@ -105,9 +105,6 @@ function RelatorioEventoContent() {
                 const participantesMap = {};
                 let acompanhantesCount = 0;
 
-                // Ordenar logs cronologicamente para processamento correto
-                eventLogs.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
-
                 eventLogs.forEach(log => {
                     if (!log.Participante) return;
 
@@ -120,63 +117,49 @@ function RelatorioEventoContent() {
                     if (!participantesMap[pId]) {
                         participantesMap[pId] = {
                             participante: log.Participante,
-                            logs: []
+                            entradas: [],
+                            saidas: []
                         };
                     }
-                    participantesMap[pId].logs.push(log);
+
+                    const time = new Date(log.createdAt);
+                    if (log.tipo_acesso === 'entrada') {
+                        participantesMap[pId].entradas.push(time);
+                    } else if (log.tipo_acesso === 'saida') {
+                        participantesMap[pId].saidas.push(time);
+                    }
                 });
 
-                // --- PROCESSAMENTO FINAL (Intervalos) ---
+                // --- PROCESSAMENTO FINAL (Primeira Entrada / Última Saída) ---
                 const processedList = Object.values(participantesMap).map(data => {
-                    const logs = data.logs;
-                    let totalMs = 0;
-                    let entradaAtual = null;
-                    let primeiraEntrada = null;
-                    let ultimaSaida = null;
+                    // Ordenar datas
+                    data.entradas.sort((a, b) => a - b);
+                    data.saidas.sort((a, b) => a - b);
+
+                    // Regra: Primeira Entrada
+                    const primeiraEntrada = data.entradas.length > 0 ? data.entradas[0] : null;
+
+                    // Regra: Última Saída
+                    let ultimaSaida = data.saidas.length > 0 ? data.saidas[data.saidas.length - 1] : null;
+
+                    // LÓGICA DE SAÍDA AUTOMÁTICA
                     let saidaAutomatica = false;
+                    if (primeiraEntrada && !ultimaSaida && eventoInfo && eventoInfo.status === 'finalizado') {
+                        ultimaSaida = new Date(eventoInfo.updatedAt);
+                        saidaAutomatica = true;
+                    }
 
-                    // Percorrer logs cronologicamente para montar pares Entrada -> Saída
-                    logs.forEach(log => {
-                        const time = new Date(log.createdAt);
-
-                        if (log.tipo_acesso === 'entrada') {
-                            if (!entradaAtual) {
-                                entradaAtual = time; // Abre novo intervalo
-                                if (!primeiraEntrada) primeiraEntrada = time;
-                            }
-                            // Se já tinha entrada aberta, ignora (ou considera re-entrada imediata? Vamos ignorar duplicidade de entrada)
-                        } else if (log.tipo_acesso === 'saida') {
-                            if (entradaAtual) {
-                                // Fecha intervalo
-                                totalMs += (time - entradaAtual);
-                                entradaAtual = null;
-                                ultimaSaida = time;
-                            }
-                            // Se sair sem entrar, ignora (ou registra saída órfã?)
-                        }
-                    });
-
-                    // Se sobrou uma entrada aberta (sem saída)
-                    if (entradaAtual) {
-                        if (eventoInfo && eventoInfo.status === 'finalizado') {
-                            // Saída Automática
-                            const fimEvento = new Date(eventoInfo.updatedAt);
-                            if (fimEvento > entradaAtual) {
-                                totalMs += (fimEvento - entradaAtual);
-                                ultimaSaida = fimEvento;
-                                saidaAutomatica = true;
-                            }
-                        } else {
-                            // Evento ainda rolando ou usuario ainda dentro
-                            // Não soma tempo, mas 'ultimaSaida' fica em aberto (-)
-                        }
+                    // Cálculo de permanência: Total = Última Saída - Primeira Entrada
+                    let permanenciaMs = 0;
+                    if (primeiraEntrada && ultimaSaida && ultimaSaida > primeiraEntrada) {
+                        permanenciaMs = ultimaSaida - primeiraEntrada;
                     }
 
                     return {
                         ...data.participante,
                         horarioEntrada: primeiraEntrada,
                         horarioSaida: ultimaSaida,
-                        permanenciaMs: totalMs,
+                        permanenciaMs,
                         saidaAutomatica
                     };
                 });
