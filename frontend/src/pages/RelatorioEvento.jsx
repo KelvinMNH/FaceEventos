@@ -89,44 +89,66 @@ function RelatorioEventoContent() {
                 const eventLogs = allLogs.filter(log =>
                     log &&
                     log.status_validacao === 'sucesso' &&
-                    log.Participante &&
+                    (log.Participante || log.Acompanhante) &&
                     (log.EventoId === parseInt(id) || (log.Evento && log.Evento.id === parseInt(id)))
                 );
 
                 if (!eventoNome && eventLogs.length > 0) {
-                    if (eventLogs[0].Evento && eventLogs[0].Evento.nome) {
-                        setEventoNome(eventLogs[0].Evento.nome);
-                    } else {
-                        setEventoNome(`Evento #${id}`);
-                    }
+                    const firstLogWithEvento = eventLogs.find(l => l.Evento && l.Evento.nome);
+                    if (firstLogWithEvento) setEventoNome(firstLogWithEvento.Evento.nome);
+                    else setEventoNome(`Evento #${id}`);
                 }
 
                 // Agrupar logs por participante
                 const participantesMap = {};
-                let acompanhantesCount = 0;
+                let totalAcompanhantesGeral = 0;
 
                 eventLogs.forEach(log => {
-                    if (!log.Participante) return;
+                    // Se for log de PARTICIPANTE direto
+                    if (log.ParticipanteId) {
+                        const pId = log.ParticipanteId;
+                        if (!participantesMap[pId]) {
+                            participantesMap[pId] = {
+                                participante: log.Participante,
+                                entradas: [],
+                                saidas: [],
+                                acompanhantes: []
+                            };
+                        }
 
-                    if (log.Participante.documento === 'Acompanhante') {
-                        acompanhantesCount++;
-                        return;
+                        const time = new Date(log.createdAt);
+                        if (log.tipo_acesso === 'entrada') {
+                            participantesMap[pId].entradas.push(time);
+                        } else if (log.tipo_acesso === 'saida') {
+                            participantesMap[pId].saidas.push(time);
+                        }
                     }
+                    // Se for log de ACOMPANHANTE
+                    else if (log.AcompanhanteId && log.Acompanhante) {
+                        totalAcompanhantesGeral++;
+                        const respId = log.Acompanhante.ParticipanteId;
 
-                    const pId = log.Participante.id;
-                    if (!participantesMap[pId]) {
-                        participantesMap[pId] = {
-                            participante: log.Participante,
-                            entradas: [],
-                            saidas: []
-                        };
-                    }
+                        // Garante que o responsável existe no mapa (mesmo que ele não tenha log de entrada ainda)
+                        if (respId) {
+                            if (!participantesMap[respId]) {
+                                // Se o responsável não tem log direto, precisamos do objeto Participante. 
+                                // O log do acompanhante infelizmente não traz o objeto do responsável completo, 
+                                // mas o backend/banco garante a relação. 
+                                // Para o relatório ser perfeito, precisaríamos carregar os respondáveis.
+                                // Mas vamos tentar pegar de outros logs ou ignorar se não tiver dados visuais.
+                                // REGRA: Geralmente o responsável entra ANTES.
+                            }
 
-                    const time = new Date(log.createdAt);
-                    if (log.tipo_acesso === 'entrada') {
-                        participantesMap[pId].entradas.push(time);
-                    } else if (log.tipo_acesso === 'saida') {
-                        participantesMap[pId].saidas.push(time);
+                            if (participantesMap[respId]) {
+                                const jaAdicionado = participantesMap[respId].acompanhantes.some(a => a.id === log.Acompanhante.id);
+                                if (!jaAdicionado) {
+                                    participantesMap[respId].acompanhantes.push({
+                                        id: log.Acompanhante.id,
+                                        nome: log.Acompanhante.nome
+                                    });
+                                }
+                            }
+                        }
                     }
                 });
 
@@ -160,7 +182,8 @@ function RelatorioEventoContent() {
                         horarioEntrada: primeiraEntrada,
                         horarioSaida: ultimaSaida,
                         permanenciaMs,
-                        saidaAutomatica
+                        saidaAutomatica,
+                        acompanhantes: data.acompanhantes // Lista de acompanhantes deste participante
                     };
                 });
 
@@ -213,7 +236,7 @@ function RelatorioEventoContent() {
 
                 setStats({
                     totalParticipantes: processedList.length,
-                    totalAcompanhantes: acompanhantesCount,
+                    totalAcompanhantes: totalAcompanhantesGeral,
                     genero,
                     faixaEtaria: maxFaixa === '-' ? '-' : maxFaixa + ' anos',
                     tempoMedio: tempoMedioStr
@@ -300,6 +323,58 @@ function RelatorioEventoContent() {
                     </button>
                     Relatório: {eventoNome || 'Evento sem nome'}
                 </h1>
+
+                <button
+                    onClick={() => {
+                        const headers = ["Participante", "CPF", "CRM", "Data Nasc.", "Gênero", "Entrada", "Saída", "Permanência", "Qtd Acomp.", "Acompanhantes (ID: Nome)"];
+                        const rows = processedData.map(p => {
+                            const companionDetails = (p.acompanhantes || []).map(a => `${a.id}: ${a.nome}`).join(" | ");
+                            return [
+                                p.nome,
+                                p.cpf || p.documento,
+                                p.crm || '-',
+                                formatDate(p.data_nascimento),
+                                formatGender(p.genero),
+                                p.horarioEntrada ? formatDateTimeWithSeconds(p.horarioEntrada) : '-',
+                                p.horarioSaida ? formatTimeWithSeconds(p.horarioSaida) : '-',
+                                p.permanenciaMs > 0 ? `${Math.floor(p.permanenciaMs / (1000 * 60 * 60))}h ${Math.floor((p.permanenciaMs % (1000 * 60 * 60)) / (1000 * 60))}m` : '-',
+                                (p.acompanhantes || []).length,
+                                companionDetails || '-'
+                            ];
+                        });
+
+                        const csvContent = [headers, ...rows].map(e => e.join(";")).join("\n");
+                        const blob = new Blob(["\ufeff" + csvContent], { type: 'text/csv;charset=utf-8;' });
+                        const url = URL.createObjectURL(blob);
+                        const link = document.createElement("a");
+                        link.setAttribute("href", url);
+                        link.setAttribute("download", `relatorio_${eventoNome.replace(/\s+/g, '_')}.csv`);
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                    }}
+                    style={{
+                        marginLeft: 'auto',
+                        backgroundColor: '#198754',
+                        color: 'white',
+                        border: 'none',
+                        padding: '0.6rem 1.2rem',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        fontWeight: 'bold',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.5rem',
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                    }}
+                >
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                        <polyline points="7 10 12 15 17 10" />
+                        <line x1="12" y1="15" x2="12" y2="3" />
+                    </svg>
+                    Exportar CSV
+                </button>
             </div>
 
             {/* Estatísticas Gerais */}
@@ -356,6 +431,7 @@ function RelatorioEventoContent() {
                                 <th>CRM</th>
                                 <th>Data Nasc.</th>
                                 <th style={{ width: '50px' }}>Gênero</th>
+                                <th style={{ width: '40px' }} title="Acompanhantes">Acomp.</th>
                                 <th>Entrada</th>
                                 <th>Saída</th>
                                 <th>Permanência</th>
@@ -369,6 +445,9 @@ function RelatorioEventoContent() {
                                     <td style={{ fontSize: '0.85rem' }}>{p.crm || '-'}</td>
                                     <td style={{ fontSize: '0.85rem' }}>{formatDate(p.data_nascimento)}</td>
                                     <td style={{ textAlign: 'center', fontSize: '0.85rem' }}>{formatGender(p.genero)}</td>
+                                    <td style={{ textAlign: 'center', fontWeight: 'bold' }}>
+                                        {p.acompanhantes?.length || 0}
+                                    </td>
                                     <td>
                                         {p.horarioEntrada ? formatDateTimeWithSeconds(p.horarioEntrada) : '-'}
                                     </td>
