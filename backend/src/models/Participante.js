@@ -5,7 +5,7 @@ const Participante = sequelize.define('Participante', {
     nome: { type: DataTypes.STRING(255), allowNull: false },
     cpf: { type: DataTypes.STRING(14), unique: true, allowNull: false },
     crm: { type: DataTypes.STRING(20), unique: true },
-    template_biometrico: { type: DataTypes.TEXT },
+    template_biometrico: { type: DataTypes.TEXT('long') },
     genero: { type: DataTypes.ENUM('M', 'F', 'Outro'), defaultValue: 'Outro' },
     data_nascimento: { type: DataTypes.DATEONLY },
     ativo: { type: DataTypes.BOOLEAN, defaultValue: true }

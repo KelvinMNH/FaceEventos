@@ -1,18 +1,86 @@
 const { Evento, Participante, Acompanhante, RegistroAcesso } = require('../models');
 const { Op } = require('sequelize');
+const Jimp = require('jimp');
+
+// Helper para converter RAW grayscale em Jimp Image
+async function createJimpFromRaw(base64, width, height) {
+    const buffer = Buffer.from(base64, 'base64');
+    // Criar nova imagem preta
+    const image = new Jimp(width, height);
+
+    // Preencher bitmap (RAW 1 byte -> RGBA 4 bytes)
+    for (let i = 0; i < width * height; i++) {
+        const val = buffer[i];
+        const idx = i * 4;
+        image.bitmap.data[idx] = val;     // R
+        image.bitmap.data[idx + 1] = val; // G
+        image.bitmap.data[idx + 2] = val; // B
+        image.bitmap.data[idx + 3] = 255; // Alpha
+    }
+    return image;
+}
 
 class AcessoController {
     async scan(req, res) {
-        const { device_id, template, force_match_id } = req.body;
+        const { device_id, template, width, height, force_match_id } = req.body;
+        console.log(`[Scan] Recebido: ${width}x${height} - Force: ${force_match_id}`);
+
         try {
             const evento = await Evento.findOne({ where: { status: 'ativo' } });
             if (!evento) return res.json({ autorizado: false, mensagem: "Nenhum evento ativo." });
 
             let participante = null;
+
             if (force_match_id) {
                 participante = await Participante.findByPk(force_match_id);
             } else {
-                participante = await Participante.findOne({ where: { template_biometrico: template } });
+                // --- BIOMETRIA POR SIMILARIDADE (FUZZY MATCH) ---
+                if (!width || !height) {
+                    return res.json({ autorizado: false, mensagem: "Dimensões da imagem não fornecidas." });
+                }
+
+                const probeImage = await createJimpFromRaw(template, width, height);
+                const candidates = await Participante.findAll({
+                    where: {
+                        template_biometrico: { [Op.ne]: null },
+                        ativo: true
+                    }
+                });
+
+                let bestMatch = null;
+                let lowestDistance = 1.0; // 1.0 = 100% diferente
+
+                console.log(`[Scan] Comparando com ${candidates.length} candidatos...`);
+
+                for (const cand of candidates) {
+                    try {
+                        // O template salvo no banco deve ter o mesmo formato (RAW Base64)
+                        // Assumimos que foi salvo com o mesmo leitor/dimensões.
+                        // Se não tiver width/height salvos, assumimos o do probe (arriscado, mas por hora ok)
+                        if (!cand.template_biometrico || cand.template_biometrico.startsWith('manual_')) continue;
+
+                        const candImage = await createJimpFromRaw(cand.template_biometrico, width, height);
+
+                        // Jimp.distance: 0 = idêntico, 1 = muito diferente
+                        const distance = Jimp.distance(probeImage, candImage);
+                        const diff = Jimp.diff(probeImage, candImage); // diff.percent
+
+                        // Combinar métricas se quiser, ou usar só distance
+                        // console.log(`[Scan] Cand ${cand.nome}: Dist ${distance.toFixed(4)} Diff ${diff.percent.toFixed(4)}`);
+
+                        if (distance < 0.15 && distance < lowestDistance) { // Limiar 15%
+                            lowestDistance = distance;
+                            bestMatch = cand;
+                        }
+                    } catch (err) {
+                        console.error(`Erro ao comparar candidato ${cand.id}:`, err.message);
+                    }
+                }
+
+                if (bestMatch) {
+                    console.log(`[Scan] MATCH! ${bestMatch.nome} (S: ${(1 - lowestDistance).toFixed(2)})`);
+                    participante = bestMatch;
+                }
             }
 
             // Verificação de dupla entrada
@@ -34,7 +102,7 @@ class AcessoController {
 
                     return res.json({
                         autorizado: false,
-                        mensagem: "Participante já validado!",
+                        mensagem: `Participante já validado! (${participante.nome})`,
                         participante: { nome: participante.nome }
                     });
                 }
@@ -57,9 +125,10 @@ class AcessoController {
                     access_id: acesso.id
                 });
             } else {
-                return res.json({ autorizado: false, mensagem: "Biometria não cadastrada", access_id: acesso.id });
+                return res.json({ autorizado: false, mensagem: "Biometria não reconhecida", access_id: acesso.id });
             }
         } catch (error) {
+            console.error("Erro no scan:", error);
             res.status(500).json({ error: "Erro interno" });
         }
     }

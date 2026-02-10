@@ -58,7 +58,7 @@ try {
     ftrScanOpenDevice = lib.func('__cdecl', 'ftrScanOpenDevice', FTRHANDLE, []);
 
     console.log('[Bridge] Mapeando ftrScanCloseDevice...');
-    ftrScanCloseDevice = lib.func('__cdecl', 'ftrScanCloseDevice', 'void', [FTRHANDLE]);
+    ftrScanCloseDevice = lib.func('__stdcall', 'ftrScanCloseDevice', 'void', [FTRHANDLE]);
 
     console.log('[Bridge] Mapeando ftrScanGetImageSize...');
     ftrScanGetImageSize = lib.func('__cdecl', 'ftrScanGetImageSize', 'int', [FTRHANDLE, koffi.out(PFTRSCAN_IMAGE_SIZE)]);
@@ -122,74 +122,120 @@ function closeDevice() {
 }
 
 // --- Loop de Captura ---
-async function startCapture(ws) {
+// --- Loop de Captura ---
+// --- Loop de Captura ---
+let lastDeviceStatus = 'unknown';
+let captureInterval = null;
+
+async function startCapture() {
     if (isCapturing) return;
     isCapturing = true;
 
-    if (!openDevice()) {
-        ws.send(JSON.stringify({ type: 'ERROR', message: 'Leitor não detectado pelo Software.' }));
-        // Não resetar isCapturing para evitar spam se for loop
-        isCapturing = false;
-        return;
-    }
+    console.log('[Bridge] Iniciando loop de captura persistente...');
 
-    console.log('[Bridge] Iniciando loop de captura...');
-    ws.send(JSON.stringify({ type: 'STATUS', message: 'Aguardando dedo...' }));
+    if (captureInterval) clearInterval(captureInterval);
 
-    const frameParams = {}; // Placeholder
-    const checkInterval = setInterval(() => {
-        if (!isCapturing || !hDevice) {
-            clearInterval(checkInterval);
+    captureInterval = setInterval(async () => {
+        if (!isCapturing) {
+            clearInterval(captureInterval);
             return;
         }
 
-        try {
-            // Verifica presença do dedo
-            const isPresent = ftrScanIsFingerPresent(hDevice, frameParams);
-
-            if (isPresent) {
-                console.log('[Bridge] Dedo detectado! Capturando...');
-
-                // Alocar buffer
-                // Se imageSize for 0, usa default ou falha
-                if (imageSize.nImageSize === 0) {
-                    imageSize.nImageSize = 161904; // aprox para 320x480? Seguro?
-                    // Melhor tentar pegar de novo ou falhar.
+        // 1. Se não temos device, tentar abrir
+        if (!hDevice) {
+            const success = openDevice();
+            if (success) {
+                if (lastDeviceStatus !== 'connected') {
+                    lastDeviceStatus = 'connected';
+                    broadcast({ type: 'DEVICE_STATUS', status: 'connected', message: 'Leitor Conectado' });
                 }
+            } else {
+                if (lastDeviceStatus !== 'disconnected') {
+                    lastDeviceStatus = 'disconnected';
+                    broadcast({ type: 'DEVICE_STATUS', status: 'disconnected', message: 'Leitor Desconectado' });
+                }
+                // Continua tentando no próximo ciclo
+                return;
+            }
+        }
 
-                const buffer = Buffer.alloc(imageSize.nImageSize);
+        // 2. Com device aberto, verificar dedo
+        if (hDevice) {
+            const frameParams = {};
+            try {
+                let isPresent = ftrScanIsFingerPresent(hDevice, frameParams);
 
-                // Capturar Imagem (nDose = 4 é comum para melhor contraste)
-                const captured = ftrScanGetImage(hDevice, 4, buffer);
+                if (isPresent) {
+                    console.log('[Bridge] Dedo detectado! Verificando estabilidade...');
+                    await new Promise(r => setTimeout(r, 150));
 
-                if (captured) {
-                    console.log('[Bridge] Imagem capturada com sucesso.');
+                    isPresent = ftrScanIsFingerPresent(hDevice, frameParams);
 
-                    // Converter para Base64 e enviar
-                    const base64Image = buffer.toString('base64');
-                    ws.send(JSON.stringify({
-                        type: 'IMAGE_DATA',
-                        image: base64Image,
-                        width: imageSize.nWidth,
-                        height: imageSize.nHeight
-                    }));
+                    if (isPresent) {
+                        console.log('[Bridge] Dedo confirmado! Capturando...');
 
-                    isCapturing = false;
-                    clearInterval(checkInterval);
-                    closeDevice(); // Libera o device
+                        if (imageSize.nImageSize === 0) imageSize.nImageSize = 161904;
+                        const buffer = Buffer.alloc(imageSize.nImageSize);
+                        const captured = ftrScanGetImage(hDevice, 4, buffer);
+
+                        if (captured) {
+                            console.log('[Bridge] Imagem capturada com sucesso.');
+                            const base64Image = buffer.toString('base64');
+                            broadcast({
+                                type: 'IMAGE_DATA',
+                                image: base64Image,
+                                width: imageSize.nWidth,
+                                height: imageSize.nHeight
+                            });
+
+                            // Não paramos o loop globlamente, apenas sinalizamos que 'processou'. 
+                            // Mas se o intuito é 'contínuo', o frontend que gerencia o fluxo de pedir stop/start? 
+                            // O usuário pediu 'volte automaticamente'.
+                            // Se eu parar aqui, tem que esperar o frontend mandar START de novo.
+                            // O frontend Atual manda START após 5s. 
+                            // Então aqui eu PARO a captura (isCapturing = false) para esperar o comando?
+                            // SE eu parar, o loop de 'reconnect' também para.
+
+                            // A solução do usuário pede "volte automaticamente".
+                            // Se eu manter isCapturing = true, o leitor vai ficar piscando/lendo sem parar.
+                            // O modelo atual é: Frontend comanda START. Leitor lê UMA VEZ e para.
+
+                            // Então vou manter: leu uma vez -> stop -> frontend manda start depois de 5s.
+                            isCapturing = false;
+                            closeDevice(); // Fecha para economizar/resetar
+                            clearInterval(captureInterval);
+                        }
+                    }
+                }
+            } catch (e) {
+                console.error('[Bridge] Erro no loop (provavel desconexão):', e);
+                closeDevice(); // Força reset do handle
+                if (lastDeviceStatus !== 'disconnected') {
+                    lastDeviceStatus = 'disconnected';
+                    broadcast({ type: 'DEVICE_STATUS', status: 'disconnected', message: 'Leitor Desconectado' });
                 }
             }
-        } catch (e) {
-            console.error('[Bridge] Erro no loop:', e);
-            clearInterval(checkInterval);
-            isCapturing = false;
         }
-    }, 200); // Checa a cada 200ms
+    }, 500);
+}
+
+function broadcast(data) {
+    wss.clients.forEach(client => {
+        if (client.readyState === WebSocket.OPEN) {
+            client.send(JSON.stringify(data));
+        }
+    });
 }
 
 // --- WebSocket Handlers ---
 wss.on('connection', ws => {
     console.log('[Bridge] Cliente conectado via WebSocket');
+
+    // Enviar status atual imediatamente
+    if (lastDeviceStatus !== 'unknown') {
+        const message = lastDeviceStatus === 'connected' ? 'Leitor Conectado' : 'Leitor Desconectado';
+        ws.send(JSON.stringify({ type: 'DEVICE_STATUS', status: lastDeviceStatus, message: message }));
+    }
 
     ws.on('message', message => {
         try {
@@ -197,7 +243,7 @@ wss.on('connection', ws => {
             console.log(`[Bridge] Comando recebido: ${cmd}`);
 
             if (cmd === 'START_CAPTURE') {
-                startCapture(ws);
+                startCapture();
             } else if (cmd === 'STOP_CAPTURE') {
                 isCapturing = false;
                 closeDevice();
