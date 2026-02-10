@@ -617,7 +617,7 @@ function ControleAcesso() {
     const participante = modalData.Participante || modalData.Acompanhante || {};
 
     return (
-      <div className={`access-panel ${statusClass}`} style={{ position: 'relative', overflow: 'hidden', padding: '1.5rem 1rem', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+      <div className={`access-panel ${statusClass}`} style={{ position: 'relative', overflow: 'hidden', padding: '1rem', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
         <div className="access-photo-large" style={{
           width: '120px',
           height: '120px',
@@ -688,7 +688,7 @@ function ControleAcesso() {
         <button
           onClick={handleFinishClick}
           style={{
-            backgroundColor: '#dc3545',
+            backgroundColor: '#fd7e14',
             border: 'none',
             color: 'white',
             padding: '0.5rem 1rem',
@@ -814,13 +814,20 @@ function ControleAcesso() {
             </div>
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: '0',
+            borderBottom: '1px solid #eee',
+            paddingBottom: '0.8rem'
+          }}>
             <h3 style={{ margin: '0', fontSize: '1.1rem', color: 'var(--text-secondary)' }}>Lista de Entrada</h3>
             <div style={{ display: 'flex', gap: '0.5rem' }}>
               <button
                 onClick={() => window.open('/totem', '_blank')}
                 style={{
-                  backgroundColor: '#198754',
+                  backgroundColor: '#b1d249',
                   border: 'none',
                   color: 'white',
                   padding: '0.4rem 0.8rem',
