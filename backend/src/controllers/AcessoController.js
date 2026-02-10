@@ -22,8 +22,8 @@ async function createJimpFromRaw(base64, width, height) {
 
 class AcessoController {
     async scan(req, res) {
-        const { device_id, template, width, height, force_match_id } = req.body;
-        console.log(`[Scan] Recebido: ${width}x${height} - Force: ${force_match_id}`);
+        const { device_id, template, width, height, force_match_id, check_only } = req.body;
+        console.log(`[Scan] Recebido: ${width}x${height} - Force: ${force_match_id} - CheckOnly: ${check_only}`);
 
         try {
             const evento = await Evento.findOne({ where: { status: 'ativo' } });
@@ -80,6 +80,19 @@ class AcessoController {
                 if (bestMatch) {
                     console.log(`[Scan] MATCH! ${bestMatch.nome} (S: ${(1 - lowestDistance).toFixed(2)})`);
                     participante = bestMatch;
+                }
+            }
+
+            // Se for apenas verificação (para checkout ou busca)
+            if (check_only) {
+                if (participante) {
+                    return res.json({
+                        autorizado: true,
+                        participante: { id: participante.id, nome: participante.nome, cpf: participante.cpf, crm: participante.crm },
+                        mensagem: "Identificado com sucesso"
+                    });
+                } else {
+                    return res.json({ autorizado: false, mensagem: "Biometria não reconhecida" });
                 }
             }
 

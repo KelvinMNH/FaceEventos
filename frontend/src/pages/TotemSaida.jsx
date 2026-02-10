@@ -16,8 +16,10 @@ function TotemSaida() {
     const [searchResults, setSearchResults] = useState([]);
     const [selectedParticipant, setSelectedParticipant] = useState(null);
     const [statusMessage, setStatusMessage] = useState('');
+    const [scannerStatus, setScannerStatus] = useState('disconnected'); // 'connected' | 'disconnected'
 
     const searchInputRef = useRef(null);
+    const wsRef = useRef(null);
 
     // Atualizar hora
     useEffect(() => {
@@ -56,6 +58,88 @@ function TotemSaida() {
             searchInputRef.current.focus();
         }
     }, [view]);
+
+    // WebSocket Bridge Connect
+    useEffect(() => {
+        let ws = null;
+        let reconnectTimer = null;
+
+        const connect = () => {
+            ws = new WebSocket('ws://localhost:4000');
+            wsRef.current = ws;
+
+            ws.onopen = () => {
+                console.log('Bridge conectada');
+                setScannerStatus('connected');
+                ws.send('START_CAPTURE');
+            };
+
+            ws.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    if (data.type === 'IMAGE_DATA') {
+                        handleBiometricAttempt(data.image, data.width, data.height);
+                    } else if (data.type === 'DEVICE_STATUS') {
+                        setScannerStatus(data.status);
+                    }
+                } catch (e) {
+                    console.error('Erro ao processar mensagem', e);
+                }
+            };
+
+            ws.onclose = () => {
+                console.log('Bridge desconectada. Tentando reconectar...');
+                setScannerStatus('disconnected');
+                reconnectTimer = setTimeout(connect, 3000);
+            };
+
+            ws.onerror = (err) => {
+                console.error('Erro no WebSocket:', err);
+                ws.close();
+            };
+        };
+
+        connect();
+
+        return () => {
+            if (ws) ws.close();
+            if (reconnectTimer) clearTimeout(reconnectTimer);
+        };
+    }, []);
+
+    const handleBiometricAttempt = async (base64Image, width, height) => {
+        // Só processa biometria se estiver na tela inicial ou busca
+        if (view !== 'welcome' && view !== 'search') return;
+
+        try {
+            const res = await fetch(`${API_URL}/scan`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    template: base64Image,
+                    width,
+                    height,
+                    device_id: 'checkout_totem_bio',
+                    check_only: true // Flag importante para não registrar entrada
+                })
+            });
+            const data = await res.json();
+
+            if (data.autorizado && data.participante) {
+                // Identificou! Vai para confirmação
+                handleSelectParticipant(data.participante);
+            } else {
+                setStatusMessage("Biometria não reconhecida. Tente novamente.");
+                setView('error');
+                setTimeout(() => setView('welcome'), 3000);
+            }
+        } catch (e) {
+            console.error("Erro na validação biométrica:", e);
+        }
+    };
 
     // Busca manual
     const handleSearch = async (term) => {
@@ -183,6 +267,19 @@ function TotemSaida() {
                 <div style={{ flex: '1', textAlign: 'right' }}>
                     <div style={{ fontSize: '4.5rem', fontWeight: 'bold', fontFamily: 'monospace', lineHeight: 1 }}>{formatTime(horaAtual)}</div>
                     <div style={{ fontSize: '1.6rem', marginTop: '5px' }}>{formatDate(horaAtual)}</div>
+                    <div style={{
+                        marginTop: '10px',
+                        fontSize: '0.8rem',
+                        color: scannerStatus === 'connected' ? '#198754' : '#dc3545',
+                        display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '5px'
+                    }}>
+                        <span style={{
+                            width: '10px', height: '10px', borderRadius: '50%',
+                            backgroundColor: scannerStatus === 'connected' ? '#198754' : '#dc3545',
+                            display: 'inline-block'
+                        }}></span>
+                        {scannerStatus === 'connected' ? 'Leitor Online' : 'Leitor Offline'}
+                    </div>
                 </div>
             </div>
 

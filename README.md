@@ -1,62 +1,97 @@
 # UniEventos
 
-Sistema moderno de gestão de eventos e controle de acesso biométrico para hospitais e centros de convenções.
+Sistema moderno de gestão de eventos e controle de acesso biométrico.
 
-##  Sobre o Projeto
+## 🚀 Pré-requisitos para Instalação
 
-O **UniEventos** é uma plataforma robusta projetada para gerenciar fluxos de entrada e saída em eventos de grande escala. O sistema utiliza tecnologia biométrica para garantir a identidade dos participantes e oferece dashboards em tempo real para os organizadores.
+Antes de começar em um **novo computador**, certifique-se de ter instalado:
 
-###  Principais Funcionalidades
-
-*   **Painel Administrativo**: Criação e gestão de eventos com suporte a múltiplos formatos de imagem.
-*   **Controle de Acesso Biométrico**: Interface dedicada para recepção com feedback visual instantâneo.
-*   **Totens de Autoatendimento**: Telas otimizadas para totens de entrada (Check-in) e saída (Checkout).
-*   **Relatórios e Estatísticas**: Gráficos demográficos (gênero, faixa etária) e logs detalhados de presença.
-*   **Suporte Multi-Banco**: Compatível com **SQLite** (desenvolvimento) e **Oracle Database** (produção).
-*   **Gestão de Acompanhantes**: Controle flexível de acompanhantes por participante.
+1.  **Node.js (v18 ou superior)**: [Baixar aqui](https://nodejs.org/).
+2.  **Git**: Para clonar o repositório.
+3.  **Drivers do Leitor Futronic FS80H**:
+    *   Instale o driver USB oficial da Futronic.
+    *   **Importante**: O arquivo `ftrScanAPI.dll` deve estar presente na pasta `bridge/`. (Já incluído no projeto, mas verifique se o antivírus não removeu).
+4.  **Visual C++ Redistributable**: Necessário para módulos nativos do Node.js.
 
 ---
 
-##  Arquitetura do Sistema
+## 📦 Instalação Passo a Passo
 
-O projeto utiliza uma arquitetura modularizada para facilitar a manutenção:
+Abra o terminal na pasta raiz do projeto (`UniEventos`) e execute os comandos para cada módulo.
 
-*   **`/backend`**: API RESTful desenvolvida com Node.js, Express e Sequelize (Arquitetura MVC).
-*   **`/frontend`**: Aplicação SPA construída com React, Vite e componentes estilizados modernos.
-*   **`/bridge`**: Camada de integração técnica para hardware biométrico (Futronic).
+### 1. Configurar o Backend (API)
+O backend gerencia o banco de dados e as regras de negócio.
 
----
-
-##  Como Iniciar
-
-### Pré-requisitos
-*   Node.js (v18+)
-*   NPM ou Yarn
-
-### 1. Backend
 ```bash
 cd backend
 npm install
-node server.js
 ```
-*Configuração via `.env` (Ver README interno do backend).*
+*Crie um arquivo `.env` na pasta `backend` se necessário (ver modelo).*
 
-### 2. Frontend
+### 2. Configurar o Frontend (Interface)
+A interface visual onde os usuários interagem.
+
 ```bash
-cd frontend
+cd ../frontend
 npm install
-npm run dev
 ```
-*Acesse em: `http://localhost:5173`*
+
+### 3. Configurar a Bridge (Biometria)
+O software que conecta o leitor USB ao navegador.
+
+```bash
+cd ../bridge
+npm install
+```
 
 ---
 
-##  Configuração de Produção (Oracle)
+## ▶️ Como Rodar o Projeto
 
-O sistema está configurado para desenvolvimento (SQLite). Para migrar para o Oracle:
-1. Altere o arquivo `backend/.env`.
-2. Configure `DB_DIALECT=oracle`.
-3. Preencha as credenciais do seu servidor Oracle.
+Você precisará de **3 terminais** abertos simultaneamente (ou abas do VS Code).
 
+### Terminal 1: Backend
+```bash
+cd backend
+node server.js
+```
+*Aguarde aparecer: "Servidor rodando na porta 3000"*
 
+### Terminal 2: Frontend
+```bash
+cd frontend
+npm run dev
+```
+*Acesse o link mostrado (geralmente `http://localhost:5173`)*
 
+### Terminal 3: Bridge Biométrica
+⚠️ **Conecte o leitor biométrico USB antes de rodar.**
+
+```bash
+cd bridge
+node connector_futronic.js
+```
+*Deve aparecer: "Bridge conectada" e "Leitor Conectado".*
+
+---
+
+## 🛠️ Solução de Problemas Comuns
+
+### 🔴 Erro: "Leitor não encontrado" ou "Bridge desconectada"
+1.  Verifique se o leitor USB está bem conectado.
+2.  Reinicie o comando no Terminal 3.
+3.  Verifique no Gerenciador de Dispositivos se o driver "Futronic" está instalado corretamente.
+
+### ⚪ Tela Branca no Frontend
+1.  Verifique se o Backend (Terminal 1) está rodando.
+2.  Abra o Console do Desenvolvedor (F12) para ver erros específicos.
+
+### 💾 Banco de Dados
+Por padrão, o sistema usa **SQLite** (`database.sqlite`).
+Para resetar o banco, basta apagar o arquivo `database.sqlite` e reiniciar o backend.
+
+---
+
+## 👤 Login Padrão
+Se o banco estiver vazio, crie um usuário via API ou registre-se na tela inicial (se habilitado).
+*   **Admin Padrão**: (Não configurado por padrão, necessário criar no primeiro uso).

@@ -166,44 +166,52 @@ async function startCapture() {
                 let isPresent = ftrScanIsFingerPresent(hDevice, frameParams);
 
                 if (isPresent) {
-                    console.log('[Bridge] Dedo detectado! Verificando estabilidade...');
-                    await new Promise(r => setTimeout(r, 150));
+                    console.log('[Bridge] Dedo detectado! Verificando estabilidade (1/2)...');
+                    await new Promise(r => setTimeout(r, 200));
 
                     isPresent = ftrScanIsFingerPresent(hDevice, frameParams);
 
                     if (isPresent) {
-                        console.log('[Bridge] Dedo confirmado! Capturando...');
+                        console.log('[Bridge] Dedo confirmado! Verificando estabilidade (2/2)...');
+                        await new Promise(r => setTimeout(r, 200));
 
-                        if (imageSize.nImageSize === 0) imageSize.nImageSize = 161904;
-                        const buffer = Buffer.alloc(imageSize.nImageSize);
-                        const captured = ftrScanGetImage(hDevice, 4, buffer);
+                        isPresent = ftrScanIsFingerPresent(hDevice, frameParams);
 
-                        if (captured) {
-                            console.log('[Bridge] Imagem capturada com sucesso.');
-                            const base64Image = buffer.toString('base64');
-                            broadcast({
-                                type: 'IMAGE_DATA',
-                                image: base64Image,
-                                width: imageSize.nWidth,
-                                height: imageSize.nHeight
-                            });
+                        if (isPresent) {
+                            console.log('[Bridge] Dedo validado. Capturando...');
 
-                            // Não paramos o loop globlamente, apenas sinalizamos que 'processou'. 
-                            // Mas se o intuito é 'contínuo', o frontend que gerencia o fluxo de pedir stop/start? 
-                            // O usuário pediu 'volte automaticamente'.
-                            // Se eu parar aqui, tem que esperar o frontend mandar START de novo.
-                            // O frontend Atual manda START após 5s. 
-                            // Então aqui eu PARO a captura (isCapturing = false) para esperar o comando?
-                            // SE eu parar, o loop de 'reconnect' também para.
+                            if (imageSize.nImageSize === 0) imageSize.nImageSize = 161904;
+                            const buffer = Buffer.alloc(imageSize.nImageSize);
+                            const captured = ftrScanGetImage(hDevice, 4, buffer);
 
-                            // A solução do usuário pede "volte automaticamente".
-                            // Se eu manter isCapturing = true, o leitor vai ficar piscando/lendo sem parar.
-                            // O modelo atual é: Frontend comanda START. Leitor lê UMA VEZ e para.
+                            if (captured) {
+                                console.log('[Bridge] Imagem capturada com sucesso.');
 
-                            // Então vou manter: leu uma vez -> stop -> frontend manda start depois de 5s.
-                            isCapturing = false;
-                            closeDevice(); // Fecha para economizar/resetar
-                            clearInterval(captureInterval);
+                                // --- ANÁLISE DE QUALIDADE/CONTRASTE ---
+                                // Evitar falso positivo (imagem cinza/branca sem cristas)
+                                const contrast = calculateContrast(buffer);
+                                console.log(`[Bridge] Contraste da Imagem: ${contrast.toFixed(2)}`);
+
+                                if (contrast < 20.0) {
+                                    console.log('[Bridge] Contraste muito baixo (Falso Positivo). Ignorando.');
+                                    isCapturing = false;
+                                    clearInterval(captureInterval);
+                                    return;
+                                }
+
+                                const base64Image = buffer.toString('base64');
+                                broadcast({
+                                    type: 'IMAGE_DATA',
+                                    image: base64Image,
+                                    width: imageSize.nWidth,
+                                    height: imageSize.nHeight
+                                });
+
+                                // Mantemos o device ABERTO para preservar calibração/background
+                                isCapturing = false;
+                                clearInterval(captureInterval);
+                                // closeDevice(); // REMOVIDO: Manter aberto
+                            }
                         }
                     }
                 }
@@ -260,8 +268,22 @@ wss.on('connection', ws => {
     });
 });
 
-// Tratamento de Encerramento do Processo
 process.on('SIGINT', () => {
     closeDevice();
     process.exit();
 });
+
+function calculateContrast(buffer) {
+    let sum = 0;
+    const len = buffer.length;
+    for (let i = 0; i < len; i++) sum += buffer[i];
+    const mean = sum / len;
+
+    let sumSqDiff = 0;
+    for (let i = 0; i < len; i++) {
+        const diff = buffer[i] - mean;
+        sumSqDiff += diff * diff;
+    }
+    const variance = sumSqDiff / len;
+    return Math.sqrt(variance);
+}
