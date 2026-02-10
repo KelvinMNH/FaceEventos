@@ -16,6 +16,8 @@ function TotemAcesso() {
     const [searchResults, setSearchResults] = useState([]);
     const [selectedParticipant, setSelectedParticipant] = useState(null);
     const [statusMessage, setStatusMessage] = useState('');
+    const [qualityMsg, setQualityMsg] = useState(''); // Novo: feedback de pressão do dedo
+
 
     const searchInputRef = useRef(null);
 
@@ -30,9 +32,14 @@ function TotemAcesso() {
 
     // WebSocket Bridge Conexão
     useEffect(() => {
+        let ws = null;
+        let reconnectTimeout = null;
+
         const connectBridge = () => {
+            if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
+
             try {
-                const ws = new WebSocket('ws://localhost:4000');
+                ws = new WebSocket('ws://localhost:4000');
                 wsRef.current = ws;
 
                 ws.onopen = () => {
@@ -44,7 +51,6 @@ function TotemAcesso() {
                     try {
                         const data = JSON.parse(event.data);
                         if (data.type === 'IMAGE_DATA') {
-                            // Guardar dados para renderizar no Canvas
                             setScannedImage({
                                 buffer: data.image,
                                 width: data.width,
@@ -53,19 +59,41 @@ function TotemAcesso() {
                             handleBiometricScan(data);
                         } else if (data.type === 'STATUS') {
                             console.log('Bridge Status:', data.message);
+                            if (data.status === 'low_quality') {
+                                setQualityMsg(data.message);
+                                setTimeout(() => setQualityMsg(''), 3000);
+                            }
                         }
                     } catch (e) {
                         console.error('Erro WS msg:', e);
                     }
                 };
 
-                ws.onerror = (e) => console.log('WS Erro (normal se bridge desligado):', e);
-            } catch (e) { console.log('Erro conexão bridge'); }
+                ws.onclose = () => {
+                    console.log('WS Bridge Fechado. Reconectando em 3s...');
+                    wsRef.current = null;
+                    reconnectTimeout = setTimeout(connectBridge, 3000);
+                };
+
+                ws.onerror = (e) => {
+                    console.log('WS Erro:', e);
+                    if (ws.readyState === WebSocket.OPEN) ws.close();
+                };
+
+            } catch (e) {
+                console.log('Erro conexão bridge', e);
+                reconnectTimeout = setTimeout(connectBridge, 3000);
+            }
         };
 
         connectBridge();
+
         return () => {
-            if (wsRef.current) wsRef.current.close();
+            if (reconnectTimeout) clearTimeout(reconnectTimeout);
+            if (wsRef.current) {
+                wsRef.current.onclose = null; // Evita loop no unmount
+                wsRef.current.close();
+            }
         };
     }, []);
 
@@ -97,12 +125,12 @@ function TotemAcesso() {
             if (resp.autorizado && resp.participante) {
                 setStatusMessage(`Bem-vindo(a), ${resp.participante.nome}!`);
                 setView('success');
-                setTimeout(() => { setView('welcome'); setScannedImage(null); }, 4000);
+                setTimeout(() => { setView('welcome'); setScannedImage(null); }, 2000);
             } else {
                 // Se falhar (o que vai acontecer sem matching real), mostramos erro
                 setStatusMessage(resp.mensagem || "Biometria não identificada");
                 setView('error');
-                setTimeout(() => { setView('welcome'); setScannedImage(null); }, 3000);
+                setTimeout(() => { setView('welcome'); setScannedImage(null); }, 2000);
             }
         } catch (e) {
             console.error('Erro API Scan', e);
@@ -259,18 +287,22 @@ function TotemAcesso() {
                     <div style={{ textAlign: 'center', animation: 'fadeIn 0.5s' }}>
                         <h2 style={{ fontSize: '2.5rem', color: '#333', marginBottom: '3rem' }}>Seja Bem-vindo(a)!</h2>
 
+                        {/* Círculo do Totem agora com estilo idêntico ao Access Panel */}
                         <div
                             className="totem-circle totem-circle-animated"
                             style={{
-                                backgroundColor: '#e9ffe9',
-                                color: '#198754',
+                                width: '200px',
+                                height: '200px',
+                                borderRadius: '50%',
+                                backgroundColor: '#ffffff',
                                 margin: '0 auto 3rem',
-                                boxShadow: '0 10px 30px rgba(25,135,84,0.2)',
-                                border: '4px solid #198754',
+                                position: 'relative',
                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                overflow: 'hidden', position: 'relative'
+                                boxShadow: '0 10px 30px rgba(0,0,0,0.1)'
                             }}
                         >
+                            {/* A animação agora vem da classe .totem-circle-animated::before no index.css */}
+
                             {scannedImage ? (
                                 <canvas
                                     ref={canvas => {
@@ -280,7 +312,7 @@ function TotemAcesso() {
                                             canvas.width = width;
                                             canvas.height = height;
 
-                                            // Converte Base64 para ArrayBuffer
+                                            // Converte Base64
                                             const binaryString = window.atob(buffer);
                                             const len = binaryString.length;
                                             const bytes = new Uint8Array(len);
@@ -288,33 +320,37 @@ function TotemAcesso() {
                                                 bytes[i] = binaryString.charCodeAt(i);
                                             }
 
-                                            // Cria ImageData (Grayscale para RGBA)
+                                            // Cria ImageData
                                             const imgData = ctx.createImageData(width, height);
                                             for (let i = 0; i < len; i++) {
                                                 const val = bytes[i];
-                                                imgData.data[i * 4] = val;     // R
-                                                imgData.data[i * 4 + 1] = val; // G
-                                                imgData.data[i * 4 + 2] = val; // B
-                                                imgData.data[i * 4 + 3] = 255; // A
+                                                imgData.data[i * 4] = val;
+                                                imgData.data[i * 4 + 1] = val;
+                                                imgData.data[i * 4 + 2] = val;
+                                                imgData.data[i * 4 + 3] = 255;
                                             }
                                             ctx.putImageData(imgData, 0, 0);
                                         }
                                     }}
-                                    style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                                    style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: '50%', position: 'relative', zIndex: 2 }}
                                 />
                             ) : (
-                                <span style={{ fontSize: '6rem' }}>👋</span>
+                                <span style={{ fontSize: '6rem', position: 'relative', zIndex: 2 }}>👆</span>
                             )}
                         </div>
 
-                        <p style={{ fontSize: '1.2rem', color: '#666', marginBottom: '3rem' }}>
-                            {scannedImage ? 'Processando biometria...' : 'Coloque seu dedo no leitor biométrico'}
+                        <p style={{ fontSize: '1.2rem', color: '#666', marginBottom: '3rem', fontWeight: 'bold' }}>
+                            {scannedImage ? 'Processando biometria...' : (
+                                qualityMsg ? (
+                                    <span style={{ color: '#FF9800', animation: 'shake 0.5s infinite' }}>⚠️ {qualityMsg}</span>
+                                ) : 'Posicione seu dedo no leitor biométrico'
+                            )}
                         </p>
 
                         <button
                             onClick={() => setView('search')}
                             style={{
-                                padding: '1.2rem 3rem', fontSize: '1.3rem', backgroundColor: '#198754', color: 'white',
+                                padding: '1.2rem 3rem', fontSize: '1.3rem', backgroundColor: '#00995D', color: 'white',
                                 border: 'none', borderRadius: '50px', cursor: 'pointer', boxShadow: '0 4px 15px rgba(25,135,84,0.3)',
                                 transition: 'transform 0.2s', fontWeight: 'bold'
                             }}

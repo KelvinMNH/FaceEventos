@@ -43,6 +43,7 @@ function ControleAcesso() {
   const [messageModal, setMessageModal] = useState({ open: false, title: '', message: '', type: 'info', onOk: null });
   const [bridgeStatus, setBridgeStatus] = useState('disconnected'); // 'connected', 'disconnected' (connection to WS)
   const [scannerStatus, setScannerStatus] = useState('unknown'); // 'connected', 'disconnected' (device status)
+  const [biometricQualityMsg, setBiometricQualityMsg] = useState(''); // Mensagem de feedback de qualidade
 
   const showMessage = (title, message, type = 'info', onOk = null) => {
     setMessageModal({ open: true, title, message, type, onOk });
@@ -194,49 +195,77 @@ function ControleAcesso() {
 
   // WebSocket Biometria
   const wsRef = useRef(null);
+  const reconnectTimeoutRef = useRef(null);
 
   useEffect(() => {
-    const ws = new WebSocket('ws://localhost:4000');
-    wsRef.current = ws;
-
-    ws.onopen = () => {
-      console.log('Bridge conectada');
-      setBridgeStatus('connected');
-      ws.send('START_CAPTURE');
-    };
-
-    ws.onmessage = async (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        if (data.type === 'IMAGE_DATA') {
-          handleBiometricAttempt(data.image, data.width, data.height);
-        } else if (data.type === 'STATUS') {
-          console.log('Bridge Status:', data.message);
-        } else if (data.type === 'DEVICE_STATUS') {
-          setScannerStatus(data.status); // 'connected' or 'disconnected'
-        } else if (data.type === 'ERROR') {
-          console.error('Bridge Error:', data.message);
-          showMessage("Erro no Leitor", data.message, "error");
-        }
-      } catch (e) {
-        console.error('Erro ao processar mensagem do bridge', e);
+    const connectBridge = () => {
+      if (wsRef.current && (wsRef.current.readyState === WebSocket.OPEN || wsRef.current.readyState === WebSocket.CONNECTING)) {
+        return;
       }
+
+      console.log('Tentando conectar ao Bridge...');
+      const ws = new WebSocket('ws://localhost:4000');
+      wsRef.current = ws;
+
+      ws.onopen = () => {
+        console.log('Bridge conectada');
+        setBridgeStatus('connected');
+        ws.send('START_CAPTURE');
+      };
+
+      ws.onmessage = async (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === 'IMAGE_DATA') {
+            handleBiometricAttempt(data.image, data.width, data.height);
+          } else if (data.type === 'STATUS') {
+            console.log('Bridge Status:', data.message);
+            if (data.status === 'low_quality') {
+              setBiometricQualityMsg(data.message);
+              setTimeout(() => setBiometricQualityMsg(''), 3000);
+            }
+          } else if (data.type === 'DEVICE_STATUS') {
+            setScannerStatus(data.status); // 'connected' or 'disconnected'
+            // Se reconectou o device, garante que está capturando
+            if (data.status === 'connected') {
+              ws.send('START_CAPTURE');
+            }
+          } else if (data.type === 'ERROR') {
+            console.error('Bridge Error:', data.message);
+            // showMessage("Erro no Leitor", data.message, "error"); // Opcional: pode ser irritante se for persistente
+          }
+        } catch (e) {
+          console.error('Erro ao processar mensagem do bridge', e);
+        }
+      };
+
+      ws.onclose = () => {
+        console.log('Bridge desconectada. Tentando reconectar em 3s...');
+        setBridgeStatus('disconnected');
+        setScannerStatus('unknown');
+        wsRef.current = null;
+        reconnectTimeoutRef.current = setTimeout(connectBridge, 3000);
+      };
+
+      ws.onerror = (e) => {
+        console.log('Erro na conexão WebSocket (Bridge pode estar offline).');
+        if (ws.readyState === WebSocket.OPEN) ws.close();
+      };
     };
 
-    ws.onclose = () => {
-      console.log('Bridge desconectada');
-      setBridgeStatus('disconnected');
-    };
+    connectBridge();
 
     return () => {
-      if (ws.readyState === 1) {
-        ws.send('STOP_CAPTURE');
-        ws.close();
+      if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
+      if (wsRef.current) {
+        // Remove listener to avoid loop during unmount
+        wsRef.current.onclose = null;
+        wsRef.current.close();
       }
     };
   }, []);
 
-  const handleBiometricAttempt = async (base64Image, width, height) => {
+  const handleBiometricAttempt = async (base64Image, width = 320, height = 480) => {
     try {
       const res = await fetch(`${API_URL}/scan`, {
         method: 'POST',
@@ -244,7 +273,12 @@ function ControleAcesso() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ template: base64Image, width, height, device_id: 'futronic_web' })
+        body: JSON.stringify({
+          template: base64Image,
+          width: width || 320,
+          height: height || 480,
+          device_id: 'futronic_web'
+        })
       });
       const data = await res.json();
 
@@ -262,18 +296,17 @@ function ControleAcesso() {
           mensagem: data.mensagem || "Biometria não reconhecida"
         };
         showModal(fakeLog);
-        // showMessage("Acesso Negado", data.mensagem || "Biometria não reconhecida", "error"); // REMOVIDO
       }
     } catch (e) {
       console.error("Erro ao enviar biometria", e);
     } finally {
-      // Reiniciar captura após 5 segundos para dar tempo do usuário tirar o dedo
+      // Reiniciar captura após 2 segundos para dar tempo do usuário tirar o dedo
       setTimeout(() => {
         if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
           console.log('Reiniciando captura...');
           wsRef.current.send('START_CAPTURE');
         }
-      }, 5000);
+      }, 2000);
     }
   };
 
@@ -537,7 +570,13 @@ function ControleAcesso() {
             <span role="img" aria-label="fingerprint">👆</span>
           </div>
           <h2 className="access-title" style={{ fontSize: '1.5rem' }}>Aguardando Validação</h2>
-          <p className="access-subtitle" style={{ fontSize: '1rem', marginBottom: '2rem' }}>Posicione seu dedo no leitor biométrico</p>
+          <p className="access-subtitle" style={{ fontSize: '1rem', marginBottom: '2rem' }}>
+            {biometricQualityMsg ? (
+              <span style={{ color: '#FF9800', fontWeight: 'bold', animation: 'shake 0.5s infinite' }}>
+                ⚠️ {biometricQualityMsg}
+              </span>
+            ) : 'Posicione seu dedo no leitor biométrico'}
+          </p>
 
           <div style={{
             padding: '0.3rem 0.8rem',

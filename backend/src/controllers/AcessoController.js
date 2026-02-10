@@ -35,8 +35,12 @@ class AcessoController {
                 participante = await Participante.findByPk(force_match_id);
             } else {
                 // --- BIOMETRIA POR SIMILARIDADE (FUZZY MATCH) ---
+                console.log(`[Scan] Validando dimensões: W=${width} H=${height}`);
+
                 if (!width || !height) {
-                    return res.json({ autorizado: false, mensagem: "Dimensões da imagem não fornecidas." });
+                    // Fallback no backend se vier zerado
+                    // Mas se realmente falhar, mudar mensagem para usuário
+                    return res.json({ autorizado: false, mensagem: "Erro na leitura biométrica (Tente novamente)" });
                 }
 
                 const probeImage = await createJimpFromRaw(template, width, height);

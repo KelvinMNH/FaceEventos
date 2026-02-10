@@ -6,7 +6,24 @@ const path = require('path');
 const WS_PORT = 4000;
 const wss = new WebSocket.Server({ port: WS_PORT });
 
-console.log(`[Bridge] Servidor WebSocket rodando na porta ${WS_PORT}`);
+console.log(`[Bridge] Servidor WebSocket inciando na porta ${WS_PORT}...`);
+
+wss.on('listening', () => {
+    console.log(`[Bridge] Servidor WebSocket OUVINDO na porta ${WS_PORT}`);
+});
+
+wss.on('error', (err) => {
+    console.error(`[Bridge] Erro no WebSocket Server:`, err);
+});
+
+process.on('uncaughtException', (err) => {
+    console.error(`[Bridge] Exceção Não Tratada:`, err);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error(`[Bridge] Rejeição Não Tratada:`, reason);
+});
+
 
 // --- Carregando a DLL (Koffi) ---
 const dllPath = path.join(__dirname, 'ftrScanAPI.dll');
@@ -96,6 +113,11 @@ function openDevice() {
             const success = ftrScanGetImageSize(hDevice, sizeStruct);
             if (success) {
                 imageSize = sizeStruct;
+                // Fallback de segurança para FS80H
+                if (imageSize.nWidth === 0) imageSize.nWidth = 320;
+                if (imageSize.nHeight === 0) imageSize.nHeight = 480;
+                if (imageSize.nImageSize === 0) imageSize.nImageSize = 161904;
+
                 console.log(`[Bridge] Tamanho da Imagem: ${imageSize.nWidth}x${imageSize.nHeight} (${imageSize.nImageSize} bytes)`);
             } else {
                 console.error('[Bridge] Falha ao obter tamanho da imagem.');
@@ -187,30 +209,36 @@ async function startCapture() {
                             if (captured) {
                                 console.log('[Bridge] Imagem capturada com sucesso.');
 
-                                // --- ANÁLISE DE QUALIDADE/CONTRASTE ---
-                                // Evitar falso positivo (imagem cinza/branca sem cristas)
+                                // --- ANÁLISE DE QUALIDADE/CONTRASTE (Ajuste Fino) ---
+                                // < 20.0: Provável ruído do leitor ou sujeira.
+                                // 20.0 - 35.0: Toque leve, avisar usuário.
+                                // > 35.0: Captura válida.
                                 const contrast = calculateContrast(buffer);
                                 console.log(`[Bridge] Contraste da Imagem: ${contrast.toFixed(2)}`);
 
                                 if (contrast < 20.0) {
-                                    console.log('[Bridge] Contraste muito baixo (Falso Positivo). Ignorando.');
+                                    // Ignora completamente sem interromper o loop (filtro de ruído)
+                                    console.log('[Bridge] Contraste abaixo de 20.0 (Ruído). Ignorando.');
+                                } else if (contrast < 35.0) {
+                                    console.log('[Bridge] Contraste insuficiente (Toque Leve). Notificando frontend...');
+                                    broadcast({
+                                        type: 'STATUS',
+                                        status: 'low_quality',
+                                        message: 'Pressione o dedo com mais firmeza'
+                                    });
+                                } else {
+                                    const base64Image = buffer.toString('base64');
+                                    broadcast({
+                                        type: 'IMAGE_DATA',
+                                        image: base64Image,
+                                        width: imageSize.nWidth,
+                                        height: imageSize.nHeight
+                                    });
+
+                                    // Para o loop após uma captura de ALTA QUALIDADE
                                     isCapturing = false;
                                     clearInterval(captureInterval);
-                                    return;
                                 }
-
-                                const base64Image = buffer.toString('base64');
-                                broadcast({
-                                    type: 'IMAGE_DATA',
-                                    image: base64Image,
-                                    width: imageSize.nWidth,
-                                    height: imageSize.nHeight
-                                });
-
-                                // Mantemos o device ABERTO para preservar calibração/background
-                                isCapturing = false;
-                                clearInterval(captureInterval);
-                                // closeDevice(); // REMOVIDO: Manter aberto
                             }
                         }
                     }

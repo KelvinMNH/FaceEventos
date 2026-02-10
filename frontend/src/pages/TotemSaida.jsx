@@ -17,6 +17,8 @@ function TotemSaida() {
     const [selectedParticipant, setSelectedParticipant] = useState(null);
     const [statusMessage, setStatusMessage] = useState('');
     const [scannerStatus, setScannerStatus] = useState('disconnected'); // 'connected' | 'disconnected'
+    const [qualityMsg, setQualityMsg] = useState(''); // Novo: feedback de qualidade
+
 
     const searchInputRef = useRef(null);
     const wsRef = useRef(null);
@@ -65,6 +67,8 @@ function TotemSaida() {
         let reconnectTimer = null;
 
         const connect = () => {
+            if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
+
             ws = new WebSocket('ws://localhost:4000');
             wsRef.current = ws;
 
@@ -79,6 +83,12 @@ function TotemSaida() {
                     const data = JSON.parse(event.data);
                     if (data.type === 'IMAGE_DATA') {
                         handleBiometricAttempt(data.image, data.width, data.height);
+                    } else if (data.type === 'STATUS') {
+                        console.log('Bridge Status:', data.message);
+                        if (data.status === 'low_quality') {
+                            setQualityMsg(data.message);
+                            setTimeout(() => setQualityMsg(''), 3000);
+                        }
                     } else if (data.type === 'DEVICE_STATUS') {
                         setScannerStatus(data.status);
                     }
@@ -90,20 +100,24 @@ function TotemSaida() {
             ws.onclose = () => {
                 console.log('Bridge desconectada. Tentando reconectar...');
                 setScannerStatus('disconnected');
+                wsRef.current = null;
                 reconnectTimer = setTimeout(connect, 3000);
             };
 
             ws.onerror = (err) => {
                 console.error('Erro no WebSocket:', err);
-                ws.close();
+                if (ws.readyState === WebSocket.OPEN) ws.close();
             };
         };
 
         connect();
 
         return () => {
-            if (ws) ws.close();
             if (reconnectTimer) clearTimeout(reconnectTimer);
+            if (wsRef.current) {
+                wsRef.current.onclose = null;
+                wsRef.current.close();
+            }
         };
     }, []);
 
@@ -134,10 +148,17 @@ function TotemSaida() {
             } else {
                 setStatusMessage("Biometria não reconhecida. Tente novamente.");
                 setView('error');
-                setTimeout(() => setView('welcome'), 3000);
             }
         } catch (e) {
             console.error("Erro na validação biométrica:", e);
+        } finally {
+            // Reiniciar captura após 2 segundos
+            setTimeout(() => {
+                if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+                    wsRef.current.send('START_CAPTURE');
+                }
+                setView(prev => prev === 'error' ? 'welcome' : prev);
+            }, 2000);
         }
     };
 
@@ -242,9 +263,9 @@ function TotemSaida() {
 
     return (
         <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: '#f8f9fa', overflow: 'hidden' }}>
-            {/* Topbar - Diferenciada com cor laranja/avermelhada para Saída? Ou manter padrão verde? Vamos usar um tom azul/neutro ou o verde mesmo para consistência. Vou usar um Azul escuro para diferenciar. */}
             {/* Topbar */}
             <div style={{ backgroundColor: '#0d6efd', color: 'white', padding: '1rem 2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}>
+
                 {/* Lado Esquerdo: Logo */}
                 <div style={{ flex: '1', display: 'flex', alignItems: 'center' }}>
                     <img src="/logo.jpg" alt="Logo" style={{ height: '60px', borderRadius: '4px', backgroundColor: 'white', padding: '2px' }} />
@@ -293,25 +314,33 @@ function TotemSaida() {
                         <div
                             className="totem-circle totem-circle-animated"
                             style={{
-                                backgroundColor: '#e7f5ff',
-                                color: '#0d6efd', // Cor da borda animada
+                                width: '200px',
+                                height: '200px',
+                                borderRadius: '50%',
+                                backgroundColor: '#ffffff',
                                 margin: '0 auto 3rem',
-                                boxShadow: '0 10px 30px rgba(13, 110, 253, 0.2)',
-                                border: '4px solid #0d6efd'
+                                position: 'relative',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                boxShadow: '0 10px 30px rgba(0,0,0,0.1)',
+                                '--accent-color': '#0d6efd'
                             }}
                         >
-                            <span style={{ fontSize: '6rem' }}>👋</span>
+                            <span style={{ fontSize: '6rem', position: 'relative', zIndex: 2 }}>👆</span>
                         </div>
 
-                        <p style={{ fontSize: '1.2rem', color: '#666', marginBottom: '3rem' }}>
-                            Coloque seu dedo no leitor biométrico para fazer o checkout.
+                        <p style={{ fontSize: '1.2rem', color: '#666', marginBottom: '3rem', fontWeight: 'bold' }}>
+                            {qualityMsg ? (
+                                <span style={{ color: '#FF9800', animation: 'shake 0.5s infinite' }}>⚠️ {qualityMsg}</span>
+                            ) : (
+                                "Posicione seu dedo no leitor biométrico para fazer o checkout."
+                            )}
                         </p>
 
                         <button
                             onClick={() => setView('search')}
                             style={{
                                 padding: '1.2rem 3rem', fontSize: '1.3rem', backgroundColor: '#0d6efd', color: 'white',
-                                border: 'none', borderRadius: '50px', cursor: 'pointer', boxShadow: '0 4px 15px rgba(13, 110, 253, 0.3)',
+                                border: 'none', borderRadius: '50px', cursor: 'pointer', boxShadow: '0 4px 15px rgba(13,110,253,0.3)',
                                 transition: 'transform 0.2s', fontWeight: 'bold'
                             }}
                         >
@@ -410,8 +439,8 @@ function TotemSaida() {
 
                 {view === 'success' && (
                     <div style={{ textAlign: 'center', animation: 'popIn 0.5s' }}>
-                        <div style={{ fontSize: '6rem', color: '#198754', marginBottom: '1rem' }}>✅</div>
-                        <h2 style={{ fontSize: '2.5rem', color: '#198754', marginBottom: '1rem' }}>Saída Confirmada!</h2>
+                        <div style={{ fontSize: '6rem', color: '#0d6efd', marginBottom: '1rem' }}>👋</div>
+                        <h2 style={{ fontSize: '2.5rem', color: '#0d6efd', marginBottom: '1rem' }}>Saída Confirmada!</h2>
                         <p style={{ fontSize: '1.5rem', color: '#333' }}>{statusMessage}</p>
                         <p style={{ fontSize: '1.1rem', color: '#666', marginTop: '1rem' }}>Obrigado pela presença!</p>
                     </div>
