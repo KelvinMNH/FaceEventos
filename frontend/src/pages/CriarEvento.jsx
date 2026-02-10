@@ -30,7 +30,7 @@ function CriarEvento() {
             });
 
             if (res.ok) {
-                navigate('/access');
+                navigate('/');
             } else {
                 const errorData = await res.json().catch(() => ({}));
                 console.error('Erro do servidor:', errorData);
