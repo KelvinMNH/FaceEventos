@@ -255,13 +255,14 @@ function ControleAcesso() {
         };
         showModal(fakeLog);
       } else {
-        // Se não autorizado, mostra erro ou modal de falha
+        // Se não autorizado, mostra erro no painel (div do leitor)
         const fakeLog = {
           status_validacao: 'falha',
-          Participante: null
+          Participante: { nome: 'Não Identificado' }, // Objeto dummy para renderizar '!'
+          mensagem: data.mensagem || "Biometria não reconhecida"
         };
-        // Opcional: mostrar modal visual de falha se desejar, ou apenas toast
-        showMessage("Acesso Negado", data.mensagem || "Biometria não reconhecida", "error");
+        showModal(fakeLog);
+        // showMessage("Acesso Negado", data.mensagem || "Biometria não reconhecida", "error"); // REMOVIDO
       }
     } catch (e) {
       console.error("Erro ao enviar biometria", e);
