@@ -15,63 +15,62 @@ Antes de começar em um **novo computador**, certifique-se de ter instalado:
 
 ---
 
-## 📦 Instalação Passo a Passo
+## 📦 Instalação e Execução
 
-Abra o terminal na pasta raiz do projeto (`UniEventos`) e execute os comandos para cada módulo.
+### Passo 1: Instalar Dependências
 
-### 1. Configurar o Backend (API)
-O backend gerencia o banco de dados e as regras de negócio.
+Abra o terminal na pasta raiz do projeto (`UniEventos`) e instale as dependências de cada módulo:
 
 ```bash
+# Backend (API)
 cd backend
 npm install
-```
-*Crie um arquivo `.env` na pasta `backend` se necessário (ver modelo).*
 
-### 2. Configurar o Frontend (Interface)
-A interface visual onde os usuários interagem.
-
-```bash
+# Frontend (Interface)
 cd ../frontend
 npm install
-```
 
-### 3. Configurar a Bridge (Biometria)
-O software que conecta o leitor USB ao navegador.
-
-```bash
+# Bridge (Biometria)
 cd ../bridge
 npm install
 ```
 
+*Opcional: Crie um arquivo `.env` na pasta `backend` se necessário.*
+
 ---
 
-## ▶️ Como Rodar o Projeto
+### Passo 2: Rodar o Projeto
 
-Você precisará de **3 terminais** abertos simultaneamente (ou abas do VS Code).
+⚠️ **Conecte o leitor biométrico USB antes de iniciar.**
 
-### Terminal 1: Backend
+#### Método Rápido (Recomendado)
+Execute o script que inicia tudo automaticamente:
+```bash
+iniciar-servidores.bat
+```
+
+#### Método Manual (Alternativa)
+Abra **3 terminais** e execute em cada um:
+
+**Terminal 1 - Backend:**
 ```bash
 cd backend
 node server.js
 ```
-*Aguarde aparecer: "Servidor rodando na porta 3000"*
 
-### Terminal 2: Frontend
+**Terminal 2 - Frontend:**
 ```bash
 cd frontend
 npm run dev
 ```
-*Acesse o link mostrado (geralmente `http://localhost:5173`)*
 
-### Terminal 3: Bridge Biométrica
-⚠️ **Conecte o leitor biométrico USB antes de rodar.**
-
+**Terminal 3 - Bridge:**
 ```bash
 cd bridge
 node connector_futronic.js
 ```
-*Deve aparecer: "Bridge conectada" e "Leitor Conectado".*
+
+**Acesse:** `http://localhost:5173`
 
 ---
 
