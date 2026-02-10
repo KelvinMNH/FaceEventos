@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import MessageModal from '../components/MessageModal';
@@ -686,26 +686,10 @@ function ControleAcesso() {
     <>
       <Navbar>
         <button
-          onClick={() => setSimulating(!simulating)}
-          style={{
-            backgroundColor: simulating ? '#e1e4e8' : 'rgba(255,255,255,0.2)',
-            border: '1px solid white',
-            color: simulating ? 'var(--text-primary)' : 'white',
-            padding: '0.5rem 1rem',
-            borderRadius: '6px',
-            cursor: 'pointer',
-            fontWeight: 'bold',
-            fontSize: '0.8rem',
-            marginRight: '1rem'
-          }}
-        >
-          {simulating ? '⏹ Parar Simulação' : '▶ Simular Acesso'}
-        </button>
-        <button
           onClick={handleFinishClick}
           style={{
-            backgroundColor: 'rgba(255,255,255,0.2)',
-            border: '1px solid white',
+            backgroundColor: '#dc3545',
+            border: 'none',
             color: 'white',
             padding: '0.5rem 1rem',
             borderRadius: '6px',
@@ -716,46 +700,6 @@ function ControleAcesso() {
         >
           Finalizar Evento
         </button>
-        <div style={{ height: '24px', width: '1px', backgroundColor: 'rgba(255,255,255,0.3)', margin: '0 0.5rem' }}></div>
-        <button
-          onClick={() => window.open('/totem', '_blank')}
-          style={{
-            backgroundColor: 'transparent',
-            border: '1px solid rgba(255,255,255,0.5)',
-            color: 'white',
-            padding: '0.5rem 1rem',
-            borderRadius: '6px',
-            cursor: 'pointer',
-            fontSize: '0.8rem',
-            marginRight: '0.5rem',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.3rem'
-          }}
-          title="Abrir Totem de Entrada em nova aba"
-        >
-          <span style={{ fontSize: '1rem' }}>🖥️</span> Totem Entrada
-        </button>
-        {evento && evento.habilitar_checkout && (
-          <button
-            onClick={() => window.open('/totem-checkout', '_blank')}
-            style={{
-              backgroundColor: 'transparent',
-              border: '1px solid rgba(255,255,255,0.5)',
-              color: 'white',
-              padding: '0.5rem 1rem',
-              borderRadius: '6px',
-              cursor: 'pointer',
-              fontSize: '0.8rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.3rem'
-            }}
-            title="Abrir Totem de Saída em nova aba"
-          >
-            <span style={{ fontSize: '1rem' }}>🚪</span> Totem Saída
-          </button>
-        )}
       </Navbar >
 
       <div className="main-layout">
@@ -873,6 +817,39 @@ function ControleAcesso() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
             <h3 style={{ margin: '0', fontSize: '1.1rem', color: 'var(--text-secondary)' }}>Lista de Entrada</h3>
             <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <button
+                onClick={() => window.open('/totem', '_blank')}
+                style={{
+                  backgroundColor: '#198754',
+                  border: 'none',
+                  color: 'white',
+                  padding: '0.4rem 0.8rem',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontWeight: 'bold',
+                  fontSize: '0.8rem'
+                }}
+              >
+                Totem de Check-in
+              </button>
+              {evento && evento.habilitar_checkout && (
+                <button
+                  onClick={() => window.open('/totem-checkout', '_blank')}
+                  style={{
+                    backgroundColor: '#0d6efd',
+                    border: 'none',
+                    color: 'white',
+                    padding: '0.4rem 0.8rem',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontWeight: 'bold',
+                    fontSize: '0.8rem'
+                  }}
+                >
+                  Totem de Check-out
+                </button>
+              )}
+              <div style={{ width: '1px', backgroundColor: '#ddd', margin: '0 0.5rem' }}></div>
               <button
                 onClick={handleManualEntryClick}
                 style={{
@@ -1335,6 +1312,25 @@ function ControleAcesso() {
         message={messageModal.message}
         type={messageModal.type}
       />
+
+      {/* Botão de Simulação Flutuante */}
+      <div style={{ position: 'fixed', bottom: '1rem', right: '1rem', opacity: 0.1, zIndex: 1000 }}>
+        <button
+          onClick={() => setSimulating(!simulating)}
+          style={{
+            padding: '0.5rem 1rem',
+            backgroundColor: simulating ? '#e1e4e8' : '#333',
+            color: simulating ? '#333' : 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontWeight: 'bold',
+            fontSize: '0.8rem'
+          }}
+        >
+          {simulating ? 'Parar Simulação' : 'Simular Entrada'}
+        </button>
+      </div>
     </>
   );
 }

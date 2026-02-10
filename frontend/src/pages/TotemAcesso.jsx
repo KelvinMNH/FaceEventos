@@ -355,7 +355,7 @@ function TotemAcesso() {
                                 transition: 'transform 0.2s', fontWeight: 'bold'
                             }}
                         >
-                            🔍 Buscar meu Cadastro
+                            🔍 Localizar meu Cadastro
                         </button>
                     </div>
                 )}
@@ -467,7 +467,7 @@ function TotemAcesso() {
 
             {/* Hidden Simulation Buttons (for debug/demo) */}
             <div style={{ position: 'absolute', bottom: '1rem', right: '1rem', opacity: 0.1 }}>
-                <button onClick={() => simulateBiometricScan(true)}>Simular Bio OK</button>
+                <button onClick={() => simulateBiometricScan(true)}>Simular Entrada</button>
             </div>
 
             <style>{`
