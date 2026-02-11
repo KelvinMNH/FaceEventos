@@ -20,12 +20,12 @@ RegistroAcesso.belongsTo(Acompanhante);
 
 async function syncDB() {
     try {
-        await sequelize.sync({ alter: true });
-        console.log("✅ Banco de dados sincronizado (com alter).");
+        // Alterado para false para evitar criação de tabelas de backup no SQLite
+        // Se precisar alterar schema, use migration ou ative manualmente
+        await sequelize.sync({ alter: false });
+        console.log("✅ Banco de dados sincronizado.");
     } catch (error) {
-        console.warn("⚠️ Falha ao sincronizar com alter: true. Tentando sincronização padrão...", error.message);
-        await sequelize.sync();
-        console.log("✅ Banco de dados sincronizado (sem alter).");
+        console.error("❌ Erro ao sincronizar banco de dados:", error);
     }
 
     const count = await Participante.count();
