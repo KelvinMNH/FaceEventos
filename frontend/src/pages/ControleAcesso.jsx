@@ -27,6 +27,8 @@ function ControleAcesso() {
   const [manualMode, setManualMode] = useState('search'); // 'search' | 'create'
   const [newParticipant, setNewParticipant] = useState({ nome: '', documento: '', cpf: '', crm: '', data_nascimento: '', genero: 'Outro' });
   const [manualSearchResults, setManualSearchResults] = useState([]); // Novos resultados da busca manual
+  const [confirmModalOpen, setConfirmModalOpen] = useState(false);
+  const [selectedParticipant, setSelectedParticipant] = useState(null);
 
 
   // Companion States
@@ -357,11 +359,13 @@ function ControleAcesso() {
     }
   };
 
-  const selectManualParticipant = async (p) => {
-    // Confirmação para evitar cliques acidentais
-    if (!window.confirm(`Confirma entrada manual para: ${p.nome}?`)) {
-      return;
-    }
+  const selectManualParticipant = (p) => {
+    setSelectedParticipant(p);
+    setConfirmModalOpen(true);
+  };
+
+  const confirmManualEntry = async () => {
+    if (!selectedParticipant) return;
 
     // Registra entrada direto com o ID selecionado
     try {
@@ -371,11 +375,13 @@ function ControleAcesso() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ participanteId: p.id })
+        body: JSON.stringify({ participanteId: selectedParticipant.id })
       });
       const data = await res.json();
 
       if (data.success) {
+        setConfirmModalOpen(false);
+        setSelectedParticipant(null);
         setManualModalOpen(false);
         setManualDoc('');
         setManualSearchResults([]);
@@ -1370,6 +1376,66 @@ function ControleAcesso() {
           {simulating ? 'Parar Simulação' : 'Simular Entrada'}
         </button>
       </div>
+      {/* Modal de Confirmação de Entrada Manual */}
+      {confirmModalOpen && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 2000
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            padding: '2rem',
+            borderRadius: '8px',
+            maxWidth: '500px',
+            width: '90%',
+            textAlign: 'center',
+            boxShadow: '0 4px 15px rgba(0,0,0,0.2)'
+          }}>
+            <h2 style={{ color: 'var(--primary-color)', marginBottom: '1rem' }}>Confirmar Entrada Manual</h2>
+            <p style={{ fontSize: '1.1rem', marginBottom: '1.5rem' }}>
+              Deseja registrar a entrada de <strong>{selectedParticipant?.nome}</strong>?
+            </p>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem' }}>
+              <button
+                onClick={() => setConfirmModalOpen(false)}
+                style={{
+                  padding: '0.8rem 1.5rem',
+                  backgroundColor: '#ccc',
+                  color: '#333',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontWeight: 'bold'
+                }}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmManualEntry}
+                style={{
+                  padding: '0.8rem 1.5rem',
+                  backgroundColor: 'var(--primary-color)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontWeight: 'bold'
+                }}
+              >
+                Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
