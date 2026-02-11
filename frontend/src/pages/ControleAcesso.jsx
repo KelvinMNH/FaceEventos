@@ -358,6 +358,11 @@ function ControleAcesso() {
   };
 
   const selectManualParticipant = async (p) => {
+    // Confirmação para evitar cliques acidentais
+    if (!window.confirm(`Confirma entrada manual para: ${p.nome}?`)) {
+      return;
+    }
+
     // Registra entrada direto com o ID selecionado
     try {
       const res = await fetch(`${API_URL}/manual-entry`, {
@@ -772,7 +777,7 @@ function ControleAcesso() {
               <h2>Total de Entradas</h2>
               <div className="stat-value">{(stats.totalParticipantesUnicos || 0) + (stats.totalAcompanhantes || 0)}</div>
 
-{/* Barra de Participantes vs Acompanhantes */}
+              {/* Barra de Participantes vs Acompanhantes */}
               {logs.length > 0 && (() => {
                 const totalParticipantes = stats.totalParticipantesUnicos || 0;
                 const totalAcompanhantes = stats.totalAcompanhantes || 0;
@@ -796,14 +801,14 @@ function ControleAcesso() {
                 );
               })()}
 
-              
-              
+
+
             </div>
             <div className="card">
               <h2>Participantes Presentes</h2>
               <div className="stat-value">{stats.totalParticipantesUnicos || 0}</div>
 
-              
+
             </div>
             <div className="card" style={{ opacity: (evento && !evento.permitir_acompanhantes) ? 0.5 : 1 }}>
               <h2>Acompanhantes Presentes</h2>
