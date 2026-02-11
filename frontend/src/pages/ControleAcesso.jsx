@@ -100,18 +100,35 @@ function ControleAcesso() {
 
         // Cálculos Estatísticos (Participantes Presentes Únicos) - usar filteredLogs
         const presentesMap = new Map();
-        filteredLogs.forEach(log => {
+        const firstLogMap = new Map(); // Map<ParticipanteId, FirstLog>
+
+        // Ordenar logs por data ASC para encontrar a primeira entrada
+        const sortedLogs = [...filteredLogs].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+
+        sortedLogs.forEach(log => {
           if (log.status_validacao === 'sucesso' && log.Participante) {
-            // Não incluir acompanhantes nas estatísticas demográficas (eles estão em log.Acompanhante)
-            if (log.Participante) {
-              if (!presentesMap.has(log.Participante.id)) {
-                presentesMap.set(log.Participante.id, log.Participante);
-              }
+            const pid = log.Participante.id;
+            if (!presentesMap.has(pid)) {
+              presentesMap.set(pid, log.Participante);
+              firstLogMap.set(pid, log); // Guarda o log da primeira entrada
             }
           }
         });
 
         const participantes = Array.from(presentesMap.values());
+
+        // Contar Entradas Manuais (baseado na primeira entrada)
+        let manualCount = 0;
+        firstLogMap.forEach(log => {
+          // Se o device_id NÃO for 'futronic_web', consideramos manual (inclui 'manual_entry_web', 'new_entry_web', etc)
+          if (log.device_id !== 'futronic_web') {
+            manualCount++;
+          }
+        });
+
+        // Acompanhantes
+        const totalAcompanhantes = filteredLogs.filter(l => l.status_validacao === 'sucesso' && l.AcompanhanteId).length;
+
         let totalM = 0, totalF = 0;
         let idades = [];
 
@@ -144,7 +161,7 @@ function ControleAcesso() {
         const percentMale = participantes.length > 0 ? Math.round((totalM / participantes.length) * 100) : 0;
         const percentFemale = participantes.length > 0 ? Math.round((totalF / participantes.length) * 100) : 0;
 
-        // Percentual predominante antigo (mantido para compatibilidade se necessário, mas não usado na barra)
+        // Percentual predominante antigo
         const generoPercent = participantes.length > 0 ? Math.round((Math.max(totalM, totalF) / participantes.length) * 100) : 0;
 
         let faixaPredominante = '-';
@@ -163,7 +180,10 @@ function ControleAcesso() {
           generoPercent,
           percentMale,
           percentFemale,
-          mediaIdade: idades.length ? Math.round(idades.reduce((a, b) => a + b, 0) / idades.length) : 0
+          mediaIdade: idades.length ? Math.round(idades.reduce((a, b) => a + b, 0) / idades.length) : 0,
+          manualCount,
+          totalAcompanhantes,
+          totalParticipantesUnicos: participantes.length
         });
       } catch (err) {
         console.error("Erro ao buscar logs:", err);
@@ -750,15 +770,16 @@ function ControleAcesso() {
           <div className="dashboard-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
             <div className="card">
               <h2>Total de Entradas</h2>
-              <div className="stat-value">{logs.filter(l => l.status_validacao === 'sucesso').length}</div>
+              <div className="stat-value">{(stats.totalParticipantesUnicos || 0) + (stats.totalAcompanhantes || 0)}</div>
 
-              {/* Barra de Participantes vs Acompanhantes */}
+{/* Barra de Participantes vs Acompanhantes */}
               {logs.length > 0 && (() => {
-                const totalSuccess = logs.filter(l => l.status_validacao === 'sucesso').length;
-                const companions = logs.filter(l => l.status_validacao === 'sucesso' && l.AcompanhanteId).length;
-                const participants = totalSuccess - companions;
-                const percentParticipants = totalSuccess > 0 ? Math.round((participants / totalSuccess) * 100) : 0;
-                const percentCompanions = totalSuccess > 0 ? Math.round((companions / totalSuccess) * 100) : 0;
+                const totalParticipantes = stats.totalParticipantesUnicos || 0;
+                const totalAcompanhantes = stats.totalAcompanhantes || 0;
+                const totalPessoas = totalParticipantes + totalAcompanhantes;
+
+                const percentParticipants = totalPessoas > 0 ? Math.round((totalParticipantes / totalPessoas) * 100) : 0;
+                const percentCompanions = totalPessoas > 0 ? Math.round((totalAcompanhantes / totalPessoas) * 100) : 0;
 
                 return (
                   <>
@@ -774,10 +795,15 @@ function ControleAcesso() {
                   </>
                 );
               })()}
+
+              
+              
             </div>
             <div className="card">
               <h2>Participantes Presentes</h2>
-              <div className="stat-value">{logs.filter(l => l.status_validacao === 'sucesso').length}</div>
+              <div className="stat-value">{stats.totalParticipantesUnicos || 0}</div>
+
+              
             </div>
             <div className="card" style={{ opacity: (evento && !evento.permitir_acompanhantes) ? 0.5 : 1 }}>
               <h2>Acompanhantes Presentes</h2>
@@ -807,10 +833,11 @@ function ControleAcesso() {
               </div>
             </div>
             <div className="card">
-              <h2>Biometrias Não Localizadas</h2>
-              <div className="stat-value" style={{ color: 'var(--error-color)' }}>
-                {logs.filter(l => l.status_validacao === 'nao_encontrado').length}
+              <h2>Entradas Manuais</h2>
+              <div className="stat-value" style={{ color: 'var(--accent-color)' }}>
+                {stats.manualCount || 0}
               </div>
+              <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Sem biometria</div>
             </div>
           </div>
 

@@ -1,6 +1,6 @@
 const { Evento, Participante, Acompanhante, RegistroAcesso } = require('../models');
 const { Op } = require('sequelize');
-const Jimp = require('jimp');
+const { Jimp, distance, diff } = require('jimp');
 
 // Helper para converter RAW grayscale em Jimp Image
 async function createJimpFromRaw(base64, width, height) {
@@ -66,14 +66,14 @@ class AcessoController {
                         const candImage = await createJimpFromRaw(cand.template_biometrico, width, height);
 
                         // Jimp.distance: 0 = idêntico, 1 = muito diferente
-                        const distance = Jimp.distance(probeImage, candImage);
-                        const diff = Jimp.diff(probeImage, candImage); // diff.percent
+                        const dist = distance(probeImage, candImage);
+                        const difference = diff(probeImage, candImage); // diff.percent
 
                         // Combinar métricas se quiser, ou usar só distance
-                        // console.log(`[Scan] Cand ${cand.nome}: Dist ${distance.toFixed(4)} Diff ${diff.percent.toFixed(4)}`);
+                        // console.log(`[Scan] Cand ${cand.nome}: Dist ${dist.toFixed(4)} Diff ${difference.percent.toFixed(4)}`);
 
-                        if (distance < 0.15 && distance < lowestDistance) { // Limiar 15%
-                            lowestDistance = distance;
+                        if (dist < 0.15 && dist < lowestDistance) { // Limiar 15%
+                            lowestDistance = dist;
                             bestMatch = cand;
                         }
                     } catch (err) {
