@@ -27,8 +27,7 @@ function ControleAcesso() {
   const [manualMode, setManualMode] = useState('search'); // 'search' | 'create'
   const [newParticipant, setNewParticipant] = useState({ nome: '', documento: '', cpf: '', crm: '', data_nascimento: '', genero: 'Outro' });
   const [manualSearchResults, setManualSearchResults] = useState([]); // Novos resultados da busca manual
-  const [confirmModalOpen, setConfirmModalOpen] = useState(false);
-  const [selectedParticipant, setSelectedParticipant] = useState(null);
+  const [selectedManualParticipant, setSelectedManualParticipant] = useState(null); // Para confirmação antes de registrar
 
 
   // Companion States
@@ -359,14 +358,7 @@ function ControleAcesso() {
     }
   };
 
-  const selectManualParticipant = (p) => {
-    setSelectedParticipant(p);
-    setConfirmModalOpen(true);
-  };
-
-  const confirmManualEntry = async () => {
-    if (!selectedParticipant) return;
-
+  const selectManualParticipant = async (p) => {
     // Registra entrada direto com o ID selecionado
     try {
       const res = await fetch(`${API_URL}/manual-entry`, {
@@ -375,16 +367,15 @@ function ControleAcesso() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ participanteId: selectedParticipant.id })
+        body: JSON.stringify({ participanteId: p.id })
       });
       const data = await res.json();
 
       if (data.success) {
-        setConfirmModalOpen(false);
-        setSelectedParticipant(null);
         setManualModalOpen(false);
         setManualDoc('');
         setManualSearchResults([]);
+        setSelectedManualParticipant(null);
         if (data.status === 'sucesso') {
           const fakeLog = {
             status_validacao: 'sucesso',
@@ -1103,68 +1094,116 @@ function ControleAcesso() {
       </div>
 
       {/* Modal Manual */}
-      <div className={`modal-overlay ${manualModalOpen ? 'open' : ''}`} onClick={() => { setManualModalOpen(false); setManualMode('search'); }}>
+      <div className={`modal-overlay ${manualModalOpen ? 'open' : ''}`} onClick={() => { setManualModalOpen(false); setManualMode('search'); setSelectedManualParticipant(null); }}>
         <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '500px' }}>
           {manualMode === 'search' ? (
-            <>
-              <div className="modal-header">Localizar Pessoa</div>
-              <input
-                ref={manualInputRef}
-                type="text"
-                className="modal-input"
-                placeholder="Digite Nome, CPF ou CRM"
-                value={manualDoc}
-                onChange={e => handleManualSearchInput(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && submitManualEntry()}
-                style={{ marginBottom: '0.5rem' }}
-              />
-
-              {/* Lista de Resultados da Busca Manual */}
-              {manualSearchResults.length > 0 ? (
-                <div style={{
-                  border: '1px solid var(--border-color)',
-                  borderRadius: '8px',
-                  maxHeight: '200px',
-                  overflowY: 'auto',
-                  background: '#fff',
-                  marginBottom: '1rem'
-                }}>
-                  {manualSearchResults.map(p => (
-                    <div
-                      key={p.id}
-                      onClick={() => selectManualParticipant(p)}
-                      style={{
-                        padding: '0.8rem',
-                        borderBottom: '1px solid #eee',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center'
-                      }}
-                      onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f6f8fa'}
-                      onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
-                    >
-                      <div>
-                        <div style={{ fontWeight: 600 }}>{p.nome}</div>
-                        <div style={{ color: '#666', fontSize: '0.85rem' }}>{p.cpf ? `CPF: ${p.cpf}` : ''} {p.crm ? `| CRM: ${p.crm}` : ''}</div>
-                      </div>
-                      <span style={{ fontSize: '1.2rem' }}>➡️</span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                manualDoc.length >= 3 && (
-                  <div style={{ textAlign: 'center', padding: '1rem', color: '#666' }}>
-                    Nenhum participante encontrado.
+            selectedManualParticipant ? (
+              // TELA DE CONFIRMAÇÃO
+              <>
+                <div className="modal-header" style={{ color: 'var(--text-primary)' }}>Confirmar Entrada</div>
+                <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+                  <div style={{
+                    width: '80px',
+                    height: '80px',
+                    borderRadius: '50%',
+                    backgroundColor: '#e7f5ff',
+                    color: '#1c7ed6',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '2rem',
+                    fontWeight: 'bold',
+                    margin: '0 auto 1rem'
+                  }}>
+                    {selectedManualParticipant.nome.charAt(0)}
                   </div>
-                )
-              )}
+                  <h3 style={{ margin: '0 0 0.5rem 0', color: '#333' }}>{selectedManualParticipant.nome}</h3>
+                  <p style={{ margin: 0, color: '#666', fontSize: '0.9rem' }}>
+                    {selectedManualParticipant.cpf ? `CPF: ${selectedManualParticipant.cpf}` : ''}
+                  </p>
+                  <p style={{ margin: 0, color: '#666', fontSize: '0.9rem' }}>
+                    {selectedManualParticipant.crm ? `CRM: ${selectedManualParticipant.crm}` : ''}
+                  </p>
+                </div>
 
-              <div className="modal-actions">
-                <button className="btn-secondary" onClick={() => { setManualModalOpen(false); setManualMode('search'); }}>Cancelar</button>
-                <button className="btn-primary" onClick={openCreateMode}>Cadastrar Nova Pessoa</button>
-              </div>
-            </>
+                <div className="modal-actions">
+                  <button
+                    className="btn-secondary"
+                    onClick={() => setSelectedManualParticipant(null)}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    className="btn-primary"
+                    style={{ backgroundColor: 'var(--success-color)' }}
+                    onClick={() => selectManualParticipant(selectedManualParticipant)}
+                  >
+                    Confirmar Entrada
+                  </button>
+                </div>
+              </>
+            ) : (
+              // TELA DE BUSCA (Padrão)
+              <>
+                <div className="modal-header">Localizar Pessoa</div>
+                <input
+                  ref={manualInputRef}
+                  type="text"
+                  className="modal-input"
+                  placeholder="Digite Nome, CPF ou CRM"
+                  value={manualDoc}
+                  onChange={e => handleManualSearchInput(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && submitManualEntry()}
+                  style={{ marginBottom: '0.5rem' }}
+                />
+
+                {/* Lista de Resultados da Busca Manual */}
+                {manualSearchResults.length > 0 ? (
+                  <div style={{
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '8px',
+                    maxHeight: '200px',
+                    overflowY: 'auto',
+                    background: '#fff',
+                    marginBottom: '1rem'
+                  }}>
+                    {manualSearchResults.map(p => (
+                      <div
+                        key={p.id}
+                        onClick={() => setSelectedManualParticipant(p)}
+                        style={{
+                          padding: '0.8rem',
+                          borderBottom: '1px solid #eee',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center'
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f6f8fa'}
+                        onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                      >
+                        <div>
+                          <div style={{ fontWeight: 600 }}>{p.nome}</div>
+                          <div style={{ color: '#666', fontSize: '0.85rem' }}>{p.cpf ? `CPF: ${p.cpf}` : ''} {p.crm ? `| CRM: ${p.crm}` : ''}</div>
+                        </div>
+                        <span style={{ fontSize: '1.2rem' }}>➡️</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  manualDoc.length >= 3 && (
+                    <div style={{ textAlign: 'center', padding: '1rem', color: '#666' }}>
+                      Nenhum participante encontrado.
+                    </div>
+                  )
+                )}
+
+                <div className="modal-actions">
+                  <button className="btn-secondary" onClick={() => { setManualModalOpen(false); setManualMode('search'); setSelectedManualParticipant(null); }}>Cancelar</button>
+                  <button className="btn-primary" onClick={openCreateMode}>Cadastrar Nova Pessoa</button>
+                </div>
+              </>
+            )
           ) : (
             <>
               <div className="modal-header">Cadastrar Novo Participante</div>
@@ -1376,66 +1415,6 @@ function ControleAcesso() {
           {simulating ? 'Parar Simulação' : 'Simular Entrada'}
         </button>
       </div>
-      {/* Modal de Confirmação de Entrada Manual */}
-      {confirmModalOpen && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.5)',
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          zIndex: 2000
-        }}>
-          <div style={{
-            backgroundColor: 'white',
-            padding: '2rem',
-            borderRadius: '8px',
-            maxWidth: '500px',
-            width: '90%',
-            textAlign: 'center',
-            boxShadow: '0 4px 15px rgba(0,0,0,0.2)'
-          }}>
-            <h2 style={{ color: 'var(--primary-color)', marginBottom: '1rem' }}>Confirmar Entrada Manual</h2>
-            <p style={{ fontSize: '1.1rem', marginBottom: '1.5rem' }}>
-              Deseja registrar a entrada de <strong>{selectedParticipant?.nome}</strong>?
-            </p>
-            <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem' }}>
-              <button
-                onClick={() => setConfirmModalOpen(false)}
-                style={{
-                  padding: '0.8rem 1.5rem',
-                  backgroundColor: '#ccc',
-                  color: '#333',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  fontWeight: 'bold'
-                }}
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={confirmManualEntry}
-                style={{
-                  padding: '0.8rem 1.5rem',
-                  backgroundColor: 'var(--primary-color)',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  fontWeight: 'bold'
-                }}
-              >
-                Confirmar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </>
   );
 }
