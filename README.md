@@ -92,4 +92,12 @@ Acesse em `http://localhost:5173`.
 
 ## Autor
 
-Desenvolvido por Kelvin Higino.
+Desenvolvido por Kelvin Miller Nunes Higino.
+https://kelvinti.pages.dev/
+
+## Licenca
+
+Este repositorio e disponibilizado publicamente para fins de avaliacao e visualizacao de portfolio.
+
+Nao e permitido o uso comercial, redistribuicao ou modificacao deste codigo sem autorizacao expressa do autor.
+
