@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Navbar from '../components/Navbar';
-import MessageModal from '../components/MessageModal';
+import ModalMensagem from '../components/ModalMensagem';
 
-import { db } from '../services/LocalStorageService';
+import { db } from '../services/ServicoArmazenamento';
 
-function EventList() {
+function ListaEventos() {
     const navigate = useNavigate();
     const location = useLocation();
     const [eventos, setEventos] = useState([]);
@@ -353,7 +353,7 @@ function EventList() {
                 </div>
             </div >
 
-            <MessageModal
+            <ModalMensagem
                 isOpen={messageModal.open}
                 onClose={closeMessage}
                 title={messageModal.title}
@@ -364,4 +364,7 @@ function EventList() {
     );
 }
 
-export default EventList;
+export default ListaEventos;
+
+
+

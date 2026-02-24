@@ -1,4 +1,4 @@
-import { SEED_DATA } from './SeedData';
+import { SEED_DATA } from './DadosIniciais';
 
 const KEYS = {
     EVENTOS: 'unieventos_eventos',
@@ -6,7 +6,7 @@ const KEYS = {
     LOGS: 'unieventos_logs'
 };
 
-class LocalStorageService {
+class ServicoArmazenamento {
     constructor() {
         this.init();
     }
@@ -235,6 +235,29 @@ class LocalStorageService {
         }
 
         if (match) {
+            // Verificar se este participante já entrou no evento (já tem log de sucesso)
+            const logsExistentes = this._get(KEYS.LOGS);
+            const jaEntrou = logsExistentes.some(l =>
+                l.ParticipanteId === match.id &&
+                l.EventoId == eventoId &&
+                l.status_validacao === 'sucesso'
+            );
+
+            if (jaEntrou) {
+                // Já entrou: retornar sucesso mas NÃO gravar novo log (preserva o horário original)
+                const logOriginal = logsExistentes.find(l =>
+                    l.ParticipanteId === match.id &&
+                    l.EventoId == eventoId &&
+                    l.status_validacao === 'sucesso'
+                );
+                return {
+                    authorized: true,
+                    jaRegistrado: true,
+                    participante: match,
+                    access_id: logOriginal?.id
+                };
+            }
+
             return {
                 authorized: true,
                 participante: match,
@@ -251,4 +274,4 @@ class LocalStorageService {
     }
 }
 
-export const db = new LocalStorageService();
+export const db = new ServicoArmazenamento();

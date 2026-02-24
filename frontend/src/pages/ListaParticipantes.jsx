@@ -1,14 +1,16 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Webcam from 'react-webcam';
 import * as faceapi from 'face-api.js';
-import ConfirmationModal from '../components/ConfirmationModal';
+import ModalConfirmacao from '../components/ModalConfirmacao';
 
 // const API_URL = 'http://localhost:3000/api';
 
-import { db } from '../services/LocalStorageService';
+import { db } from '../services/ServicoArmazenamento';
 
-function ParticipantList() {
+function ListaParticipantes() {
+    const navigate = useNavigate();
     const [participants, setParticipants] = useState([]);
     const [loading, setLoading] = useState(true);
     const [page, setPage] = useState(1);
@@ -460,7 +462,7 @@ function ParticipantList() {
                 </div>
             )}
             {/* Modal de Confirmação Global */}
-            <ConfirmationModal
+            <ModalConfirmacao
                 isOpen={modalConfig.isOpen}
                 title={modalConfig.title}
                 message={modalConfig.message}
@@ -472,4 +474,7 @@ function ParticipantList() {
     );
 }
 
-export default ParticipantList;
+export default ListaParticipantes;
+
+
+

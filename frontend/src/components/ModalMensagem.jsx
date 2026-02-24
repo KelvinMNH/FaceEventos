@@ -1,6 +1,6 @@
 import React from 'react';
 
-function MessageModal({ isOpen, onClose, title, message, type = 'info', onConfirm, confirmText = 'OK', cancelText = 'Cancelar', showCancel = false }) {
+function ModalMensagem({ isOpen, onClose, title, message, type = 'info', onConfirm, confirmText = 'OK', cancelText = 'Cancelar', showCancel = false }) {
     if (!isOpen) return null;
 
     return (
@@ -32,4 +32,5 @@ function MessageModal({ isOpen, onClose, title, message, type = 'info', onConfir
     );
 }
 
-export default MessageModal;
+export default ModalMensagem;
+

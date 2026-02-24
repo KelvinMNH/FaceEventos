@@ -1,17 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
-import MessageModal from '../components/MessageModal';
+import ModalMensagem from '../components/ModalMensagem';
 import Webcam from 'react-webcam';
 import * as faceapi from 'face-api.js';
 
-import { db } from '../services/LocalStorageService';
+import { db } from '../services/ServicoArmazenamento';
 
 // const API_URL = 'http://localhost:3000/api';
 
 const globalValidations = new Map();
 
-function AccessControl() {
+function ControleAcesso() {
   const navigate = useNavigate();
   const [logs, setLogs] = useState([]);
   const [evento, setEvento] = useState(null);
@@ -78,18 +78,19 @@ function AccessControl() {
                 const now = Date.now();
                 const last = globalValidations.get(pid);
 
-                globalValidations.set(pid, now);
-                if (data.access_id) handledLogIds.current.add(data.access_id);
-
-                if (last && (now - last < 60000)) {
-                  setToastMessage({ text: data.participante.nome + ' já identificado', type: 'success' });
+                // Se a pessoa já foi identificada (jaRegistrado=true no service ou globalValidations recente),
+                // apenas mostrar toast sem modal e sem gerar novo log
+                if (data.jaRegistrado || (last && (now - last < 86400000))) {
+                  // Só mostrar toast silencioso, sem travar a câmera com um cooldown longo
+                  setToastMessage({ text: data.participante.nome + ' já registrado', type: 'success' });
                   setTimeout(() => setToastMessage(null), 2000);
                 } else {
+                  globalValidations.set(pid, now);
+                  if (data.access_id) handledLogIds.current.add(data.access_id);
                   showModal({
                     status_validacao: 'sucesso',
                     Participante: data.participante
                   });
-                  // fetchLogs(); // fetchLogs is inside another hook, let's trigger it via event or just wait for polling
                   setScanCooldown(true);
                   setTimeout(() => setScanCooldown(false), 2000);
                 }
@@ -759,37 +760,55 @@ function AccessControl() {
   return (
     <>
       <Navbar>
-        <button
-          onClick={() => setSimulating(!simulating)}
-          style={{
-            backgroundColor: simulating ? '#e1e4e8' : 'rgba(255,255,255,0.2)',
-            border: '1px solid white',
-            color: simulating ? 'var(--text-primary)' : 'white',
-            padding: '0.5rem 1rem',
-            borderRadius: '6px',
-            cursor: 'pointer',
-            fontWeight: 'bold',
-            fontSize: '0.8rem',
-            marginRight: '1rem'
-          }}
-        >
-          {simulating ? '⏹ Parar Simulação' : '▶ Simular Acesso'}
-        </button>
-        <button
-          onClick={handleFinishClick}
-          style={{
-            backgroundColor: 'rgba(255,255,255,0.2)',
-            border: '1px solid white',
-            color: 'white',
-            padding: '0.5rem 1rem',
-            borderRadius: '6px',
-            cursor: 'pointer',
-            fontWeight: 'bold',
-            fontSize: '0.8rem'
-          }}
-        >
-          Finalizar Evento
-        </button>
+        <div className="navbar-action-buttons" style={{ gap: '1rem', alignItems: 'center' }}>
+          <button
+            onClick={() => setSimulating(!simulating)}
+            style={{
+              backgroundColor: simulating ? 'rgba(255, 0, 0, 0.1)' : 'transparent',
+              border: '1px dashed rgba(255, 255, 255, 0.3)',
+              color: simulating ? '#ffb3b3' : 'rgba(255, 255, 255, 0.5)',
+              padding: '0.3rem 0.6rem',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontWeight: 'normal',
+              fontSize: '0.7rem',
+              transition: 'all 0.2s',
+            }}
+            onMouseOver={(e) => {
+              if (!simulating) {
+                e.currentTarget.style.color = 'white';
+                e.currentTarget.style.borderColor = 'white';
+              }
+            }}
+            onMouseOut={(e) => {
+              if (!simulating) {
+                e.currentTarget.style.color = 'rgba(255, 255, 255, 0.5)';
+                e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.3)';
+              }
+            }}
+          >
+            {simulating ? '⏹ Parar Simulação' : '▶ Simular'}
+          </button>
+          <button
+            onClick={handleFinishClick}
+            style={{
+              backgroundColor: 'var(--secondary-green)',
+              border: 'none',
+              color: 'white',
+              padding: '0.6rem 1.2rem',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontWeight: 'bold',
+              fontSize: '0.9rem',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+              transition: 'all 0.2s',
+            }}
+            onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#cc5200'}
+            onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'var(--secondary-green)'}
+          >
+            Finalizar Evento
+          </button>
+        </div>
       </Navbar >
 
       <div className="main-layout">
@@ -923,9 +942,9 @@ function AccessControl() {
             </div>
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+          <div className="access-list-header">
             <h3 style={{ margin: '0', fontSize: '1.1rem', color: 'var(--text-secondary)' }}>Lista de Entrada</h3>
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <div className="access-list-actions">
               <button
                 onClick={handleManualEntryClick}
                 style={{
@@ -991,11 +1010,11 @@ function AccessControl() {
             />
           </div>
 
-          <div className="table-container" style={{ borderRadius: '0 0 8px 8px', borderTop: 'none', maxHeight: '400px', overflowY: 'auto' }}>
+          <div className="table-container" style={{ borderRadius: '0 0 8px 8px', borderTop: 'none', maxHeight: '400px', overflowY: 'auto', overflowX: 'auto' }}>
             <table>
               <thead>
                 <tr>
-                  <th style={{ width: '15%' }}>Horário</th>
+                  <th style={{ width: '15%' }}>Horário Entrada</th>
                   <th>Participante</th>
                   <th style={{ width: '18%' }}>Matrícula</th>
                   <th style={{ width: '12%' }}>Status</th>
@@ -1013,19 +1032,35 @@ function AccessControl() {
                     return (p.nome || '').toLowerCase().includes(term) || (p.documento || '').toLowerCase().includes(term);
                   });
 
-                  const firstSuccessMap = new Map();
-                  [...searchFiltered].reverse().forEach(l => {
-                    if (l.status_validacao === 'sucesso' && l.Participante && !firstSuccessMap.has(l.Participante.id)) {
-                      firstSuccessMap.set(l.Participante.id, l.id);
-                    }
+                  // Passo 1: Filtrar todo mundo da busca (searchFiltered já ignora failures e segue searchTerm)
+                  const validos = logs.filter(log => {
+                    if (log.status_validacao !== 'sucesso') return false;
+                    if (!searchTerm) return true;
+                    const term = searchTerm.toLowerCase();
+                    const p = log.Participante || {};
+                    return (p.nome || '').toLowerCase().includes(term) || (p.documento || '').toLowerCase().includes(term);
                   });
 
-                  const displayLogs = searchFiltered.filter(l => {
-                    if (l.status_validacao === 'sucesso' && l.Participante) {
-                      return firstSuccessMap.get(l.Participante.id) === l.id;
+                  // Passo 2: Construir o Map percorrendo os validos de TRÁS PRA FRENTE.
+                  // A lista "logs" vem do banco ordenado do MAIS NOVO (0) para o MAIS VELHO (N).
+                  // Lendo do Fim pro Início e setando no Map, o Map vai SOMENTE inserir itens
+                  // que ainda não existem. Assim, garantimos sempre o Primeiro Acesso Cronológico!
+                  const finalMap = new Map();
+
+                  for (let i = validos.length - 1; i >= 0; i--) {
+                    const l = validos[i];
+                    if (l.Participante) {
+                      const pid = l.Participante.id;
+                      if (!finalMap.has(pid)) {
+                        finalMap.set(pid, l);
+                      }
                     }
-                    return true;
-                  });
+                  }
+
+                  // Passo 3: Converter os values do Map num Array. Ele vai manter a ordem de inserção do Map
+                  // (que foi do mais velho pro mais novo).
+                  // Como queremos mostrar o mais novo no topo da tabela, aplicamos .reverse().
+                  const displayLogs = Array.from(finalMap.values()).reverse();
 
                   if (displayLogs.length === 0) {
                     return (
@@ -1037,20 +1072,25 @@ function AccessControl() {
                     );
                   }
 
-                  return displayLogs.map(log => (
-                    <tr key={log.id}>
-                      <td>{new Date(log.createdAt).toLocaleTimeString()}</td>
-                      <td>{formatName(log.Participante ? log.Participante.nome : 'Desconhecido')}</td>
-                      <td style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                        {log.Participante?.matricula || '-'}
-                      </td>
-                      <td>
-                        <span className={`badge badge-${log.status_validacao === 'sucesso' ? 'success' : 'error'}`}>
-                          {log.status_validacao.toUpperCase()}
-                        </span>
-                      </td>
-                    </tr>
-                  ));
+                  return displayLogs.map(log => {
+                    // Garantimos que a data base do log sendo iterado (que agora sabemos ser do primeiro acesso cronologicamente) seja mostrada sem re-updates de React UI Tick se for o caso, apesar de log.createdAt ser estático.
+                    const horaAcesso = new Date(log.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+                    return (
+                      <tr key={log.id}>
+                        <td style={{ fontWeight: 'bold', color: 'var(--accent-color)' }}>{horaAcesso}</td>
+                        <td>{formatName(log.Participante ? log.Participante.nome : 'Desconhecido')}</td>
+                        <td style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                          {log.Participante?.matricula || '-'}
+                        </td>
+                        <td>
+                          <span className={`badge badge-${log.status_validacao === 'sucesso' ? 'success' : 'error'}`}>
+                            {log.status_validacao.toUpperCase()}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  });
                 })()}
               </tbody>
             </table>
@@ -1299,7 +1339,7 @@ function AccessControl() {
         </div>
       </div >
 
-      <MessageModal
+      <ModalMensagem
         isOpen={messageModal.open}
         onClose={() => setMessageModal({ ...messageModal, open: false })}
         onConfirm={messageModal.onOk}
@@ -1372,4 +1412,7 @@ function AccessControl() {
   );
 }
 
-export default AccessControl;
+export default ControleAcesso;
+
+
+

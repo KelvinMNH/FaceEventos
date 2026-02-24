@@ -106,4 +106,5 @@ const ConfirmationModal = ({ isOpen, title, message, onConfirm, onCancel, confir
     );
 };
 
-export default ConfirmationModal;
+export default ModalConfirmacao;
+
