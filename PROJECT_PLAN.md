@@ -91,3 +91,8 @@ UniEventos/
 1.  **Otimização de Performance**: Migrar o "Fuzzy Matching" para C++ ou usar indexação se a base de usuários crescer acima de 5.000 (atualmente O(N) no Node.js).
 2.  **Segurança**: Implementar criptografia ponta-a-ponta nos templates biométricos.
 3.  **App Mobile**: Criar versão tablet para portaria móvel.
+
+---
+
+**Software de autoria de Kelvin Higino**  
+Para contato, acesse: 🌐 [kelvinti.pages.dev](https://kelvinti.pages.dev)

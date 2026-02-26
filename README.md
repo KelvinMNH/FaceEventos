@@ -94,3 +94,8 @@ Para resetar o banco, basta apagar o arquivo `database.sqlite` e reiniciar o bac
 ## 👤 Login Padrão
 Se o banco estiver vazio, crie um usuário via API ou registre-se na tela inicial (se habilitado).
 *   **Admin Padrão**: (Não configurado por padrão, necessário criar no primeiro uso).
+
+---
+
+**Software de autoria de Kelvin Higino**  
+Para contato, acesse: 🌐 [kelvinti.pages.dev](https://kelvinti.pages.dev)

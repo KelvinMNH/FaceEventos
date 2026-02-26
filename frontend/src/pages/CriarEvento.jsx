@@ -62,7 +62,7 @@ function CriarEvento() {
                 display: 'flex',
                 justifyContent: 'center',
                 alignItems: 'center',
-                minHeight: 'calc(100vh - 100px)' // Altura total menos navbar
+                minHeight: 'calc(100vh - 100px)'
             }}>
                 <div className="card" style={{ width: '100%', maxWidth: '500px', position: 'relative' }}>
                     <h1 style={{ textAlign: 'center', marginBottom: '2rem', fontSize: '1.8rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -79,7 +79,7 @@ function CriarEvento() {
                                 padding: '5px',
                                 borderRadius: '50%',
                                 transition: 'background 0.2s',
-                                position: 'absolute', // Absolute positioning specifically for this centered layout
+                                position: 'absolute',
                                 left: '1rem'
                             }}
                             onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#f0f0f0'}
