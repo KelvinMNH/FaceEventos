@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
+import MessageModal from '../components/MessageModal';
 import { useAuth } from '../contexts/AuthContext';
 
 // --- ERROR BOUNDARY COMPONENT ---
@@ -43,7 +44,7 @@ class ErrorBoundary extends React.Component {
 function RelatorioEventoContent() {
     const { id } = useParams();
     const navigate = useNavigate();
-    const { token } = useAuth();
+    const { token, isAdmin } = useAuth();
     const [processedData, setProcessedData] = useState([]);
     const [stats, setStats] = useState({
         totalParticipantes: 0,
@@ -56,6 +57,44 @@ function RelatorioEventoContent() {
     const [eventoNome, setEventoNome] = useState('');
     const [eventoDetalhes, setEventoDetalhes] = useState(null);
     const [errorMsg, setErrorMsg] = useState('');
+    const [messageModal, setMessageModal] = useState({ open: false, title: '', message: '', type: 'info', onConfirm: null, showCancel: false, confirmText: 'OK' });
+
+    const closeMessage = () => setMessageModal({ ...messageModal, open: false });
+    const showMessage = (title, message, type = 'info') => {
+        setMessageModal({ open: true, title, message, type, onConfirm: null, showCancel: false, confirmText: 'OK' });
+    };
+
+    const handleExcluir = () => {
+        setMessageModal({
+            open: true,
+            title: 'Excluir Evento',
+            message: `Tem certeza que deseja EXCLUIR DEFINITIVAMENTE o evento "${eventoNome}" e todos os seus registros de acesso? Esta ação não pode ser desfeita.`,
+            type: 'error',
+            showCancel: true,
+            confirmText: 'Excluir',
+            onConfirm: async () => {
+                try {
+                    const res = await fetch(`http://localhost:3000/api/eventos/${id}`, {
+                        method: 'DELETE',
+                        headers: {
+                            'Authorization': `Bearer ${token}`
+                        }
+                    });
+
+                    if (res.ok) {
+                        showMessage("Sucesso", "Evento excluído com sucesso.", "success");
+                        setTimeout(() => navigate('/'), 1500);
+                    } else {
+                        const data = await res.json();
+                        showMessage("Erro", `Erro ao excluir: ${data.error || 'Erro desconhecido'}`, "error");
+                    }
+                } catch (error) {
+                    console.error("Erro ao excluir evento:", error);
+                    showMessage("Erro", "Erro de conexão ao tentar excluir o evento.", "error");
+                }
+            }
+        });
+    };
 
     useEffect(() => {
         const fetchData = async () => {
@@ -456,6 +495,35 @@ function RelatorioEventoContent() {
                     </svg>
                     CSV entradas sem biometria
                 </button>
+
+                {isAdmin && isAdmin() && (
+                    <button
+                        onClick={handleExcluir}
+                        style={{
+                            marginLeft: '0.5rem',
+                            backgroundColor: '#dc3545',
+                            color: 'white',
+                            border: 'none',
+                            padding: '0.6rem 1.2rem',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                            fontWeight: 'bold',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                        }}
+                        title="Excluir Evento"
+                    >
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="3 6 5 6 21 6"></polyline>
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                            <line x1="10" y1="11" x2="10" y2="17"></line>
+                            <line x1="14" y1="11" x2="14" y2="17"></line>
+                        </svg>
+                        Excluir Evento
+                    </button>
+                )}
             </div>
 
             {/* Estatísticas Gerais */}
@@ -564,6 +632,17 @@ function RelatorioEventoContent() {
                     </div>
                 )}
             </div>
+
+            <MessageModal
+                isOpen={messageModal.open}
+                onClose={closeMessage}
+                title={messageModal.title}
+                message={messageModal.message}
+                type={messageModal.type}
+                showCancel={messageModal.showCancel}
+                onConfirm={messageModal.onConfirm}
+                confirmText={messageModal.confirmText}
+            />
         </div >
     );
 }

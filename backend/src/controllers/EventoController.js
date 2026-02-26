@@ -1,4 +1,4 @@
-const { Evento } = require('../models');
+const { Evento, LogAuditoria } = require('../models');
 
 class EventoController {
     async listar(req, res) {
@@ -26,6 +26,20 @@ class EventoController {
                 max_acompanhantes,
                 habilitar_checkout: habilitar_checkout || false
             });
+
+            // Registrar Log
+            try {
+                if (req.user && req.user.id) {
+                    await LogAuditoria.create({
+                        acao: 'CRIACAO_EVENTO',
+                        usuario_id: req.user.id,
+                        detalhes: `Evento "${novoEvento.nome}" (ID: ${novoEvento.id}) criado.`
+                    });
+                }
+            } catch (logError) {
+                console.error('Erro ao registrar log de auditoria na criação de evento:', logError);
+            }
+
             res.json({ success: true, evento: novoEvento });
         } catch (error) {
             console.error('❌ Erro detalhado ao criar evento:', error);
@@ -58,6 +72,41 @@ class EventoController {
             res.json({ success: true });
         } catch (error) {
             res.status(500).json({ error: "Erro ao finalizar evento" });
+        }
+    }
+
+    async excluir(req, res) {
+        try {
+            const { id } = req.params;
+            const evento = await Evento.findByPk(id);
+
+            if (!evento) {
+                return res.status(404).json({ error: "Evento não encontrado" });
+            }
+
+            const nomeEvento = evento.nome;
+
+            // Deletar o evento (onDelete CASCADE cuidará dos registros de acesso se configurado no DB,
+            // caso contrário precisaria deletar os registros antes).
+            await evento.destroy();
+
+            // Registrar Log
+            try {
+                if (req.user && req.user.id) {
+                    await LogAuditoria.create({
+                        acao: 'EXCLUSAO_EVENTO',
+                        usuario_id: req.user.id,
+                        detalhes: `Evento "${nomeEvento}" (ID: ${id}) excluído.`
+                    });
+                }
+            } catch (logError) {
+                console.error('Erro ao registrar log de auditoria na exclusão de evento:', logError);
+            }
+
+            res.json({ success: true, message: "Evento excluído com sucesso." });
+        } catch (error) {
+            console.error('Erro ao excluir evento:', error);
+            res.status(500).json({ error: "Erro ao excluir evento", details: error.message });
         }
     }
 

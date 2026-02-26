@@ -4,9 +4,10 @@ const Participante = require('./Participante');
 const Acompanhante = require('./Acompanhante');
 const RegistroAcesso = require('./RegistroAcesso');
 const Usuario = require('./Usuario');
+const LogAuditoria = require('./LogAuditoria');
 
 // Relacionamentos
-Evento.hasMany(RegistroAcesso);
+Evento.hasMany(RegistroAcesso, { onDelete: 'CASCADE' });
 RegistroAcesso.belongsTo(Evento);
 
 Participante.hasMany(RegistroAcesso);
@@ -17,6 +18,9 @@ Acompanhante.belongsTo(Participante);
 
 Acompanhante.hasMany(RegistroAcesso, { onDelete: 'CASCADE' });
 RegistroAcesso.belongsTo(Acompanhante);
+
+Usuario.hasMany(LogAuditoria, { foreignKey: 'usuario_id' });
+LogAuditoria.belongsTo(Usuario, { foreignKey: 'usuario_id' });
 
 async function syncDB() {
     try {
@@ -105,5 +109,6 @@ module.exports = {
     Acompanhante,
     RegistroAcesso,
     Usuario,
+    LogAuditoria,
     syncDB
 };
