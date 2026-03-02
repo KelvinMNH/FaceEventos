@@ -46,6 +46,20 @@ class AuthController {
         }
     }
 
+    // Retorna dados do usuário logado (validação de token)
+    async me(req, res) {
+        try {
+            // req.user já foi preenchido pelo middleware verifyToken
+            res.json({
+                success: true,
+                user: req.user
+            });
+        } catch (e) {
+            console.error(e);
+            res.status(500).json({ success: false, msg: 'Erro ao obter dados do usuário' });
+        }
+    }
+
     // Middleware para verificar Token
     verifyToken(req, res, next) {
         const authHeader = req.headers['authorization'];
@@ -54,8 +68,15 @@ class AuthController {
         if (!token) return res.status(401).json({ msg: 'Acesso negado. Token não fornecido.' });
 
         jwt.verify(token, JWT_SECRET, (err, decoded) => {
-            if (err) return res.status(403).json({ msg: 'Token inválido' });
-            req.user = decoded;
+            if (err) return res.status(401).json({ msg: 'Sessão expirada ou inválida' }); // 401 para o front saber que deve deslogar
+
+            // Garantir que temos os dados básicos
+            req.user = {
+                id: decoded.id,
+                username: decoded.username,
+                perfil: decoded.perfil,
+                nome: decoded.nome
+            };
             next();
         });
     }

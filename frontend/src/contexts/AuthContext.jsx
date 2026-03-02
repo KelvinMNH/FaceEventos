@@ -8,17 +8,47 @@ export const AuthProvider = ({ children }) => {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        // Restaurar sessão ao carregar
-        const storedUser = localStorage.getItem('user');
-        if (token && storedUser) {
-            try {
-                setUser(JSON.parse(storedUser));
-            } catch (e) {
-                console.error("Erro ao parsear user do localStorage", e);
-                logout(); // Corrompido
+        const verifySession = async () => {
+            if (!token) {
+                console.log("[Auth] Sem token, parando carregamento");
+                setLoading(false);
+                return;
             }
-        }
-        setLoading(false);
+
+            console.log("[Auth] Validando sessão...");
+            setLoading(true); // Garante que está "carregando" durante a validação
+
+            try {
+                const res = await fetch('http://localhost:3000/api/me', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                console.log("[Auth] Resposta /me status:", res.status);
+
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.success) {
+                        console.log("[Auth] Sessão válida para:", data.user.username);
+                        setUser(data.user);
+                        localStorage.setItem('user', JSON.stringify(data.user));
+                    } else {
+                        console.warn("[Auth] /me retornou sucesso=false", data);
+                        logout();
+                    }
+                } else {
+                    console.warn("[Auth] Sessão inválida (401/outros), deslogando...");
+                    logout();
+                }
+            } catch (error) {
+                console.error("[Auth] Erro ao validar sessão:", error);
+                // Em erro de rede, vamos manter logado por enquanto para evitar deslogar por instabilidade
+                // mas se o erro persistir, o usuário verá erros em outras requisições
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        verifySession();
     }, [token]);
 
     const login = async (username, password) => {

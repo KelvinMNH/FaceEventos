@@ -10,6 +10,9 @@ const AuthController = require('../controllers/AuthController');
 // Rota de Login (Pública)
 router.post('/login', AuthController.login);
 
+// Rota para validar sessão e obter dados do usuário (Protegida)
+router.get('/me', AuthController.verifyToken, AuthController.me);
+
 // Rotas de Eventos
 router.get('/eventos', AuthController.verifyToken, EventoController.listar);
 router.post('/eventos', AuthController.verifyToken, AuthController.requireAdmin, EventoController.criar); // Admin only
