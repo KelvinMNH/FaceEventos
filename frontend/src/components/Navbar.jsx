@@ -166,13 +166,22 @@ function Navbar({ children, onOpenCreateModal }) {
                     </a>
 
                     {isAdmin() && (
-                        <a
-                            href="#"
-                            className={`sidebar-link ${location.pathname === '/create' ? 'active' : ''}`}
-                            onClick={handleCreateClick}
-                        >
-                            Novo Evento
-                        </a>
+                        <>
+                            <a
+                                href="#"
+                                className={`sidebar-link ${location.pathname === '/create' ? 'active' : ''}`}
+                                onClick={handleCreateClick}
+                            >
+                                Novo Evento
+                            </a>
+                            <a
+                                href="#"
+                                className={`sidebar-link ${location.pathname === '/admin/participantes' ? 'active' : ''}`}
+                                onClick={(e) => { e.preventDefault(); handleNavigate('/admin/participantes'); }}
+                            >
+                                Controle de participantes
+                            </a>
+                        </>
                     )}
 
                     <a

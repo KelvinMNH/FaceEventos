@@ -72,6 +72,94 @@ class ParticipanteController {
             res.status(500).json({ error: "Erro ao registrar acompanhante: " + e.message });
         }
     }
+
+    async criar(req, res) {
+        try {
+            const { nome, cpf, crm, genero, data_nascimento } = req.body;
+
+            // Check se CPF já existe
+            if (cpf) {
+                const existenteCPF = await Participante.findOne({ where: { cpf } });
+                if (existenteCPF) return res.status(400).json({ error: "CPF já cadastrado." });
+            }
+
+            const participante = await Participante.create({
+                nome, cpf, crm, genero, data_nascimento, ativo: true
+            });
+
+            res.json({ success: true, participante, msg: "Participante criado com sucesso." });
+        } catch (e) {
+            console.error("Erro ao criar participante:", e);
+            res.status(500).json({ error: "Erro ao criar participante", details: e.message });
+        }
+    }
+
+    async atualizar(req, res) {
+        try {
+            const { id } = req.params;
+            const { nome, cpf, crm, genero, data_nascimento } = req.body;
+
+            const participante = await Participante.findByPk(id);
+            if (!participante) return res.status(404).json({ error: "Participante não encontrado." });
+
+            if (cpf && cpf !== participante.cpf) {
+                const existenteCPF = await Participante.findOne({ where: { cpf } });
+                if (existenteCPF) return res.status(400).json({ error: "CPF já cadastrado em outro participante." });
+            }
+
+            participante.nome = nome;
+            participante.cpf = cpf;
+            participante.crm = crm;
+            participante.genero = genero;
+            participante.data_nascimento = data_nascimento;
+
+            await participante.save();
+
+            res.json({ success: true, participante, msg: "Dados atualizados com sucesso." });
+        } catch (e) {
+            console.error("Erro ao atualizar participante:", e);
+            res.status(500).json({ error: "Erro ao atualizar participante", details: e.message });
+        }
+    }
+
+    async excluir(req, res) {
+        try {
+            const { id } = req.params;
+            const participante = await Participante.findByPk(id);
+            if (!participante) return res.status(404).json({ error: "Participante não encontrado." });
+
+            // Remover template biométrico e desativar em vez de hard delete (ou hard delete)
+            // Hard delete
+            await participante.destroy();
+
+            res.json({ success: true, msg: "Participante removido com sucesso." });
+        } catch (e) {
+            console.error("Erro ao remover participante:", e);
+            res.status(500).json({ error: "Erro ao remover participante", details: e.message });
+        }
+    }
+
+    async atualizarBiometria(req, res) {
+        try {
+            const { id } = req.params;
+            const { template } = req.body;
+
+            if (!template) return res.status(400).json({ error: "Template biométrico não fornecido." });
+
+            const participante = await Participante.findByPk(id);
+            if (!participante) return res.status(404).json({ error: "Participante não encontrado." });
+
+            participante.template_biometrico = template;
+            participante.data_biometria = new Date();
+            participante.ativo = true;
+            await participante.save();
+
+            res.json({ success: true, msg: "Biometria atualizada com sucesso." });
+        } catch (e) {
+            console.error("Erro ao atualizar biometria:", e);
+            res.status(500).json({ error: "Erro ao atualizar biometria", details: e.message });
+        }
+    }
 }
 
 module.exports = new ParticipanteController();

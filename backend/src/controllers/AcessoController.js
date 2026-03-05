@@ -231,6 +231,63 @@ class AcessoController {
         }
     }
 
+    async renovarBiometriaEEntrar(req, res) {
+        try {
+            const { participanteId, template } = req.body;
+            const evento = await Evento.findOne({ where: { status: 'ativo' } });
+            if (!evento) return res.json({ success: false, msg: "Sem evento ativo" });
+
+            if (!participanteId || !template) {
+                return res.json({ success: false, autorizado: false, msg: "Dados inválidos para renovação" });
+            }
+
+            const participante = await Participante.findByPk(participanteId);
+            if (!participante) return res.json({ success: false, autorizado: false, msg: "Participante não encontrado" });
+
+            // Atualiza a biometria
+            participante.template_biometrico = template;
+            participante.ativo = true;
+            await participante.save();
+
+            // Verificação de dupla entrada Manual
+            const ultimoLog = await RegistroAcesso.findOne({
+                where: { EventoId: evento.id, ParticipanteId: participante.id },
+                order: [['createdAt', 'DESC']]
+            });
+
+            if (ultimoLog && ultimoLog.tipo_acesso === 'entrada' && ultimoLog.status_validacao === 'sucesso') {
+                return res.json({
+                    success: false,
+                    autorizado: false,
+                    msg: "Biometria atualizada, mas participante já validado neste evento!",
+                    already_in: true,
+                    participante: { nome: participante.nome, cpf: participante.cpf, crm: participante.crm }
+                });
+            }
+
+            const acesso = await RegistroAcesso.create({
+                tipo_acesso: 'entrada',
+                status_validacao: 'sucesso',
+                device_id: 'manual_bio_update',
+                EventoId: evento.id,
+                ParticipanteId: participante.id
+            });
+
+            // Retorno tem formato compatível com scan e manual-entry
+            res.json({
+                success: true, // compatibilidade entry
+                autorizado: true, // compatibilidade scan
+                status: 'sucesso',
+                participante: { id: participante.id, nome: participante.nome, cpf: participante.cpf, crm: participante.crm, genero: participante.genero, data_nascimento: participante.data_nascimento },
+                mensagem: "Biometria cadastrada e Acesso Permitido",
+                access_id: acesso.id
+            });
+        } catch (e) {
+            console.error("Erro na renovação biométrica:", e);
+            res.status(500).json({ error: "Erro na renovação", details: e.message });
+        }
+    }
+
     async cadastrarEntrada(req, res) {
         try {
             const { nome, cpf, crm, genero, data_nascimento } = req.body;

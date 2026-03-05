@@ -9,6 +9,8 @@ import RelatorioEvento from './pages/RelatorioEvento';
 import TotemAcesso from './pages/TotemAcesso';
 import TotemSaida from './pages/TotemSaida';
 
+import GerenciarParticipantes from './pages/GerenciarParticipantes';
+
 // Componente para proteger rotas privadas
 const PrivateRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -56,6 +58,12 @@ function App() {
           <Route path="/event/:id/report" element={
             <PrivateRoute>
               <RelatorioEvento />
+            </PrivateRoute>
+          } />
+
+          <Route path="/admin/participantes" element={
+            <PrivateRoute>
+              <GerenciarParticipantes />
             </PrivateRoute>
           } />
 

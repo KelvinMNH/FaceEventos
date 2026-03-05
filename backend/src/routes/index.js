@@ -28,6 +28,7 @@ router.post('/scan', AuthController.verifyToken, AcessoController.scan);
 router.post('/simulate', AuthController.verifyToken, AcessoController.simulate);
 router.post('/manual-entry', AuthController.verifyToken, AcessoController.manualEntry);
 router.post('/cadastrar-entrada', AuthController.verifyToken, AcessoController.cadastrarEntrada);
+router.post('/renovar-biometria', AuthController.verifyToken, AcessoController.renovarBiometriaEEntrar);
 router.post('/registrar-saida', AuthController.verifyToken, AcessoController.registrarSaida);
 router.get('/logs', AuthController.verifyToken, AcessoController.getLogs);
 
@@ -35,6 +36,12 @@ router.get('/logs', AuthController.verifyToken, AcessoController.getLogs);
 router.get('/participantes/busca', AuthController.verifyToken, ParticipanteController.buscar);
 router.get('/participantes', AuthController.verifyToken, ParticipanteController.listar);
 router.post('/registrar-acompanhante', AuthController.verifyToken, ParticipanteController.registrarAcompanhante);
+
+// Rotas CRUD de Participantes (Admin Only)
+router.post('/participantes', AuthController.verifyToken, AuthController.requireAdmin, ParticipanteController.criar);
+router.put('/participantes/:id', AuthController.verifyToken, AuthController.requireAdmin, ParticipanteController.atualizar);
+router.delete('/participantes/:id', AuthController.verifyToken, AuthController.requireAdmin, ParticipanteController.excluir);
+router.post('/participantes/:id/biometria', AuthController.verifyToken, AuthController.requireAdmin, ParticipanteController.atualizarBiometria);
 
 // Status (Público)
 router.get('/status', (req, res) => res.json({ online: true, time: new Date() }));

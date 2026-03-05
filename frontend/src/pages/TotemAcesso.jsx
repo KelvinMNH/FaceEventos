@@ -4,6 +4,12 @@ import { useAuth } from '../contexts/AuthContext';
 
 const API_URL = 'http://localhost:3000/api';
 
+const FingerprintIcon = ({ size = "1em", ...props }) => (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" {...props}>
+        <path d="M17.81 4.47c-.08 0-.16-.02-.23-.06C15.66 3.42 14 3 12.01 3c-1.98 0-3.86.47-5.57 1.41-.24.13-.54.04-.68-.2-.13-.24-.04-.55.2-.68C7.82 2.52 9.86 2 12.01 2c2.13 0 3.99.47 6.03 1.52.25.13.34.43.21.67-.09.18-.26.28-.44.28zM3.5 9.72c-.1 0-.2-.03-.29-.09-.23-.16-.28-.47-.12-.7.99-1.4 2.25-2.5 3.75-3.27C9.98 4.04 14 4.03 17.15 5.65c1.5.77 2.76 1.86 3.75 3.25.16.22.11.54-.12.7-.23.16-.54.11-.7-.12-.9-1.26-2.04-2.25-3.39-2.94-2.87-1.47-6.54-1.47-9.4.01-1.36.7-2.5 1.7-3.4 2.96-.08.14-.23.21-.39.21zm6.25 12.07c-.13 0-.26-.05-.35-.15-.87-.87-1.34-1.43-2.01-2.64-.69-1.23-1.05-2.73-1.05-4.34 0-2.97 2.54-5.39 5.66-5.39s5.66 2.42 5.66 5.39c0 .28-.22.5-.5.5s-.5-.22-.5-.5c0-2.42-2.09-4.39-4.66-4.39-2.57 0-4.66 1.97-4.66 4.39 0 1.44.32 2.77.93 3.85.64 1.15 1.08 1.64 1.85 2.42.19.2.19.51 0 .71-.11.1-.24.15-.37.15zm7.17-1.85c-1.19 0-2.24-.3-3.1-.89-1.49-1.01-2.38-2.65-2.38-4.39 0-.28.22-.5.5-.5s.5.22.5.5c0 1.41.72 2.74 1.94 3.56.71.48 1.54.71 2.54.71.24 0 .64-.03 1.04-.1.27-.05.53.13.58.41.05.27-.13.53-.41.58-.57.11-1.07.12-1.21.12zM14.91 22c-.04 0-.09-.01-.13-.02-1.59-.44-2.63-1.03-3.72-2.1-1.4-1.39-2.17-3.24-2.17-5.22 0-1.62 1.38-2.94 3.08-2.94 1.7 0 3.08 1.32 3.08 2.94 0 1.07.93 1.94 2.08 1.94.28 0 .5.22.5.5s-.22.5-.5.5c-1.7 0-3.08-1.32-3.08-2.94 0-1.07-.93-1.94-2.08-1.94-1.15 0-2.08.87-2.08 1.94 0 1.71.66 3.31 1.87 4.51.95.94 1.86 1.46 3.27 1.85.27.07.42.35.35.61-.05.23-.26.38-.47.38z" />
+    </svg>
+);
+
 function TotemAcesso() {
     const navigate = useNavigate();
     const { token } = useAuth();
@@ -106,20 +112,26 @@ function TotemAcesso() {
     }, [view]);
 
     const handleBiometricScan = async (data) => {
-        // Enviar para API verificar
-        // NOTA: O backend espera template string para achar "exact match". 
-        // Imagem raw não vai dar match. Mas vamos enviar para logar tentativa.
         try {
-            const res = await fetch(`${API_URL}/scan`, {
+            let url = `${API_URL}/scan`;
+            let bodyData = {
+                device_id: 'TOTEM_FS80H',
+                template: data.image
+            };
+
+            // Se estiver na tela de confirmação e tiver alguém selecionado, tenta a renovação
+            if (view === 'confirm' && selectedParticipant) {
+                url = `${API_URL}/renovar-biometria`;
+                bodyData.participanteId = selectedParticipant.id;
+            }
+
+            const res = await fetch(url, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 },
-                body: JSON.stringify({
-                    device_id: 'TOTEM_FS80H',
-                    template: data.image // Enviando imagem como template (provisório) 
-                })
+                body: JSON.stringify(bodyData)
             });
             const resp = await res.json();
             if (resp.autorizado && resp.participante) {
@@ -127,10 +139,17 @@ function TotemAcesso() {
                 setView('success');
                 setTimeout(() => { setView('welcome'); setScannedImage(null); }, 2000);
             } else {
-                // Se falhar (o que vai acontecer sem matching real), mostramos erro
+                // Se falhar
                 setStatusMessage(resp.mensagem || "Biometria não identificada");
                 setView('error');
-                setTimeout(() => { setView('welcome'); setScannedImage(null); }, 2000);
+                setTimeout(() => {
+                    if (view === 'confirm') {
+                        setView('confirm');
+                    } else {
+                        setView('welcome');
+                    }
+                    setScannedImage(null);
+                }, 2000);
             }
         } catch (e) {
             console.error('Erro API Scan', e);
@@ -252,7 +271,7 @@ function TotemAcesso() {
     const formatTime = (date) => date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
     return (
-        <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: '#f8f9fa', overflow: 'hidden' }}>
+        <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: '#f8f9fa', overflowY: 'auto', overflowX: 'hidden' }}>
             {/* Topbar */}
             <div style={{ backgroundColor: '#198754', color: 'white', padding: '1rem 2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}>
                 {/* Lado Esquerdo: Logo */}
@@ -281,21 +300,21 @@ function TotemAcesso() {
             </div>
 
             {/* Main Content */}
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '1rem', minHeight: 'min-content' }}>
 
                 {view === 'welcome' && (
                     <div style={{ textAlign: 'center', animation: 'fadeIn 0.5s' }}>
-                        <h2 style={{ fontSize: '2.5rem', color: '#333', marginBottom: '3rem' }}>Seja Bem-vindo(a)!</h2>
+                        <h2 style={{ fontSize: 'clamp(1.8rem, 4vh, 2.5rem)', color: '#333', marginBottom: 'clamp(1rem, 3vh, 3rem)' }}>Seja Bem-vindo(a)!</h2>
 
                         {/* Círculo do Totem agora com estilo idêntico ao Access Panel */}
                         <div
                             className="totem-circle totem-circle-animated"
                             style={{
-                                width: '200px',
-                                height: '200px',
+                                width: 'min(200px, 25vh)',
+                                height: 'min(200px, 25vh)',
                                 borderRadius: '50%',
                                 backgroundColor: '#ffffff',
-                                margin: '0 auto 3rem',
+                                margin: '0 auto clamp(1rem, 3vh, 3rem)',
                                 position: 'relative',
                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                                 boxShadow: '0 10px 30px rgba(0,0,0,0.1)'
@@ -339,7 +358,7 @@ function TotemAcesso() {
                             )}
                         </div>
 
-                        <p style={{ fontSize: '1.2rem', color: '#666', marginBottom: '3rem', fontWeight: 'bold' }}>
+                        <p style={{ fontSize: 'clamp(1rem, 2.5vh, 1.2rem)', color: '#666', marginBottom: 'clamp(1rem, 4vh, 3rem)', fontWeight: 'bold' }}>
                             {scannedImage ? 'Processando biometria...' : (
                                 qualityMsg ? (
                                     <span style={{ color: '#FF9800', animation: 'shake 0.5s infinite' }}>⚠️ {qualityMsg}</span>
@@ -385,13 +404,23 @@ function TotemAcesso() {
                                         style={{
                                             backgroundColor: 'white', padding: '1.5rem', borderRadius: '10px',
                                             boxShadow: '0 2px 5px rgba(0,0,0,0.05)', cursor: 'pointer', border: '1px solid #eee',
-                                            transition: 'transform 0.1s'
+                                            transition: 'transform 0.1s',
+                                            display: 'flex', justifyContent: 'space-between', alignItems: 'center'
                                         }}
                                         onMouseDown={e => e.currentTarget.style.transform = 'scale(0.98)'}
                                         onMouseUp={e => e.currentTarget.style.transform = 'scale(1)'}
                                     >
-                                        <div style={{ fontWeight: 'bold', fontSize: '1.1rem', marginBottom: '0.5rem' }}>{p.nome}</div>
-                                        <div style={{ color: '#666' }}>CPF: {p.cpf || '-'}</div>
+                                        <div>
+                                            <div style={{ fontWeight: 'bold', fontSize: '1.1rem', marginBottom: '0.5rem' }}>{p.nome}</div>
+                                            <div style={{ color: '#666' }}>CPF: {p.cpf || '-'}</div>
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center' }}>
+                                            {p.template_biometrico && !p.template_biometrico.startsWith('manual_') ? (
+                                                <span title="Biometria Cadastrada" style={{ color: '#4CAF50', display: 'flex' }}><FingerprintIcon size="2rem" /></span>
+                                            ) : (
+                                                <span title="Sem Biometria" style={{ color: '#666', opacity: 0.3, filter: 'grayscale(100%)', display: 'flex' }}><FingerprintIcon size="2rem" /></span>
+                                            )}
+                                        </div>
                                     </div>
                                 ))}
                             </div>
@@ -412,37 +441,47 @@ function TotemAcesso() {
                 )}
 
                 {view === 'confirm' && selectedParticipant && (
-                    <div style={{ textAlign: 'center', animation: 'fadeIn 0.3s', backgroundColor: 'white', padding: '3rem', borderRadius: '20px', boxShadow: '0 10px 40px rgba(0,0,0,0.1)' }}>
-                        <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>👤</div>
-                        <h2 style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>Confirmar Identidade</h2>
-                        <p style={{ fontSize: '1.1rem', color: '#666', marginBottom: '2rem' }}>Você é esta pessoa?</p>
+                    <div style={{ textAlign: 'center', animation: 'fadeIn 0.3s', backgroundColor: 'white', padding: 'clamp(1.5rem, 4vh, 3rem)', borderRadius: '20px', boxShadow: '0 10px 40px rgba(0,0,0,0.1)', display: 'flex', flexDirection: 'column', maxHeight: '100%' }}>
+                        <div style={{ fontSize: 'clamp(2.5rem, 5vh, 4rem)', marginBottom: 'clamp(0.5rem, 1vh, 1rem)' }}>👤</div>
+                        <h2 style={{ fontSize: 'clamp(1.5rem, 3vh, 2rem)', marginBottom: '0.5rem' }}>Confirmar Identidade</h2>
+                        <p style={{ fontSize: '1.1rem', color: '#666', marginBottom: 'clamp(1rem, 2vh, 2rem)' }}>Você é esta pessoa?</p>
 
-                        <div style={{ fontSize: '1.8rem', fontWeight: 'bold', color: '#198754', marginBottom: '0.5rem' }}>
+                        <div style={{ fontSize: 'clamp(1.4rem, 2.5vh, 1.8rem)', fontWeight: 'bold', color: '#198754', marginBottom: '0.5rem' }}>
                             {selectedParticipant.nome}
                         </div>
-                        <div style={{ fontSize: '1.2rem', color: '#555', marginBottom: '3rem' }}>
+                        <div style={{ fontSize: '1.2rem', color: '#555', marginBottom: 'clamp(1rem, 2vh, 1.5rem)' }}>
                             CPF: {selectedParticipant.cpf || 'Não informado'}
                         </div>
 
-                        <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+                        <div style={{ padding: 'clamp(1rem, 2vh, 1.5rem)', backgroundColor: '#e7f5ff', borderRadius: '12px', border: '2px dashed #74c0fc', marginBottom: 'clamp(1rem, 3vh, 2rem)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                            <div style={{ fontSize: 'clamp(2rem, 4vh, 3rem)', marginBottom: '0.5rem', animation: 'bounce 2s infinite' }}>👆</div>
+                            <div style={{ color: '#1864ab', fontWeight: 'bold', fontSize: 'clamp(1rem, 2vh, 1.2rem)' }}>
+                                Coloque o dedo no leitor para gravar a biometria
+                            </div>
+                            <div style={{ color: '#1864ab', fontSize: 'clamp(0.85rem, 1.5vh, 1rem)', marginTop: '0.5rem' }}>
+                                O acesso será liberado automaticamente.
+                            </div>
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', marginTop: 'auto' }}>
                             <button
                                 onClick={() => setView('search')}
                                 style={{
-                                    padding: '1rem 2rem', fontSize: '1.1rem', backgroundColor: '#f8d7da', color: '#842029',
+                                    padding: 'clamp(0.8rem, 1.5vh, 1rem) clamp(1rem, 2vw, 2rem)', fontSize: '1.1rem', backgroundColor: '#f8d7da', color: '#842029',
                                     border: 'none', borderRadius: '8px', cursor: 'pointer'
                                 }}
                             >
-                                Não sou eu
+                                Cancelar
                             </button>
                             <button
                                 onClick={handleConfirmCheckin}
                                 style={{
-                                    padding: '1rem 3rem', fontSize: '1.3rem', backgroundColor: '#198754', color: 'white',
+                                    padding: 'clamp(0.8rem, 1.5vh, 1rem) clamp(1rem, 2vw, 2rem)', fontSize: '1.3rem', backgroundColor: '#198754', color: 'white',
                                     border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold',
                                     boxShadow: '0 4px 10px rgba(25,135,84,0.3)'
                                 }}
                             >
-                                ✅ Sim, Confirmar Entrada
+                                Pular Biometria e Entrar
                             </button>
                         </div>
                     </div>

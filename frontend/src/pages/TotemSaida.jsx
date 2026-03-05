@@ -4,6 +4,8 @@ import { useAuth } from '../contexts/AuthContext';
 
 const API_URL = 'http://localhost:3000/api';
 
+
+
 function TotemSaida() {
     const navigate = useNavigate();
     const { token } = useAuth();
@@ -299,7 +301,7 @@ function TotemSaida() {
     }
 
     return (
-        <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: '#f8f9fa', overflow: 'hidden' }}>
+        <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: '#f8f9fa', overflowY: 'auto', overflowX: 'hidden' }}>
             {/* Topbar */}
             <div style={{ backgroundColor: '#0d6efd', color: 'white', padding: '1rem 2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}>
 
@@ -342,30 +344,30 @@ function TotemSaida() {
             </div>
 
             {/* Main Content */}
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '1rem', minHeight: 'min-content' }}>
 
                 {view === 'welcome' && (
                     <div style={{ textAlign: 'center', animation: 'fadeIn 0.5s' }}>
-                        <h2 style={{ fontSize: '2.5rem', color: '#333', marginBottom: '3rem' }}>Já vai embora?</h2>
+                        <h2 style={{ fontSize: 'clamp(1.8rem, 4vh, 2.5rem)', color: '#333', marginBottom: 'clamp(1rem, 3vh, 3rem)' }}>Já vai embora?</h2>
 
                         <div
                             className="totem-circle totem-circle-animated"
                             style={{
-                                width: '200px',
-                                height: '200px',
+                                width: 'min(200px, 25vh)',
+                                height: 'min(200px, 25vh)',
                                 borderRadius: '50%',
                                 backgroundColor: '#ffffff',
-                                margin: '0 auto 3rem',
+                                margin: '0 auto clamp(1rem, 3vh, 3rem)',
                                 position: 'relative',
                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                                 boxShadow: '0 10px 30px rgba(0,0,0,0.1)',
                                 '--accent-color': '#0d6efd'
                             }}
                         >
-                            <span style={{ fontSize: '6rem', position: 'relative', zIndex: 2 }}>👆</span>
+                            <span style={{ fontSize: 'clamp(4rem, 8vh, 6rem)', position: 'relative', zIndex: 2 }}>👆</span>
                         </div>
 
-                        <p style={{ fontSize: '1.2rem', color: '#666', marginBottom: '3rem', fontWeight: 'bold' }}>
+                        <p style={{ fontSize: 'clamp(1rem, 2.5vh, 1.2rem)', color: '#666', marginBottom: 'clamp(1rem, 4vh, 3rem)', fontWeight: 'bold' }}>
                             {qualityMsg ? (
                                 <span style={{ color: '#FF9800', animation: 'shake 0.5s infinite' }}>⚠️ {qualityMsg}</span>
                             ) : (
@@ -438,23 +440,23 @@ function TotemSaida() {
                 )}
 
                 {view === 'confirm' && selectedParticipant && (
-                    <div style={{ textAlign: 'center', animation: 'fadeIn 0.3s', backgroundColor: 'white', padding: '3rem', borderRadius: '20px', boxShadow: '0 10px 40px rgba(0,0,0,0.1)' }}>
-                        <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🏁</div>
-                        <h2 style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>Confirmar Saída</h2>
-                        <p style={{ fontSize: '1.1rem', color: '#666', marginBottom: '2rem' }}>Você está realizando o checkout?</p>
+                    <div style={{ textAlign: 'center', animation: 'fadeIn 0.3s', backgroundColor: 'white', padding: 'clamp(1.5rem, 4vh, 3rem)', borderRadius: '20px', boxShadow: '0 10px 40px rgba(0,0,0,0.1)', display: 'flex', flexDirection: 'column', maxHeight: '100%' }}>
+                        <div style={{ fontSize: 'clamp(2.5rem, 5vh, 4rem)', marginBottom: 'clamp(0.5rem, 1vh, 1rem)' }}>🏁</div>
+                        <h2 style={{ fontSize: 'clamp(1.5rem, 3vh, 2rem)', marginBottom: '0.5rem' }}>Confirmar Saída</h2>
+                        <p style={{ fontSize: '1.1rem', color: '#666', marginBottom: 'clamp(1rem, 2vh, 2rem)' }}>Você está realizando o checkout?</p>
 
-                        <div style={{ fontSize: '1.8rem', fontWeight: 'bold', color: '#0d6efd', marginBottom: '0.5rem' }}>
+                        <div style={{ fontSize: 'clamp(1.4rem, 2.5vh, 1.8rem)', fontWeight: 'bold', color: '#0d6efd', marginBottom: '0.5rem' }}>
                             {selectedParticipant.nome}
                         </div>
-                        <div style={{ fontSize: '1.2rem', color: '#555', marginBottom: '3rem' }}>
+                        <div style={{ fontSize: '1.2rem', color: '#555', marginBottom: 'clamp(1rem, 3vh, 3rem)' }}>
                             CPF: {selectedParticipant.cpf || 'Não informado'}
                         </div>
 
-                        <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+                        <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', marginTop: 'auto' }}>
                             <button
                                 onClick={() => setView('search')}
                                 style={{
-                                    padding: '1rem 2rem', fontSize: '1.1rem', backgroundColor: '#f8d7da', color: '#842029',
+                                    padding: 'clamp(0.8rem, 1.5vh, 1rem) clamp(1rem, 2vw, 2rem)', fontSize: '1.1rem', backgroundColor: '#f8d7da', color: '#842029',
                                     border: 'none', borderRadius: '8px', cursor: 'pointer'
                                 }}
                             >
@@ -463,7 +465,7 @@ function TotemSaida() {
                             <button
                                 onClick={handleConfirmCheckout}
                                 style={{
-                                    padding: '1rem 3rem', fontSize: '1.3rem', backgroundColor: '#0d6efd', color: 'white',
+                                    padding: 'clamp(0.8rem, 1.5vh, 1rem) clamp(1rem, 2vw, 3rem)', fontSize: '1.3rem', backgroundColor: '#0d6efd', color: 'white',
                                     border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold',
                                     boxShadow: '0 4px 10px rgba(13, 110, 253, 0.3)'
                                 }}
