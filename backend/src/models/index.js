@@ -10,10 +10,10 @@ const LogAuditoria = require('./LogAuditoria');
 Evento.hasMany(RegistroAcesso, { onDelete: 'CASCADE' });
 RegistroAcesso.belongsTo(Evento);
 
-Participante.hasMany(RegistroAcesso);
+Participante.hasMany(RegistroAcesso, { onDelete: 'CASCADE' });
 RegistroAcesso.belongsTo(Participante);
 
-Participante.hasMany(Acompanhante);
+Participante.hasMany(Acompanhante, { onDelete: 'CASCADE' });
 Acompanhante.belongsTo(Participante);
 
 Acompanhante.hasMany(RegistroAcesso, { onDelete: 'CASCADE' });

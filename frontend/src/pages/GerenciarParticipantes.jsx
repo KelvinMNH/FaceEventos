@@ -22,10 +22,11 @@ function GerenciarParticipantes() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isBioModalOpen, setIsBioModalOpen] = useState(false);
     const [currentParticipante, setCurrentParticipante] = useState(null);
-    const [formData, setFormData] = useState({ nome: '', cpf: '', crm: '', genero: 'Masculino', data_nascimento: '' });
+    const [formData, setFormData] = useState({ nome: '', cpf: '', crm: '', genero: 'M', data_nascimento: '' });
 
     // Message State
     const [msgModal, setMsgModal] = useState({ isOpen: false, type: '', message: '' });
+    const [deleteModal, setDeleteModal] = useState({ isOpen: false, id: null, nome: '' });
 
     useEffect(() => {
         const fetchParticipantes = async () => {
@@ -61,12 +62,12 @@ function GerenciarParticipantes() {
                 nome: participante.nome || '',
                 cpf: participante.cpf || '',
                 crm: participante.crm || '',
-                genero: participante.genero || 'Masculino',
+                genero: participante.genero || 'O',
                 data_nascimento: participante.data_nascimento || ''
             });
         } else {
             setCurrentParticipante(null);
-            setFormData({ nome: '', cpf: '', crm: '', genero: 'Masculino', data_nascimento: '' });
+            setFormData({ nome: '', cpf: '', crm: '', genero: 'M', data_nascimento: '' });
         }
         setIsModalOpen(true);
     };
@@ -104,8 +105,17 @@ function GerenciarParticipantes() {
         }
     };
 
-    const handleDelete = async (id) => {
-        if (!window.confirm('Tem certeza que deseja remover este participante?')) return;
+    const openDeleteModal = (participante) => {
+        setDeleteModal({ isOpen: true, id: participante.id, nome: participante.nome });
+    };
+
+    const closeDeleteModal = () => {
+        setDeleteModal({ isOpen: false, id: null, nome: '' });
+    };
+
+    const handleDelete = async () => {
+        const { id } = deleteModal;
+        if (!id) return;
         try {
             const res = await fetch(`${API_URL}/participantes/${id}`, {
                 method: 'DELETE',
@@ -114,6 +124,7 @@ function GerenciarParticipantes() {
             const data = await res.json();
             if (res.ok) {
                 showMsg('success', data.msg);
+                closeDeleteModal();
                 setTimeout(() => window.location.reload(), 1000);
             } else {
                 showMsg('error', data.error || 'Erro ao deletar.');
@@ -173,34 +184,34 @@ function GerenciarParticipantes() {
     };
 
     return (
-        <div className="layout">
+        <>
             <Navbar />
-            <div className="main-content">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                    <h2 style={{ fontSize: '1.8rem', color: '#333' }}>Controle de participantes</h2>
-                    <button onClick={() => openModal()} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.8rem 1.5rem', borderRadius: '8px' }}>
-                        <span>+</span> Adicionar Participante
+            <div className="page-container">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+                    <h1 style={{ fontSize: '2rem', color: 'var(--text-primary)', margin: 0 }}>Controle de participantes</h1>
+                    <button onClick={() => openModal()} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        + Adicionar Participante
                     </button>
                 </div>
 
-                <div className="search-bar" style={{ marginBottom: '1.5rem' }}>
+                <div className="card" style={{ marginBottom: '2rem' }}>
                     <input
                         type="text"
                         placeholder="Buscar por nome, CPF ou CRM..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="form-control"
-                        style={{ width: '100%', maxWidth: '450px', padding: '0.8rem 1.2rem', borderRadius: '10px', border: '1px solid #ddd', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}
+                        className="modal-input"
+                        style={{ width: '100%', maxWidth: '400px', marginBottom: 0, textAlign: 'left' }}
                     />
                 </div>
 
-                <div className="card" style={{ overflowX: 'auto', borderRadius: '12px', border: '1px solid #eee' }}>
+                <div className="table-container">
                     {loading ? (
                         <p style={{ textAlign: 'center', padding: '3rem', color: '#666' }}>Carregando participantes...</p>
                     ) : (
-                        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '900px' }}>
+                        <table>
                             <thead>
-                                <tr style={{ borderBottom: '2px solid #f0f0f0', textAlign: 'left', backgroundColor: '#f9fafb' }}>
+                                <tr>
                                     <th style={{ padding: '1.2rem' }}>Nome</th>
                                     <th style={{ padding: '1.2rem' }}>CPF</th>
                                     <th style={{ padding: '1.2rem' }}>CRM</th>
@@ -210,10 +221,10 @@ function GerenciarParticipantes() {
                             </thead>
                             <tbody>
                                 {filteredParticipantes.map(p => (
-                                    <tr key={p.id} style={{ borderBottom: '1px solid #f0f0f0' }}>
-                                        <td style={{ padding: '1.2rem', fontWeight: 'bold', color: '#2d3748' }}>{p.nome}</td>
-                                        <td style={{ padding: '1.2rem', color: '#718096', fontSize: '0.9rem' }}>{p.cpf || '-'}</td>
-                                        <td style={{ padding: '1.2rem', color: '#718096', fontSize: '0.9rem' }}>{p.crm || '-'}</td>
+                                    <tr key={p.id}>
+                                        <td style={{ padding: '1.2rem', fontWeight: 'bold' }}>{p.nome}</td>
+                                        <td style={{ padding: '1.2rem', fontFamily: 'monospace' }}>{p.cpf || '-'}</td>
+                                        <td style={{ padding: '1.2rem' }}>{p.crm || '-'}</td>
                                         <td style={{ padding: '1.2rem', textAlign: 'center' }}>
                                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem' }}>
                                                 {p.template_biometrico && !p.template_biometrico.startsWith('manual_') ? (
@@ -251,7 +262,7 @@ function GerenciarParticipantes() {
                                                     Editar
                                                 </button>
                                                 <button
-                                                    onClick={() => handleDelete(p.id)}
+                                                    onClick={() => openDeleteModal(p)}
                                                     className="btn-secondary"
                                                     style={{ padding: '0.5rem 0.8rem', fontSize: '0.85rem' }}
                                                 >
@@ -275,124 +286,130 @@ function GerenciarParticipantes() {
             </div>
 
             {/* Modal de Formulário */}
-            {isModalOpen && (
-                <div className="modal-overlay">
-                    <div className="modal-content" style={{ maxWidth: '550px', padding: '2rem', borderRadius: '16px' }}>
-                        <h3 style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>{currentParticipante ? 'Editar Participante' : 'Novo Participante'}</h3>
-                        <p style={{ color: '#666', marginBottom: '2rem', fontSize: '0.9rem' }}>Preencha as informações abaixo para {currentParticipante ? 'atualizar o cadastro' : 'cadastrar um novo participante'}.</p>
+            <div className={`modal-overlay ${isModalOpen ? 'open' : ''}`} onClick={closeModal}>
+                <div className="modal-content" style={{ maxWidth: '550px' }} onClick={e => e.stopPropagation()}>
+                    <h2 className="modal-header">{currentParticipante ? 'Editar Participante' : 'Novo Participante'}</h2>
 
-                        <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                    <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                        <div>
+                            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold', fontSize: '0.9rem' }}>Nome Completo *</label>
+                            <input
+                                type="text"
+                                className="modal-input"
+                                value={formData.nome}
+                                onChange={e => setFormData({ ...formData, nome: e.target.value })}
+                                placeholder="Ex: João da Silva"
+                                required
+                                style={{ marginBottom: 0 }}
+                            />
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                             <div>
-                                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold', fontSize: '0.9rem', color: '#4a5568' }}>Nome Completo *</label>
+                                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold', fontSize: '0.9rem' }}>CPF</label>
                                 <input
                                     type="text"
                                     className="modal-input"
-                                    value={formData.nome}
-                                    onChange={e => setFormData({ ...formData, nome: e.target.value })}
-                                    placeholder="Ex: João da Silva"
-                                    required
-                                    style={{ padding: '0.8rem' }}
+                                    value={formData.cpf}
+                                    onChange={e => setFormData({ ...formData, cpf: e.target.value })}
+                                    placeholder="000.000.000-00"
+                                    style={{ marginBottom: 0 }}
                                 />
                             </div>
-                            <div style={{ display: 'flex', gap: '1rem' }}>
-                                <div style={{ flex: 1 }}>
-                                    <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold', fontSize: '0.9rem', color: '#4a5568' }}>CPF</label>
-                                    <input
-                                        type="text"
-                                        className="modal-input"
-                                        value={formData.cpf}
-                                        onChange={e => setFormData({ ...formData, cpf: e.target.value })}
-                                        placeholder="000.000.000-00"
-                                        style={{ padding: '0.8rem' }}
-                                    />
-                                </div>
-                                <div style={{ flex: 1 }}>
-                                    <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold', fontSize: '0.9rem', color: '#4a5568' }}>CRM</label>
-                                    <input
-                                        type="text"
-                                        className="modal-input"
-                                        value={formData.crm}
-                                        onChange={e => setFormData({ ...formData, crm: e.target.value })}
-                                        placeholder="123456"
-                                        style={{ padding: '0.8rem' }}
-                                    />
-                                </div>
+                            <div>
+                                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold', fontSize: '0.9rem' }}>CRM</label>
+                                <input
+                                    type="text"
+                                    className="modal-input"
+                                    value={formData.crm}
+                                    onChange={e => setFormData({ ...formData, crm: e.target.value })}
+                                    placeholder="123456"
+                                    style={{ marginBottom: 0 }}
+                                />
                             </div>
-                            <div style={{ display: 'flex', gap: '1rem' }}>
-                                <div style={{ flex: 1 }}>
-                                    <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold', fontSize: '0.9rem', color: '#4a5568' }}>Gênero</label>
-                                    <select
-                                        className="modal-input"
-                                        value={formData.genero}
-                                        onChange={e => setFormData({ ...formData, genero: e.target.value })}
-                                        style={{ padding: '0.8rem' }}
-                                    >
-                                        <option value="Masculino">Masculino</option>
-                                        <option value="Feminino">Feminino</option>
-                                        <option value="Outro">Outro</option>
-                                    </select>
-                                </div>
-                                <div style={{ flex: 1 }}>
-                                    <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold', fontSize: '0.9rem', color: '#4a5568' }}>Data de Nascimento</label>
-                                    <input
-                                        type="date"
-                                        className="modal-input"
-                                        value={formData.data_nascimento}
-                                        onChange={e => setFormData({ ...formData, data_nascimento: e.target.value })}
-                                        style={{ padding: '0.8rem' }}
-                                    />
-                                </div>
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                            <div>
+                                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold', fontSize: '0.9rem' }}>Gênero</label>
+                                <select
+                                    className="modal-input"
+                                    value={formData.genero}
+                                    onChange={e => setFormData({ ...formData, genero: e.target.value })}
+                                    style={{ marginBottom: 0 }}
+                                >
+                                    <option value="M">Masculino</option>
+                                    <option value="F">Feminino</option>
+                                    <option value="O">Outro</option>
+                                </select>
                             </div>
-                            <div className="modal-actions" style={{ marginTop: '1rem', gap: '1rem' }}>
-                                <button type="button" className="btn-secondary" onClick={closeModal} style={{ flex: 1, padding: '0.8rem' }}>Cancelar</button>
-                                <button type="submit" className="btn-primary" style={{ flex: 2, padding: '0.8rem' }}>Salvar Alterações</button>
+                            <div>
+                                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold', fontSize: '0.9rem' }}>Nascimento</label>
+                                <input
+                                    type="date"
+                                    className="modal-input"
+                                    value={formData.data_nascimento}
+                                    onChange={e => setFormData({ ...formData, data_nascimento: e.target.value })}
+                                    style={{ marginBottom: 0 }}
+                                />
                             </div>
-                        </form>
-                    </div>
+                        </div>
+                        <div className="modal-actions" style={{ marginTop: '1rem' }}>
+                            <button type="button" className="btn-secondary" onClick={closeModal} style={{ flex: 1 }}>Cancelar</button>
+                            <button type="submit" className="btn-primary" style={{ flex: 1 }}>Salvar</button>
+                        </div>
+                    </form>
                 </div>
-            )}
+            </div>
 
             {/* Modal de Biometria */}
-            {isBioModalOpen && currentParticipante && (
-                <div className="modal-overlay">
-                    <div className="modal-content" style={{ textAlign: 'center', maxWidth: '450px', padding: '2.5rem', borderRadius: '20px' }}>
-                        <h3 style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>Renovar Biometria</h3>
-                        <p style={{ color: '#4a5568', marginBottom: '2rem', fontWeight: 'bold' }}>{currentParticipante.nome}</p>
+            <div className={`modal-overlay ${isBioModalOpen ? 'open' : ''}`} onClick={closeBioModal}>
+                <div className="modal-content" style={{ textAlign: 'center', maxWidth: '450px' }} onClick={e => e.stopPropagation()}>
+                    <h2 className="modal-header">Renovar Biometria</h2>
+                    {currentParticipante && <p style={{ color: 'var(--accent-color)', marginBottom: '1.5rem', fontWeight: 'bold', fontSize: '1.1rem' }}>{currentParticipante.nome}</p>}
 
-                        <div style={{
-                            padding: '2.5rem',
-                            backgroundColor: '#ebf8ff',
-                            border: '2px dashed #90cdf4',
-                            borderRadius: '20px',
-                            marginBottom: '2rem',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.02)'
-                        }}>
-                            <FingerprintIcon size="4rem" style={{ marginBottom: '1rem', color: '#3182ce' }} />
-                            <p style={{ color: '#2b6cb0', fontWeight: 'bold', lineHeight: '1.4' }}>Coloque o dedo no leitor para gravar a nova biometria</p>
-                        </div>
+                    <div style={{
+                        padding: '2rem',
+                        backgroundColor: '#f8f9fa',
+                        borderRadius: '12px',
+                        marginBottom: '1.5rem',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        border: '2px dashed var(--border-color)'
+                    }}>
+                        <FingerprintIcon size="4rem" style={{ marginBottom: '1rem', color: 'var(--accent-color)' }} />
+                        <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Posicione o dedo no leitor biométrico</p>
+                    </div>
 
-                        <BiometricScanner
-                            onScanSuccess={handleBiometriaCaptured}
-                            checkOnly={false}
-                        />
+                    <BiometricScanner
+                        onScanSuccess={handleBiometriaCaptured}
+                        checkOnly={false}
+                    />
 
-                        <div className="modal-actions" style={{ marginTop: '2rem', justifyContent: 'center' }}>
-                            <button type="button" className="btn-secondary" onClick={closeBioModal} style={{ padding: '0.8rem 2rem' }}>Cancelar / Fechar</button>
-                        </div>
+                    <div className="modal-actions" style={{ marginTop: '1.5rem' }}>
+                        <button type="button" className="btn-secondary" onClick={closeBioModal} style={{ width: '100%' }}>Fechar</button>
                     </div>
                 </div>
-            )}
+            </div>
 
             <MessageModal
                 isOpen={msgModal.isOpen}
                 type={msgModal.type}
+                title={msgModal.type === 'success' ? 'Sucesso' : 'Erro'}
                 message={msgModal.message}
                 onClose={closeMsg}
             />
-        </div>
+
+            <MessageModal
+                isOpen={deleteModal.isOpen}
+                type="error"
+                title="Confirmar Exclusão"
+                message={`Tem certeza que deseja remover o participante "${deleteModal.nome}"? Esta ação não pode ser desfeita.`}
+                confirmText="Excluir"
+                showCancel={true}
+                onConfirm={handleDelete}
+                onClose={closeDeleteModal}
+            />
+        </>
     );
 }
 

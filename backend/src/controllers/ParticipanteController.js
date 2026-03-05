@@ -75,12 +75,18 @@ class ParticipanteController {
 
     async criar(req, res) {
         try {
+            console.log("📥 [ParticipanteController] Criando participante:", req.body);
             const { nome, cpf, crm, genero, data_nascimento } = req.body;
 
             // Check se CPF já existe
             if (cpf) {
                 const existenteCPF = await Participante.findOne({ where: { cpf } });
                 if (existenteCPF) return res.status(400).json({ error: "CPF já cadastrado." });
+            }
+
+            if (crm) {
+                const existenteCRM = await Participante.findOne({ where: { crm } });
+                if (existenteCRM) return res.status(400).json({ error: "CRM já cadastrado." });
             }
 
             const participante = await Participante.create({
@@ -97,6 +103,7 @@ class ParticipanteController {
     async atualizar(req, res) {
         try {
             const { id } = req.params;
+            console.log(`📥 [ParticipanteController] Atualizando participante ${id}:`, req.body);
             const { nome, cpf, crm, genero, data_nascimento } = req.body;
 
             const participante = await Participante.findByPk(id);
@@ -107,12 +114,18 @@ class ParticipanteController {
                 if (existenteCPF) return res.status(400).json({ error: "CPF já cadastrado em outro participante." });
             }
 
+            if (crm && crm !== participante.crm) {
+                const existenteCRM = await Participante.findOne({ where: { crm } });
+                if (existenteCRM) return res.status(400).json({ error: "CRM já cadastrado em outro participante." });
+            }
+
             participante.nome = nome;
             participante.cpf = cpf;
             participante.crm = crm;
             participante.genero = genero;
             participante.data_nascimento = data_nascimento;
 
+            console.log("💾 [ParticipanteController] Salvando objeto:", participante.toJSON ? participante.toJSON() : participante);
             await participante.save();
 
             res.json({ success: true, participante, msg: "Dados atualizados com sucesso." });
