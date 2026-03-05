@@ -157,6 +157,16 @@ function Navbar({ children, onOpenCreateModal }) {
                 </div>
 
                 <div className="sidebar-links">
+                    {isAdmin() && (
+                        <a
+                            href="#"
+                            className={`sidebar-link ${location.pathname === '/create' ? 'active' : ''}`}
+                            onClick={handleCreateClick}
+                        >
+                            Novo Evento
+                        </a>
+                    )}
+
                     <a
                         href="#"
                         className={`sidebar-link ${location.pathname === '/' ? 'active' : ''}`}
@@ -165,34 +175,23 @@ function Navbar({ children, onOpenCreateModal }) {
                         Lista de Eventos
                     </a>
 
-                    {isAdmin() && (
-                        <>
-                            <a
-                                href="#"
-                                className={`sidebar-link ${location.pathname === '/create' ? 'active' : ''}`}
-                                onClick={handleCreateClick}
-                            >
-                                Novo Evento
-                            </a>
-                            <a
-                                href="#"
-                                className={`sidebar-link ${location.pathname === '/admin/participantes' ? 'active' : ''}`}
-                                onClick={(e) => { e.preventDefault(); handleNavigate('/admin/participantes'); }}
-                            >
-                                Controle de participantes
-                            </a>
-                        </>
-                    )}
-
                     <a
                         href="#"
                         className={`sidebar-link ${location.pathname === '/access' ? 'active' : ''}`}
                         onClick={(e) => { e.preventDefault(); handleNavigate('/access'); }}
                     >
-                        Painel do Evento
+                        Painel do Evento Ativo
                     </a>
 
-
+                    {isAdmin() && (
+                        <a
+                            href="#"
+                            className={`sidebar-link ${location.pathname === '/admin/participantes' ? 'active' : ''}`}
+                            onClick={(e) => { e.preventDefault(); handleNavigate('/admin/participantes'); }}
+                        >
+                            Controle de participantes
+                        </a>
+                    )}
 
                     <a
                         href="#"
