@@ -4,6 +4,15 @@ import Navbar from '../components/Navbar';
 import MessageModal from '../components/MessageModal';
 import { useAuth } from '../contexts/AuthContext';
 
+// Keyframes css for the fade out animation injected directly
+const fadeOutStyle = `
+  @keyframes fadeOutStatus {
+    0% { opacity: 1; transform: translateY(0); }
+    80% { opacity: 1; transform: translateY(0); }
+    100% { opacity: 0; transform: translateY(-10px); visibility: hidden; }
+  }
+`;
+
 function ListaEventos() {
     const navigate = useNavigate();
     const location = useLocation();
@@ -23,6 +32,7 @@ function ListaEventos() {
     });
     const [creating, setCreating] = useState(false);
     const [messageModal, setMessageModal] = useState({ open: false, title: '', message: '', type: 'info' });
+    const [syncSummary, setSyncSummary] = useState(null);
 
     const showMessage = (title, message, type = 'info') => {
         setMessageModal({ open: true, title, message, type });
@@ -33,12 +43,44 @@ function ListaEventos() {
     useEffect(() => {
         if (token) {
             fetchEventos();
+            checkSyncStatus();
         }
         if (location.state?.openModal && isAdmin()) {
             setIsModalOpen(true);
             window.history.replaceState({}, document.title);
         }
     }, [location, token]);
+
+    const checkSyncStatus = () => {
+        // Aguardar um tempo para que a sincronização assíncrona do login termine (mock leva ~1s)
+        setTimeout(async () => {
+            try {
+                const res = await fetch('http://localhost:3000/api/participantes/sync/status', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!res.ok) return;
+                const data = await res.json();
+
+                // Se existe status e a sincronização ocorreu há menos de 1 minuto
+                if (data && data.status !== 'nenhum_registro' && data.data_sync) {
+                    const syncDate = new Date(data.data_sync);
+                    const now = new Date();
+                    const diffMs = now - syncDate;
+
+                    if (diffMs < 60000) { // 60 segundos
+                        setSyncSummary(data);
+
+                        // Ocultar após 10 segundos
+                        setTimeout(() => {
+                            setSyncSummary(null);
+                        }, 9800); // Dar tempo do CSS terminar a transição
+                    }
+                }
+            } catch (err) {
+                console.error("Erro ao checar status do sync:", err);
+            }
+        }, 2000); // 2 segundos após entrar na tela
+    };
 
     const fetchEventos = async () => {
         try {
@@ -142,6 +184,51 @@ function ListaEventos() {
                     <p>Carregando...</p>
                 ) : (
                     <>
+                        {syncSummary && (
+                            <div style={{
+                                backgroundColor: '#ffffff',
+                                color: 'var(--text-primary)',
+                                padding: '1rem 1.5rem',
+                                borderRadius: '8px',
+                                marginBottom: '2rem',
+                                border: '1px solid #e2e8f0',
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)',
+                                animation: 'fadeOutStatus 10s forwards', /* Duração de 10s: fica visível e some suavemente no final */
+                                fontSize: '0.95rem'
+                            }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#28a745" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                                        <strong style={{ fontSize: '1.05rem', color: '#1a202c' }}>Sincronização de Cooperados Concluída</strong>
+                                    </div>
+                                    <span style={{ color: '#4a5568', fontSize: '0.9rem' }}>Os dados do banco da Unimed Maceió foram atualizados com sucesso no sistema.</span>
+                                </div>
+                                <div style={{ display: 'flex', gap: '1rem', fontSize: '0.85rem', textAlign: 'center', alignItems: 'center' }}>
+                                    <div style={{ padding: '0.4rem 0.8rem', backgroundColor: '#f0fdf4', borderRadius: '6px', minWidth: '70px', border: '1px solid #bbf7d0' }}>
+                                        <div style={{ fontWeight: 'bold', color: '#16a34a', fontSize: '1.1rem' }}>{syncSummary.qtd_adicionados}</div>
+                                        <div style={{ fontSize: '0.7rem', color: '#15803d', fontWeight: 'bold', textTransform: 'uppercase' }}>Novos</div>
+                                    </div>
+                                    <div style={{ padding: '0.4rem 0.8rem', backgroundColor: '#fefce8', borderRadius: '6px', minWidth: '70px', border: '1px solid #fef08a' }}>
+                                        <div style={{ fontWeight: 'bold', color: '#ca8a04', fontSize: '1.1rem' }}>{syncSummary.qtd_modificados}</div>
+                                        <div style={{ fontSize: '0.7rem', color: '#a16207', fontWeight: 'bold', textTransform: 'uppercase' }}>Modificados</div>
+                                    </div>
+                                    <div style={{ padding: '0.4rem 0.8rem', backgroundColor: '#fef2f2', borderRadius: '6px', minWidth: '70px', border: '1px solid #fecaca' }}>
+                                        <div style={{ fontWeight: 'bold', color: '#dc2626', fontSize: '1.1rem' }}>{syncSummary.qtd_removidos}</div>
+                                        <div style={{ fontSize: '0.7rem', color: '#b91c1c', fontWeight: 'bold', textTransform: 'uppercase' }}>Inativados</div>
+                                    </div>
+                                    <div style={{ padding: '0.4rem 0.8rem', backgroundColor: '#eff6ff', borderRadius: '6px', minWidth: '70px', border: '1px solid #bfdbfe' }}>
+                                        <div style={{ fontWeight: 'bold', color: '#2563eb', fontSize: '1.1rem' }}>{syncSummary.total_participantes}</div>
+                                        <div style={{ fontSize: '0.7rem', color: '#1d4ed8', fontWeight: 'bold', textTransform: 'uppercase' }}>Total</div>
+                                    </div>
+                                    <div style={{ height: '30px', width: '1px', backgroundColor: '#e2e8f0', margin: '0 0.5rem' }}></div>
+                                    <button onClick={() => setSyncSummary(null)} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#a0aec0', padding: '0.2rem 0.5rem', transition: 'color 0.2s' }} onMouseOver={(e) => e.target.style.color = '#4a5568'} onMouseOut={(e) => e.target.style.color = '#a0aec0'}>×</button>
+                                </div>
+                            </div>
+                        )}
+
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1.5rem' }}>
                             {eventos.filter(e => e.status !== 'finalizado').length === 0 ? (
                                 <p style={{ color: 'var(--text-secondary)' }}>Nenhum evento disponível no momento.</p>

@@ -5,6 +5,7 @@ const Acompanhante = require('./Acompanhante');
 const RegistroAcesso = require('./RegistroAcesso');
 const Usuario = require('./Usuario');
 const LogAuditoria = require('./LogAuditoria');
+const HistoricoSincronizacao = require('./HistoricoSincronizacao');
 
 // Relacionamentos
 Evento.hasMany(RegistroAcesso, { onDelete: 'CASCADE' });
@@ -110,5 +111,6 @@ module.exports = {
     RegistroAcesso,
     Usuario,
     LogAuditoria,
+    HistoricoSincronizacao,
     syncDB
 };

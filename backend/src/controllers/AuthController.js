@@ -1,5 +1,6 @@
 const { Usuario } = require('../models');
 const jwt = require('jsonwebtoken');
+const SyncParticipantesService = require('../services/SyncParticipantesService');
 
 // Usar variável de ambiente para SECRET ou default para dev
 const JWT_SECRET = process.env.JWT_SECRET || 'unieventos_secret_key_123';
@@ -27,6 +28,9 @@ class AuthController {
                 JWT_SECRET,
                 { expiresIn: '12h' }
             );
+
+            // Dispara sincronização em background (não aguarda terminar para responder)
+            SyncParticipantesService.sync().catch(err => console.error("Erro na sync assíncrona:", err));
 
             // Retorna dados (sem senha)
             res.json({

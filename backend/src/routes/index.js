@@ -37,6 +37,10 @@ router.get('/participantes/busca', AuthController.verifyToken, ParticipanteContr
 router.get('/participantes', AuthController.verifyToken, ParticipanteController.listar);
 router.post('/registrar-acompanhante', AuthController.verifyToken, ParticipanteController.registrarAcompanhante);
 
+// Rotas de Sincronização de Participantes
+router.get('/participantes/sync/status', AuthController.verifyToken, ParticipanteController.syncStatus);
+router.post('/participantes/sync', AuthController.verifyToken, AuthController.requireAdmin, ParticipanteController.forceSync);
+
 // Rotas CRUD de Participantes (Admin Only)
 router.post('/participantes', AuthController.verifyToken, AuthController.requireAdmin, ParticipanteController.criar);
 router.put('/participantes/:id', AuthController.verifyToken, AuthController.requireAdmin, ParticipanteController.atualizar);

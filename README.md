@@ -98,4 +98,4 @@ Se o banco estiver vazio, crie um usuário via API ou registre-se na tela inicia
 ---
 
 **Software de autoria de Kelvin Higino**  
-Para contato, acesse: 🌐 [kelvinti.pages.dev](https://kelvinti.pages.dev)
+Para contato, acesse: 🌐 [kelvinti.pages.dev](https://kelvinti.pages.dev)++-

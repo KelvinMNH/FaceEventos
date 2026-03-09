@@ -17,6 +17,7 @@ function GerenciarParticipantes() {
     const [participantes, setParticipantes] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [loading, setLoading] = useState(true);
+    const [syncStatus, setSyncStatus] = useState(null);
 
     // Modal State
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -29,7 +30,7 @@ function GerenciarParticipantes() {
     const [deleteModal, setDeleteModal] = useState({ isOpen: false, id: null, nome: '' });
 
     useEffect(() => {
-        const fetchParticipantes = async () => {
+        const fetchDados = async () => {
             if (!token) return;
             setLoading(true);
             try {
@@ -42,14 +43,22 @@ function GerenciarParticipantes() {
                 } else {
                     console.error('Erro ao carregar participantes:', data.error);
                 }
+
+                const resSync = await fetch(`${API_URL}/participantes/sync/status`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const dataSync = await resSync.json();
+                if (resSync.ok && dataSync.status !== 'nenhum_registro') {
+                    setSyncStatus(dataSync);
+                }
             } catch (error) {
-                console.error('Erro de conexão ao carregar participantes:', error);
+                console.error('Erro de conexão ao carregar dados:', error);
             } finally {
                 setLoading(false);
             }
         };
 
-        fetchParticipantes();
+        fetchDados();
     }, [token]);
 
     const showMsg = (type, message) => setMsgModal({ isOpen: true, type, message });
@@ -187,12 +196,44 @@ function GerenciarParticipantes() {
         <>
             <Navbar />
             <div className="page-container">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                     <h1 style={{ fontSize: '2rem', color: 'var(--text-primary)', margin: 0 }}>Controle de participantes</h1>
                     <button onClick={() => openModal()} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                         + Adicionar Participante
                     </button>
                 </div>
+
+                {syncStatus && (
+                    <div className="card" style={{ marginBottom: '2rem', padding: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#eaf4ff', border: '1px solid #b6d4fe' }}>
+                        <div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#004085" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.59-10.36l5.25 5.25" /></svg>
+                                <p style={{ margin: 0, fontWeight: 'bold', color: '#004085' }}>Status da Sincronização Automática</p>
+                            </div>
+                            <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.9rem', color: '#383d41' }}>
+                                Última atualização: <strong>{formatDate(syncStatus.data_sync)}</strong>
+                            </p>
+                        </div>
+                        <div style={{ display: 'flex', gap: '1rem', fontSize: '0.9rem', textAlign: 'center' }}>
+                            <div style={{ padding: '0.5rem', backgroundColor: '#fff', borderRadius: '8px', minWidth: '80px', border: '1px solid #dee2e6' }}>
+                                <div style={{ fontWeight: 'bold', color: '#28a745', fontSize: '1.2rem' }}>{syncStatus.qtd_adicionados}</div>
+                                <div style={{ fontSize: '0.75rem', color: '#6c757d', fontWeight: 'bold' }}>Adicionados</div>
+                            </div>
+                            <div style={{ padding: '0.5rem', backgroundColor: '#fff', borderRadius: '8px', minWidth: '80px', border: '1px solid #dee2e6' }}>
+                                <div style={{ fontWeight: 'bold', color: '#ffc107', fontSize: '1.2rem' }}>{syncStatus.qtd_modificados}</div>
+                                <div style={{ fontSize: '0.75rem', color: '#6c757d', fontWeight: 'bold' }}>Atualizados</div>
+                            </div>
+                            <div style={{ padding: '0.5rem', backgroundColor: '#fff', borderRadius: '8px', minWidth: '80px', border: '1px solid #dee2e6' }}>
+                                <div style={{ fontWeight: 'bold', color: '#dc3545', fontSize: '1.2rem' }}>{syncStatus.qtd_removidos}</div>
+                                <div style={{ fontSize: '0.75rem', color: '#6c757d', fontWeight: 'bold' }}>Inativados</div>
+                            </div>
+                            <div style={{ padding: '0.5rem', backgroundColor: '#fff', borderRadius: '8px', minWidth: '80px', border: '1px solid #dee2e6' }}>
+                                <div style={{ fontWeight: 'bold', color: '#007bff', fontSize: '1.2rem' }}>{syncStatus.total_participantes}</div>
+                                <div style={{ fontSize: '0.75rem', color: '#6c757d', fontWeight: 'bold' }}>Total Ativos</div>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 <div className="card" style={{ marginBottom: '2rem' }}>
                     <input

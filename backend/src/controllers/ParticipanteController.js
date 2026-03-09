@@ -1,5 +1,6 @@
-const { Participante, Evento, Acompanhante, RegistroAcesso } = require('../models');
+const { Participante, Evento, Acompanhante, RegistroAcesso, HistoricoSincronizacao } = require('../models');
 const { Op } = require('sequelize');
+const SyncParticipantesService = require('../services/SyncParticipantesService');
 
 class ParticipanteController {
     async buscar(req, res) {
@@ -141,11 +142,11 @@ class ParticipanteController {
             const participante = await Participante.findByPk(id);
             if (!participante) return res.status(404).json({ error: "Participante não encontrado." });
 
-            // Remover template biométrico e desativar em vez de hard delete (ou hard delete)
-            // Hard delete
-            await participante.destroy();
+            // Desativar apenas, conforme política de retenção biométrica
+            participante.ativo = false;
+            await participante.save();
 
-            res.json({ success: true, msg: "Participante removido com sucesso." });
+            res.json({ success: true, msg: "Participante desativado com sucesso (biometria preservada)." });
         } catch (e) {
             console.error("Erro ao remover participante:", e);
             res.status(500).json({ error: "Erro ao remover participante", details: e.message });
@@ -171,6 +172,35 @@ class ParticipanteController {
         } catch (e) {
             console.error("Erro ao atualizar biometria:", e);
             res.status(500).json({ error: "Erro ao atualizar biometria", details: e.message });
+        }
+    }
+
+    async syncStatus(req, res) {
+        try {
+            const ultimoSync = await HistoricoSincronizacao.findOne({
+                order: [['data_sync', 'DESC']]
+            });
+            if (!ultimoSync) {
+                return res.json({ status: 'nenhum_registro' });
+            }
+            res.json(ultimoSync);
+        } catch (e) {
+            console.error("Erro ao buscar status de sincronização:", e);
+            res.status(500).json({ error: "Erro ao buscar status", details: e.message });
+        }
+    }
+
+    async forceSync(req, res) {
+        try {
+            const result = await SyncParticipantesService.sync();
+            if (result.sucesso) {
+                res.json(result);
+            } else {
+                res.status(500).json(result);
+            }
+        } catch (e) {
+            console.error("Erro no force sync:", e);
+            res.status(500).json({ error: "Erro na sincronização manual", details: e.message });
         }
     }
 }
