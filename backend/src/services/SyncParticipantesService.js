@@ -146,7 +146,8 @@ class SyncParticipantesService {
                     crm: { [Op.ne]: null },
                     [Op.or]: [
                         { genero: 'O' },
-                        { data_nascimento: null }
+                        { data_nascimento: null },
+                        { especialidade: null }
                     ]
                 }
             });
@@ -176,11 +177,18 @@ class SyncParticipantesService {
                 const db           = detalhe.dadosBasicos;
                 const novoGenero   = mapearSexo(db.cd_sexo);
                 const novaDataNasc = converterData(db.dt_nascimento);
+                
+                // Extrair especialidade (primeira da lista se houver)
+                let especialidade = null;
+                if (detalhe.especialidades && detalhe.especialidades.length > 0) {
+                    especialidade = detalhe.especialidades[0].ds_especialidade;
+                }
 
                 // Montar apenas os campos que a API trouxe como válidos
                 const atualizacoes = {};
                 if (novoGenero !== 'O') atualizacoes.genero = novoGenero;
                 if (novaDataNasc)       atualizacoes.data_nascimento = novaDataNasc;
+                if (especialidade)      atualizacoes.especialidade = especialidade;
 
                 // Gravar via update() por ID (seguro para uso dentro de Promise.all)
                 if (Object.keys(atualizacoes).length > 0) {

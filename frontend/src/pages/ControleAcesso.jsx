@@ -605,6 +605,15 @@ function ControleAcesso() {
     return dateStr;
   };
 
+  const maskCPF = (cpf) => {
+    if (!cpf) return '-';
+    const cleaned = cpf.replace(/\D/g, '');
+    if (cleaned.length === 11) {
+      return `${cleaned.substring(0, 3)}.***.***-${cleaned.substring(9, 11)}`;
+    }
+    return cpf;
+  };
+
   // Helper para renderizar o painel direito
   const renderAccessPanel = () => {
     if (!modalData) {
@@ -674,8 +683,25 @@ function ControleAcesso() {
 
         {isSuccess ? (
           <>
-            <h2 className="access-title" style={{ color: 'var(--success-color)', fontSize: '1.3rem', marginBottom: '0.5rem', lineHeight: '1.3', display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'center' }}>
-              Bem-vindo(a), {participante.nome}!
+            <h2 className="access-title" style={{ 
+              color: 'var(--success-color)', 
+              fontSize: '1.3rem', 
+              marginBottom: '0.5rem', 
+              lineHeight: '1.3', 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '0.5rem', 
+              justifyContent: 'center',
+              width: '100%'
+            }}>
+              <span style={{
+                maxWidth: '80%',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis'
+              }} title={`Bem-vindo(a), ${participante.nome}!`}>
+                Bem-vindo(a), {participante.nome}!
+              </span>
               <span style={{ fontSize: '0.7rem', opacity: 0.5, fontWeight: 'normal', backgroundColor: 'rgba(0,0,0,0.05)', padding: '2px 6px', borderRadius: '3px' }}>
                 {participante.genero === 'M' ? 'H' : participante.genero === 'F' ? 'M' : ''}
               </span>
@@ -1076,7 +1102,14 @@ function ControleAcesso() {
                       <tr key={log.id}>
                         <td>{new Date(log.createdAt).toLocaleTimeString()}</td>
                         <td>
-                          {formatName(pessoa.nome)}
+                          <div style={{
+                            maxWidth: '300px',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis'
+                          }} title={pessoa.nome}>
+                            {pessoa.nome}
+                          </div>
                         </td>
                         <td>
                           <span style={{
@@ -1141,11 +1174,12 @@ function ControleAcesso() {
                   </div>
                   <h3 style={{ margin: '0 0 0.5rem 0', color: '#333' }}>{selectedManualParticipant.nome}</h3>
                   <p style={{ margin: 0, color: '#666', fontSize: '0.9rem' }}>
-                    {selectedManualParticipant.cpf ? `CPF: ${selectedManualParticipant.cpf}` : ''}
+                    CPF: {maskCPF(selectedManualParticipant.cpf)}
                   </p>
-                  <p style={{ margin: 0, color: '#666', fontSize: '0.9rem' }}>
-                    {selectedManualParticipant.crm ? `CRM: ${selectedManualParticipant.crm}` : ''}
-                  </p>
+                  <div style={{ margin: '0.3rem 0', color: '#666', fontSize: '0.9rem', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                    {selectedManualParticipant.crm && <span>CRM: <strong>{selectedManualParticipant.crm}</strong></span>}
+                    {selectedManualParticipant.especialidade && <span style={{ color: '#0d6efd', fontStyle: 'italic' }}>{selectedManualParticipant.especialidade}</span>}
+                  </div>
 
                   <div style={{ marginTop: '1.5rem', padding: '1rem', backgroundColor: '#e7f5ff', border: '1px solid #74c0fc', borderRadius: '8px', color: '#1864ab' }}>
                     <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>👆</div>
@@ -1212,7 +1246,7 @@ function ControleAcesso() {
                       >
                         <div>
                           <div style={{ fontWeight: 600 }}>{p.nome}</div>
-                          <div style={{ color: '#666', fontSize: '0.85rem' }}>{p.cpf ? `CPF: ${p.cpf}` : ''} {p.crm ? `| CRM: ${p.crm}` : ''}</div>
+                          <div style={{ color: '#666', fontSize: '0.85rem' }}>{p.cpf ? `CPF: ${maskCPF(p.cpf)}` : ''} {p.crm ? `| CRM: ${p.crm}` : ''}</div>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                           {p.template_biometrico && !p.template_biometrico.startsWith('manual_') ? (

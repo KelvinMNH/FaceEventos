@@ -221,7 +221,7 @@ function TotemAcesso() {
             const data = await res.json();
 
             if (data.success) {
-                setStatusMessage(`Bem-vindo(a), ${selectedParticipant.nome.split(' ')[0]}!`);
+                setStatusMessage(`Bem-vindo(a), ${selectedParticipant.nome}!`);
                 setView('success');
             } else {
                 setStatusMessage(data.msg || "Erro ao registrar entrada");
@@ -269,6 +269,15 @@ function TotemAcesso() {
 
     const formatDate = (date) => date.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
     const formatTime = (date) => date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+    const maskCPF = (cpf) => {
+        if (!cpf) return '-';
+        const cleaned = cpf.replace(/\D/g, '');
+        if (cleaned.length === 11) {
+            return `${cleaned.substring(0, 3)}.***.***-${cleaned.substring(9, 11)}`;
+        }
+        return cpf;
+    };
 
     return (
         <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: '#f8f9fa', overflowY: 'auto', overflowX: 'hidden' }}>
@@ -380,7 +389,28 @@ function TotemAcesso() {
                 )}
 
                 {view === 'search' && (
-                    <div style={{ width: '100%', maxWidth: '800px', animation: 'slideUp 0.3s' }}>
+                    <div style={{ width: '100%', maxWidth: '800px', animation: 'slideUp 0.3s', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                        <button
+                            onClick={() => { setView('welcome'); setSearchTerm(''); setSearchResults([]); }}
+                            style={{
+                                padding: '1rem 2.5rem',
+                                backgroundColor: '#e9ecef',
+                                border: 'none',
+                                borderRadius: '10px',
+                                fontSize: '1.4rem',
+                                cursor: 'pointer',
+                                marginBottom: '2rem',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.5rem',
+                                color: '#495057',
+                                fontWeight: 'bold',
+                                boxShadow: '0 4px 6px rgba(0,0,0,0.05)'
+                            }}
+                        >
+                            ⬅ Voltar
+                        </button>
+
                         <h2 style={{ textAlign: 'center', marginBottom: '2rem', color: '#333' }}>Buscar Participante</h2>
 
                         <input
@@ -396,7 +426,7 @@ function TotemAcesso() {
                         />
 
                         {searchResults.length > 0 ? (
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '1rem', maxHeight: '50vh', overflowY: 'auto' }}>
+                            <div style={{ width: '100%', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '1rem', maxHeight: '50vh', overflowY: 'auto' }}>
                                 {searchResults.map(p => (
                                     <div
                                         key={p.id}
@@ -411,8 +441,12 @@ function TotemAcesso() {
                                         onMouseUp={e => e.currentTarget.style.transform = 'scale(1)'}
                                     >
                                         <div>
-                                            <div style={{ fontWeight: 'bold', fontSize: '1.1rem', marginBottom: '0.5rem' }}>{p.nome}</div>
-                                            <div style={{ color: '#666' }}>CPF: {p.cpf || '-'}</div>
+                                            <div style={{ fontWeight: 'bold', fontSize: '1.1rem', marginBottom: '0.4rem' }}>{p.nome}</div>
+                                            <div style={{ color: '#666', fontSize: '0.9rem', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                                <span>CPF: {maskCPF(p.cpf)}</span>
+                                                {p.crm && <span style={{ color: '#2c3e50', fontWeight: '500' }}>CRM: {p.crm}</span>}
+                                                {p.especialidade && <span style={{ color: '#0d6efd', fontSize: '0.85rem', fontStyle: 'italic' }}>{p.especialidade}</span>}
+                                            </div>
                                         </div>
                                         <div style={{ display: 'flex', alignItems: 'center' }}>
                                             {p.template_biometrico && !p.template_biometrico.startsWith('manual_') ? (
@@ -427,16 +461,6 @@ function TotemAcesso() {
                         ) : (
                             searchTerm.length > 2 && <p style={{ textAlign: 'center', color: '#666', fontSize: '1.2rem' }}>Nenhum resultado encontrado.</p>
                         )}
-
-                        <button
-                            onClick={() => { setView('welcome'); setSearchTerm(''); setSearchResults([]); }}
-                            style={{
-                                position: 'absolute', bottom: '2rem', left: '2rem', padding: '1rem 2rem',
-                                backgroundColor: '#ccc', border: 'none', borderRadius: '8px', fontSize: '1.1rem', cursor: 'pointer'
-                            }}
-                        >
-                            ⬅ Voltar
-                        </button>
                     </div>
                 )}
 
@@ -449,8 +473,12 @@ function TotemAcesso() {
                         <div style={{ fontSize: 'clamp(1.4rem, 2.5vh, 1.8rem)', fontWeight: 'bold', color: '#198754', marginBottom: '0.5rem' }}>
                             {selectedParticipant.nome}
                         </div>
-                        <div style={{ fontSize: '1.2rem', color: '#555', marginBottom: 'clamp(1rem, 2vh, 1.5rem)' }}>
-                            CPF: {selectedParticipant.cpf || 'Não informado'}
+                        <div style={{ fontSize: '1.2rem', color: '#555', marginBottom: '0.5rem' }}>
+                            CPF: {maskCPF(selectedParticipant.cpf)}
+                        </div>
+                        <div style={{ fontSize: '1.1rem', color: '#666', marginBottom: 'clamp(1rem, 2vh, 1.5rem)', display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                            {selectedParticipant.crm && <span>CRM: <strong>{selectedParticipant.crm}</strong></span>}
+                            {selectedParticipant.especialidade && <span style={{ color: '#0d6efd', fontStyle: 'italic' }}>{selectedParticipant.especialidade}</span>}
                         </div>
 
                         <div style={{ padding: 'clamp(1rem, 2vh, 1.5rem)', backgroundColor: '#e7f5ff', borderRadius: '12px', border: '2px dashed #74c0fc', marginBottom: 'clamp(1rem, 3vh, 2rem)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
@@ -491,7 +519,17 @@ function TotemAcesso() {
                     <div style={{ textAlign: 'center', animation: 'popIn 0.5s' }}>
                         <div style={{ fontSize: '6rem', color: '#198754', marginBottom: '1rem' }}>✅</div>
                         <h2 style={{ fontSize: '2.5rem', color: '#198754', marginBottom: '1rem' }}>Entrada Confirmada!</h2>
-                        <p style={{ fontSize: '1.5rem', color: '#333' }}>{statusMessage}</p>
+                        <p style={{ 
+                            fontSize: '1.5rem', 
+                            color: '#333',
+                            maxWidth: '90vw',
+                            margin: '0 auto',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis'
+                        }} title={statusMessage}>
+                            {statusMessage}
+                        </p>
                     </div>
                 )}
 

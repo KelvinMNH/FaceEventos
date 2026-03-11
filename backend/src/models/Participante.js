@@ -8,6 +8,7 @@ const Participante = sequelize.define('Participante', {
     template_biometrico: { type: DataTypes.TEXT('long') },
     genero: { type: DataTypes.ENUM('M', 'F', 'O'), defaultValue: 'O' },
     data_nascimento: { type: DataTypes.DATEONLY },
+    especialidade: { type: DataTypes.STRING(255) },
     data_biometria: { type: DataTypes.DATE },
     ativo: { type: DataTypes.BOOLEAN, defaultValue: true }
 }, {

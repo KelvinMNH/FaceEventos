@@ -188,7 +188,14 @@ function ListaEventos() {
                                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#28a745" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
                                         <strong style={{ fontSize: '1.05rem', color: '#1a202c' }}>Sincronização de Cooperados Concluída</strong>
                                     </div>
-                                    <span style={{ color: '#4a5568', fontSize: '0.9rem' }}>Os dados do banco da Unimed Maceió foram atualizados com sucesso no sistema.</span>
+                                    <span style={{ color: '#4a5568', fontSize: '0.9rem', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                        <span>Os dados do banco da Unimed Maceió foram atualizados com sucesso no sistema.</span>
+                                        {syncSummary.data_sync && (
+                                            <span style={{ fontSize: '0.75rem', color: '#718096', opacity: 0.8 }}>
+                                                Última sincronização: {new Date(syncSummary.data_sync).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                                            </span>
+                                        )}
+                                    </span>
                                 </div>
                                 <div style={{ display: 'flex', gap: '1rem', fontSize: '0.85rem', textAlign: 'center', alignItems: 'center' }}>
                                     <div style={{ padding: '0.4rem 0.8rem', backgroundColor: '#f0fdf4', borderRadius: '6px', minWidth: '70px', border: '1px solid #bbf7d0' }}>

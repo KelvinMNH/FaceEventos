@@ -77,7 +77,7 @@ class ParticipanteController {
     async criar(req, res) {
         try {
             console.log("📥 [ParticipanteController] Criando participante:", req.body);
-            const { nome, cpf, crm, genero, data_nascimento } = req.body;
+            const { nome, cpf, crm, genero, data_nascimento, especialidade } = req.body;
 
             // Check se CPF já existe
             if (cpf) {
@@ -91,7 +91,7 @@ class ParticipanteController {
             }
 
             const participante = await Participante.create({
-                nome, cpf, crm, genero, data_nascimento, ativo: true
+                nome, cpf, crm, genero, data_nascimento, especialidade, ativo: true
             });
 
             res.json({ success: true, participante, msg: "Participante criado com sucesso." });
@@ -105,7 +105,7 @@ class ParticipanteController {
         try {
             const { id } = req.params;
             console.log(`📥 [ParticipanteController] Atualizando participante ${id}:`, req.body);
-            const { nome, cpf, crm, genero, data_nascimento } = req.body;
+            const { nome, cpf, crm, genero, data_nascimento, especialidade } = req.body;
 
             const participante = await Participante.findByPk(id);
             if (!participante) return res.status(404).json({ error: "Participante não encontrado." });
@@ -125,6 +125,7 @@ class ParticipanteController {
             participante.crm = crm;
             participante.genero = genero;
             participante.data_nascimento = data_nascimento;
+            participante.especialidade = especialidade;
 
             console.log("💾 [ParticipanteController] Salvando objeto:", participante.toJSON ? participante.toJSON() : participante);
             await participante.save();
@@ -212,7 +213,8 @@ class ParticipanteController {
                     ativo: true,
                     [Op.or]: [
                         { genero: 'O' },
-                        { data_nascimento: null }
+                        { data_nascimento: null },
+                        { especialidade: null }
                     ]
                 }
             });

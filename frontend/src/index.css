@@ -313,8 +313,13 @@ th {
   font-weight: 600;
 }
 
-tr:hover {
+tr:hover, .table-row-clickable:hover {
   background-color: #f6f8fa;
+}
+
+.table-row-clickable:hover {
+  background-color: #edf2f7;
+  transition: background-color 0.2s;
 }
 
 .badge {

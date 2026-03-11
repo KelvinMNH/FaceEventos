@@ -24,11 +24,11 @@ function GerenciarParticipantes() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isBioModalOpen, setIsBioModalOpen] = useState(false);
     const [currentParticipante, setCurrentParticipante] = useState(null);
-    const [formData, setFormData] = useState({ nome: '', cpf: '', crm: '', genero: 'M', data_nascimento: '' });
+    const [isReadOnly, setIsReadOnly] = useState(false);
+    const [formData, setFormData] = useState({ nome: '', cpf: '', crm: '', genero: 'M', data_nascimento: '', especialidade: '' });
 
     // Message State
     const [msgModal, setMsgModal] = useState({ isOpen: false, type: '', message: '' });
-    const [deleteModal, setDeleteModal] = useState({ isOpen: false, id: null, nome: '' });
 
     useEffect(() => {
         const fetchDados = async () => {
@@ -72,7 +72,8 @@ function GerenciarParticipantes() {
     const showMsg = (type, message) => setMsgModal({ isOpen: true, type, message });
     const closeMsg = () => setMsgModal({ isOpen: false, type: '', message: '' });
 
-    const openModal = (participante = null) => {
+    const openModal = (participante = null, readOnly = false) => {
+        setIsReadOnly(readOnly);
         if (participante) {
             setCurrentParticipante(participante);
             setFormData({
@@ -80,11 +81,12 @@ function GerenciarParticipantes() {
                 cpf: participante.cpf || '',
                 crm: participante.crm || '',
                 genero: participante.genero || 'O',
-                data_nascimento: participante.data_nascimento || ''
+                data_nascimento: participante.data_nascimento || '',
+                especialidade: participante.especialidade || ''
             });
         } else {
             setCurrentParticipante(null);
-            setFormData({ nome: '', cpf: '', crm: '', genero: 'M', data_nascimento: '' });
+            setFormData({ nome: '', cpf: '', crm: '', genero: 'M', data_nascimento: '', especialidade: '' });
         }
         setIsModalOpen(true);
     };
@@ -119,35 +121,6 @@ function GerenciarParticipantes() {
             }
         } catch (error) {
             showMsg('error', 'Erro de conexão ao salvar.');
-        }
-    };
-
-    const openDeleteModal = (participante) => {
-        setDeleteModal({ isOpen: true, id: participante.id, nome: participante.nome });
-    };
-
-    const closeDeleteModal = () => {
-        setDeleteModal({ isOpen: false, id: null, nome: '' });
-    };
-
-    const handleDelete = async () => {
-        const { id } = deleteModal;
-        if (!id) return;
-        try {
-            const res = await fetch(`${API_URL}/participantes/${id}`, {
-                method: 'DELETE',
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            const data = await res.json();
-            if (res.ok) {
-                showMsg('success', data.msg);
-                closeDeleteModal();
-                setTimeout(() => window.location.reload(), 1000);
-            } else {
-                showMsg('error', data.error || 'Erro ao deletar.');
-            }
-        } catch (error) {
-            showMsg('error', 'Erro de conexão ao deletar.');
         }
     };
 
@@ -198,6 +171,24 @@ function GerenciarParticipantes() {
         if (!dateStr) return '';
         const d = new Date(dateStr);
         return d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    };
+
+    const maskCPF = (cpf) => {
+        if (!cpf) return '-';
+        const cleaned = cpf.replace(/\D/g, '');
+        if (cleaned.length === 11) {
+            return `${cleaned.substring(0, 3)}.***.***-${cleaned.substring(9, 11)}`;
+        }
+        return cpf;
+    };
+
+    const formatCPF = (cpf) => {
+        if (!cpf) return '';
+        const cleaned = cpf.replace(/\D/g, '');
+        if (cleaned.length === 11) {
+            return `${cleaned.substring(0, 3)}.${cleaned.substring(3, 6)}.${cleaned.substring(6, 9)}-${cleaned.substring(9, 11)}`;
+        }
+        return cpf;
     };
 
     return (
@@ -259,7 +250,7 @@ function GerenciarParticipantes() {
                                 )}
                                 <span style={{ fontWeight: 'bold', fontSize: '0.9rem', color: enriqStatus.completo ? '#276749' : '#975a16' }}>
                                     {enriqStatus.completo
-                                        ? 'Perfis completos — todos os cooperados têm sexo e data de nascimento'
+                                        ? 'Perfis completos — todos os cooperados têm sexo, nascimento e especialidade'
                                         : `Enriquecimento de dados em andamento (sincroniza automaticamente ao logar)`
                                     }
                                 </span>
@@ -310,16 +301,23 @@ function GerenciarParticipantes() {
                                     <th style={{ padding: '1.2rem' }}>Nome</th>
                                     <th style={{ padding: '1.2rem' }}>CPF</th>
                                     <th style={{ padding: '1.2rem' }}>CRM</th>
+                                    <th style={{ padding: '1.2rem' }}>Especialidade</th>
                                     <th style={{ padding: '1.2rem', textAlign: 'center' }}>Biometria</th>
                                     <th style={{ padding: '1.2rem', textAlign: 'right' }}>Ações</th>
                                 </tr>
                             </thead>
-                            <tbody>
-                                {filteredParticipantes.map(p => (
-                                    <tr key={p.id}>
-                                        <td style={{ padding: '1.2rem', fontWeight: 'bold' }}>{p.nome}</td>
-                                        <td style={{ padding: '1.2rem', fontFamily: 'monospace' }}>{p.cpf || '-'}</td>
+                             <tbody>
+                                 {filteredParticipantes.map(p => (
+                                     <tr 
+                                        key={p.id} 
+                                        onClick={() => openModal(p, true)}
+                                        className="table-row-clickable"
+                                        style={{ cursor: 'pointer' }}
+                                     >
+                                         <td style={{ padding: '1.2rem', fontWeight: 'bold' }}>{p.nome}</td>
+                                        <td style={{ padding: '1.2rem', fontFamily: 'monospace' }}>{maskCPF(p.cpf)}</td>
                                         <td style={{ padding: '1.2rem' }}>{p.crm || '-'}</td>
+                                        <td style={{ padding: '1.2rem', fontSize: '0.9rem', color: '#4a5568' }}>{p.especialidade || '-'}</td>
                                         <td style={{ padding: '1.2rem', textAlign: 'center' }}>
                                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem' }}>
                                                 {p.template_biometrico && !p.template_biometrico.startsWith('manual_') ? (
@@ -339,32 +337,18 @@ function GerenciarParticipantes() {
                                                     </span>
                                                 )}
                                             </div>
-                                        </td>
-                                        <td style={{ padding: '1.2rem', textAlign: 'right' }}>
-                                            <div style={{ display: 'flex', gap: '0.6rem', justifyContent: 'flex-end' }}>
-                                                <button
-                                                    onClick={() => openBioModal(p)}
-                                                    className="btn-primary"
-                                                    style={{ padding: '0.5rem 0.8rem', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
-                                                >
-                                                    <FingerprintIcon size="1.2rem" /> Biometria
-                                                </button>
-                                                <button
-                                                    onClick={() => openModal(p)}
-                                                    className="btn-secondary"
-                                                    style={{ padding: '0.5rem 0.8rem', fontSize: '0.85rem' }}
-                                                >
-                                                    Editar
-                                                </button>
-                                                <button
-                                                    onClick={() => openDeleteModal(p)}
-                                                    className="btn-secondary"
-                                                    style={{ padding: '0.5rem 0.8rem', fontSize: '0.85rem' }}
-                                                >
-                                                    Excluir
-                                                </button>
-                                            </div>
-                                        </td>
+                                         </td>
+                                         <td style={{ padding: '1.2rem', textAlign: 'right' }}>
+                                             <div style={{ display: 'flex', gap: '0.6rem', justifyContent: 'flex-end' }}>
+                                                 <button
+                                                     onClick={(e) => { e.stopPropagation(); openBioModal(p); }}
+                                                     className="btn-primary"
+                                                     style={{ padding: '0.5rem 0.8rem', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                                                 >
+                                                     <FingerprintIcon size="1.2rem" /> Biometria
+                                                 </button>
+                                             </div>
+                                         </td>
                                     </tr>
                                 ))}
                                 {filteredParticipantes.length === 0 && (
@@ -379,81 +363,103 @@ function GerenciarParticipantes() {
                     )}
                 </div>
             </div>
-
-            {/* Modal de Formulário */}
-            <div className={`modal-overlay ${isModalOpen ? 'open' : ''}`} onClick={closeModal}>
-                <div className="modal-content" style={{ maxWidth: '550px' }} onClick={e => e.stopPropagation()}>
-                    <h2 className="modal-header">{currentParticipante ? 'Editar Participante' : 'Novo Participante'}</h2>
-
-                    <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                        <div>
-                            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold', fontSize: '0.9rem' }}>Nome Completo *</label>
-                            <input
-                                type="text"
-                                className="modal-input"
-                                value={formData.nome}
-                                onChange={e => setFormData({ ...formData, nome: e.target.value })}
-                                placeholder="Ex: João da Silva"
-                                required
-                                style={{ marginBottom: 0 }}
-                            />
-                        </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                            <div>
-                                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold', fontSize: '0.9rem' }}>CPF</label>
-                                <input
-                                    type="text"
-                                    className="modal-input"
-                                    value={formData.cpf}
-                                    onChange={e => setFormData({ ...formData, cpf: e.target.value })}
-                                    placeholder="000.000.000-00"
-                                    style={{ marginBottom: 0 }}
-                                />
-                            </div>
-                            <div>
-                                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold', fontSize: '0.9rem' }}>CRM</label>
-                                <input
-                                    type="text"
-                                    className="modal-input"
-                                    value={formData.crm}
-                                    onChange={e => setFormData({ ...formData, crm: e.target.value })}
-                                    placeholder="123456"
-                                    style={{ marginBottom: 0 }}
-                                />
-                            </div>
-                        </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                            <div>
-                                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold', fontSize: '0.9rem' }}>Gênero</label>
-                                <select
-                                    className="modal-input"
-                                    value={formData.genero}
-                                    onChange={e => setFormData({ ...formData, genero: e.target.value })}
-                                    style={{ marginBottom: 0 }}
-                                >
-                                    <option value="M">Masculino</option>
-                                    <option value="F">Feminino</option>
-                                    <option value="O">Outro</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold', fontSize: '0.9rem' }}>Nascimento</label>
-                                <input
-                                    type="date"
-                                    className="modal-input"
-                                    value={formData.data_nascimento}
-                                    onChange={e => setFormData({ ...formData, data_nascimento: e.target.value })}
-                                    style={{ marginBottom: 0 }}
-                                />
-                            </div>
-                        </div>
-                        <div className="modal-actions" style={{ marginTop: '1rem' }}>
-                            <button type="button" className="btn-secondary" onClick={closeModal} style={{ flex: 1 }}>Cancelar</button>
-                            <button type="submit" className="btn-primary" style={{ flex: 1 }}>Salvar</button>
-                        </div>
-                    </form>
-                </div>
-            </div>
+                 {/* Modal de Formulário */}
+             <div className={`modal-overlay ${isModalOpen ? 'open' : ''}`} onClick={closeModal}>
+                 <div className="modal-content" style={{ maxWidth: '550px' }} onClick={e => e.stopPropagation()}>
+                     <h2 className="modal-header">
+                         {isReadOnly ? 'Detalhes do Participante' : (currentParticipante ? 'Editar Participante' : 'Novo Participante')}
+                     </h2>
+ 
+                     <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                         <div>
+                             <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold', fontSize: '0.9rem' }}>Nome Completo *</label>
+                             <input
+                                 type="text"
+                                 className="modal-input"
+                                 value={formData.nome}
+                                 onChange={e => setFormData({ ...formData, nome: e.target.value })}
+                                 placeholder="Ex: João da Silva"
+                                 required
+                                 disabled={isReadOnly}
+                                 style={{ marginBottom: 0 }}
+                             />
+                         </div>
+                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                             <div>
+                                 <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold', fontSize: '0.9rem' }}>CPF</label>
+                                 <input
+                                     type="text"
+                                     className="modal-input"
+                                     value={isReadOnly ? formatCPF(formData.cpf) : formData.cpf}
+                                     onChange={e => setFormData({ ...formData, cpf: e.target.value })}
+                                     placeholder="000.000.000-00"
+                                     disabled={isReadOnly}
+                                     style={{ marginBottom: 0 }}
+                                 />
+                             </div>
+                             <div>
+                                 <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold', fontSize: '0.9rem' }}>CRM</label>
+                                 <input
+                                     type="text"
+                                     className="modal-input"
+                                     value={formData.crm}
+                                     onChange={e => setFormData({ ...formData, crm: e.target.value })}
+                                     placeholder="123456"
+                                     disabled={isReadOnly}
+                                     style={{ marginBottom: 0 }}
+                                 />
+                             </div>
+                         </div>
+                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                             <div>
+                                 <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold', fontSize: '0.9rem' }}>Gênero</label>
+                                 <select
+                                     className="modal-input"
+                                     value={formData.genero}
+                                     onChange={e => setFormData({ ...formData, genero: e.target.value })}
+                                     disabled={isReadOnly}
+                                     style={{ marginBottom: 0 }}
+                                 >
+                                     <option value="M">Masculino</option>
+                                     <option value="F">Feminino</option>
+                                     <option value="O">Outro</option>
+                                 </select>
+                             </div>
+                             <div>
+                                 <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold', fontSize: '0.9rem' }}>Nascimento</label>
+                                 <input
+                                     type="date"
+                                     className="modal-input"
+                                     value={formData.data_nascimento}
+                                     onChange={e => setFormData({ ...formData, data_nascimento: e.target.value })}
+                                     disabled={isReadOnly}
+                                     style={{ marginBottom: 0 }}
+                                 />
+                             </div>
+                         </div>
+                         <div>
+                             <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold', fontSize: '0.9rem' }}>Especialidade</label>
+                             <input
+                                 type="text"
+                                 className="modal-input"
+                                 value={formData.especialidade}
+                                 onChange={e => setFormData({ ...formData, especialidade: e.target.value })}
+                                 placeholder="Ex: Cardiologia"
+                                 disabled={isReadOnly}
+                                 style={{ marginBottom: 0 }}
+                             />
+                         </div>
+                         <div className="modal-actions" style={{ marginTop: '1rem' }}>
+                             <button type="button" className="btn-secondary" onClick={closeModal} style={{ flex: 1 }}>
+                                 {isReadOnly ? 'Fechar' : 'Cancelar'}
+                             </button>
+                             {!isReadOnly && (
+                                 <button type="submit" className="btn-primary" style={{ flex: 1 }}>Salvar</button>
+                             )}
+                         </div>
+                     </form>
+                 </div>
+             </div>
 
             {/* Modal de Biometria */}
             <div className={`modal-overlay ${isBioModalOpen ? 'open' : ''}`} onClick={closeBioModal}>
@@ -492,17 +498,6 @@ function GerenciarParticipantes() {
                 title={msgModal.type === 'success' ? 'Sucesso' : 'Erro'}
                 message={msgModal.message}
                 onClose={closeMsg}
-            />
-
-            <MessageModal
-                isOpen={deleteModal.isOpen}
-                type="error"
-                title="Confirmar Exclusão"
-                message={`Tem certeza que deseja remover o participante "${deleteModal.nome}"? Esta ação não pode ser desfeita.`}
-                confirmText="Excluir"
-                showCancel={true}
-                onConfirm={handleDelete}
-                onClose={closeDeleteModal}
             />
 
             {/* Botões de Navegação (Topo / Fim) */}
