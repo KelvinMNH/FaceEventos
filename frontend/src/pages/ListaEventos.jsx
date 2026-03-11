@@ -4,15 +4,6 @@ import Navbar from '../components/Navbar';
 import MessageModal from '../components/MessageModal';
 import { useAuth } from '../contexts/AuthContext';
 
-// Keyframes css for the fade out animation injected directly
-const fadeOutStyle = `
-  @keyframes fadeOutStatus {
-    0% { opacity: 1; transform: translateY(0); }
-    80% { opacity: 1; transform: translateY(0); }
-    100% { opacity: 0; transform: translateY(-10px); visibility: hidden; }
-  }
-`;
-
 function ListaEventos() {
     const navigate = useNavigate();
     const location = useLocation();
@@ -52,7 +43,6 @@ function ListaEventos() {
     }, [location, token]);
 
     const checkSyncStatus = () => {
-        // Aguardar um tempo para que a sincronização assíncrona do login termine (mock leva ~1s)
         setTimeout(async () => {
             try {
                 const res = await fetch('http://localhost:3000/api/participantes/sync/status', {
@@ -61,25 +51,21 @@ function ListaEventos() {
                 if (!res.ok) return;
                 const data = await res.json();
 
-                // Se existe status e a sincronização ocorreu há menos de 1 minuto
+                // Se existe status e a sincronização ocorreu nas últimas 12 horas
                 if (data && data.status !== 'nenhum_registro' && data.data_sync) {
                     const syncDate = new Date(data.data_sync);
                     const now = new Date();
                     const diffMs = now - syncDate;
 
-                    if (diffMs < 60000) { // 60 segundos
+                    // Mostrar se foi recente (últimas 12 horas)
+                    if (diffMs < 12 * 60 * 60 * 1000) {
                         setSyncSummary(data);
-
-                        // Ocultar após 10 segundos
-                        setTimeout(() => {
-                            setSyncSummary(null);
-                        }, 9800); // Dar tempo do CSS terminar a transição
                     }
                 }
             } catch (err) {
                 console.error("Erro ao checar status do sync:", err);
             }
-        }, 2000); // 2 segundos após entrar na tela
+        }, 1000);
     };
 
     const fetchEventos = async () => {
@@ -138,7 +124,6 @@ function ListaEventos() {
 
             if (res.ok) {
                 setIsModalOpen(false);
-                setIsModalOpen(false);
                 setFormData({ nome: '', data: '', hora: '', local: '', imagem: '', permitir_acompanhantes: false, max_acompanhantes: 0, habilitar_checkout: false });
                 fetchEventos();
                 navigate('/access');
@@ -196,7 +181,6 @@ function ListaEventos() {
                                 justifyContent: 'space-between',
                                 alignItems: 'center',
                                 boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)',
-                                animation: 'fadeOutStatus 10s forwards', /* Duração de 10s: fica visível e some suavemente no final */
                                 fontSize: '0.95rem'
                             }}>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
@@ -490,6 +474,55 @@ function ListaEventos() {
                 message={messageModal.message}
                 type={messageModal.type}
             />
+
+            {/* Botões de Navegação (Topo / Fim) */}
+            <div style={{ position: 'fixed', bottom: '2rem', right: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem', zIndex: 1001 }}>
+                <button
+                    onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                    title="Ir para o topo"
+                    style={{
+                        width: '50px',
+                        height: '50px',
+                        borderRadius: '50%',
+                        backgroundColor: 'white',
+                        border: '1px solid var(--border-color)',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: 'var(--text-primary)',
+                        transition: 'all 0.2s'
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(0,0,0,0.15)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)'; }}
+                >
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 15l-6-6-6 6" /></svg>
+                </button>
+
+                <button
+                    onClick={() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' })}
+                    title="Ir para o fim"
+                    style={{
+                        width: '50px',
+                        height: '50px',
+                        borderRadius: '50%',
+                        backgroundColor: 'white',
+                        border: '1px solid var(--border-color)',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: 'var(--text-primary)',
+                        transition: 'all 0.2s'
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(3px)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(0,0,0,0.15)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)'; }}
+                >
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6" /></svg>
+                </button>
+            </div>
         </>
     );
 }

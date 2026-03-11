@@ -18,6 +18,7 @@ function GerenciarParticipantes() {
     const [searchTerm, setSearchTerm] = useState('');
     const [loading, setLoading] = useState(true);
     const [syncStatus, setSyncStatus] = useState(null);
+    const [enriqStatus, setEnriqStatus] = useState(null);
 
     // Modal State
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -50,6 +51,13 @@ function GerenciarParticipantes() {
                 const dataSync = await resSync.json();
                 if (resSync.ok && dataSync.status !== 'nenhum_registro') {
                     setSyncStatus(dataSync);
+                }
+
+                const resEnriq = await fetch(`${API_URL}/participantes/enriquecimento/status`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (resEnriq.ok) {
+                    setEnriqStatus(await resEnriq.json());
                 }
             } catch (error) {
                 console.error('Erro de conexão ao carregar dados:', error);
@@ -232,6 +240,52 @@ function GerenciarParticipantes() {
                                 <div style={{ fontSize: '0.75rem', color: '#6c757d', fontWeight: 'bold' }}>Total Ativos</div>
                             </div>
                         </div>
+                    </div>
+                )}
+
+                {enriqStatus && (
+                    <div className="card" style={{
+                        marginBottom: '2rem',
+                        padding: '1rem 1.2rem',
+                        border: enriqStatus.completo ? '1px solid #b7e4c7' : '1px solid #ffe08a',
+                        backgroundColor: enriqStatus.completo ? '#f0fff4' : '#fffbeb'
+                    }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                {enriqStatus.completo ? (
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#276749" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                                ) : (
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#b7791f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                                )}
+                                <span style={{ fontWeight: 'bold', fontSize: '0.9rem', color: enriqStatus.completo ? '#276749' : '#975a16' }}>
+                                    {enriqStatus.completo
+                                        ? 'Perfis completos — todos os cooperados têm sexo e data de nascimento'
+                                        : `Enriquecimento de dados em andamento (sincroniza automaticamente ao logar)`
+                                    }
+                                </span>
+                            </div>
+                            <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: enriqStatus.completo ? '#276749' : '#975a16' }}>
+                                {enriqStatus.percentual}%
+                            </span>
+                        </div>
+
+                        {/* Barra de progresso */}
+                        <div style={{ height: '6px', borderRadius: '99px', backgroundColor: enriqStatus.completo ? '#c6f6d5' : '#feebc8', overflow: 'hidden' }}>
+                            <div style={{
+                                height: '100%',
+                                width: `${enriqStatus.percentual}%`,
+                                borderRadius: '99px',
+                                backgroundColor: enriqStatus.completo ? '#38a169' : '#f6ad55',
+                                transition: 'width 0.5s ease'
+                            }} />
+                        </div>
+
+                        {!enriqStatus.completo && (
+                            <p style={{ margin: '0.4rem 0 0 0', fontSize: '0.78rem', color: '#975a16' }}>
+                                <strong>{enriqStatus.enriquecidos}</strong> de <strong>{enriqStatus.total}</strong> cooperados têm dados completos
+                                &nbsp;·&nbsp; <strong>{enriqStatus.pendentes}</strong> aguardando próximo login
+                            </p>
+                        )}
                     </div>
                 )}
 
@@ -450,6 +504,55 @@ function GerenciarParticipantes() {
                 onConfirm={handleDelete}
                 onClose={closeDeleteModal}
             />
+
+            {/* Botões de Navegação (Topo / Fim) */}
+            <div style={{ position: 'fixed', bottom: '2rem', right: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem', zIndex: 1001 }}>
+                <button
+                    onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                    title="Ir para o topo"
+                    style={{
+                        width: '50px',
+                        height: '50px',
+                        borderRadius: '50%',
+                        backgroundColor: 'white',
+                        border: '1px solid var(--border-color)',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: 'var(--text-primary)',
+                        transition: 'all 0.2s'
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(0,0,0,0.15)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)'; }}
+                >
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 15l-6-6-6 6" /></svg>
+                </button>
+
+                <button
+                    onClick={() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' })}
+                    title="Ir para o fim"
+                    style={{
+                        width: '50px',
+                        height: '50px',
+                        borderRadius: '50%',
+                        backgroundColor: 'white',
+                        border: '1px solid var(--border-color)',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: 'var(--text-primary)',
+                        transition: 'all 0.2s'
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(3px)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(0,0,0,0.15)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)'; }}
+                >
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6" /></svg>
+                </button>
+            </div>
         </>
     );
 }

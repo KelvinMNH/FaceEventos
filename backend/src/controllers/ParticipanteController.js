@@ -203,6 +203,34 @@ class ParticipanteController {
             res.status(500).json({ error: "Erro na sincronização manual", details: e.message });
         }
     }
+
+    async enriquecimentoStatus(req, res) {
+        try {
+            const total  = await Participante.count({ where: { ativo: true } });
+            const pendentes = await Participante.count({
+                where: {
+                    ativo: true,
+                    [Op.or]: [
+                        { genero: 'O' },
+                        { data_nascimento: null }
+                    ]
+                }
+            });
+            const enriquecidos = total - pendentes;
+            const percentual   = total > 0 ? Math.round((enriquecidos / total) * 100) : 0;
+
+            res.json({
+                total,
+                enriquecidos,
+                pendentes,
+                percentual,
+                completo: pendentes === 0
+            });
+        } catch (e) {
+            console.error("Erro ao buscar status de enriquecimento:", e);
+            res.status(500).json({ error: "Erro ao buscar status", details: e.message });
+        }
+    }
 }
 
 module.exports = new ParticipanteController();
