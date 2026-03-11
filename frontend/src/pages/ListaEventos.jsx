@@ -24,6 +24,16 @@ function ListaEventos() {
     const [creating, setCreating] = useState(false);
     const [messageModal, setMessageModal] = useState({ open: false, title: '', message: '', type: 'info' });
     const [syncSummary, setSyncSummary] = useState(null);
+    const [showSyncLog, setShowSyncLog] = useState(false);
+
+    const maskCPF = (cpf) => {
+        if (!cpf) return '-';
+        const cleaned = cpf.replace(/\D/g, '');
+        if (cleaned.length === 11) {
+            return `${cleaned.substring(0, 3)}.***.***-${cleaned.substring(9, 11)}`;
+        }
+        return cpf;
+    };
 
     const showMessage = (title, message, type = 'info') => {
         setMessageModal({ open: true, title, message, type });
@@ -48,20 +58,18 @@ function ListaEventos() {
                 const res = await fetch('http://localhost:3000/api/participantes/sync/status', {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
-                if (!res.ok) return;
-                const data = await res.json();
-
-                // Se existe status e a sincronização ocorreu nas últimas 12 horas
-                if (data && data.status !== 'nenhum_registro' && data.data_sync) {
-                    const syncDate = new Date(data.data_sync);
-                    const now = new Date();
-                    const diffMs = now - syncDate;
-
-                    // Mostrar se foi recente (últimas 12 horas)
-                    if (diffMs < 12 * 60 * 60 * 1000) {
-                        setSyncSummary(data);
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data && data.status !== 'nenhum_registro' && data.data_sync) {
+                        const syncDate = new Date(data.data_sync);
+                        const now = new Date();
+                        const diffMs = now - syncDate;
+                        if (diffMs < 12 * 60 * 60 * 1000) {
+                            setSyncSummary(data);
+                        }
                     }
                 }
+
             } catch (err) {
                 console.error("Erro ao checar status do sync:", err);
             }
@@ -214,8 +222,109 @@ function ListaEventos() {
                                         <div style={{ fontWeight: 'bold', color: '#2563eb', fontSize: '1.1rem' }}>{syncSummary.total_participantes}</div>
                                         <div style={{ fontSize: '0.7rem', color: '#1d4ed8', fontWeight: 'bold', textTransform: 'uppercase' }}>Total</div>
                                     </div>
+
+                                    {syncSummary.log_detalhado && (
+                                        <button 
+                                            onClick={() => setShowSyncLog(!showSyncLog)}
+                                            style={{
+                                                padding: '0.5rem 1rem',
+                                                backgroundColor: showSyncLog ? '#cbd5e0' : 'var(--accent-color)',
+                                                color: showSyncLog ? '#4a5568' : 'white',
+                                                border: 'none',
+                                                borderRadius: '6px',
+                                                fontSize: '0.85rem',
+                                                fontWeight: 'bold',
+                                                cursor: 'pointer',
+                                                transition: 'all 0.2s',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '0.4rem'
+                                            }}
+                                        >
+                                            {showSyncLog ? 'Ocultar Log' : '🔍 Ver Detalhes'}
+                                        </button>
+                                    )}
+
                                     <div style={{ height: '30px', width: '1px', backgroundColor: '#e2e8f0', margin: '0 0.5rem' }}></div>
                                     <button onClick={() => setSyncSummary(null)} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#a0aec0', padding: '0.2rem 0.5rem', transition: 'color 0.2s' }} onMouseOver={(e) => e.target.style.color = '#4a5568'} onMouseOut={(e) => e.target.style.color = '#a0aec0'}>×</button>
+                                </div>
+                            </div>
+                        )}
+
+                    {syncSummary && showSyncLog && syncSummary.log_detalhado && (
+                            <div style={{
+                                backgroundColor: '#f8fafc',
+                                borderRadius: '8px',
+                                padding: '1.5rem',
+                                marginBottom: '2rem',
+                                border: '1px solid #e2e8f0',
+                                animation: 'slideDown 0.3s ease-out',
+                                boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.05)'
+                            }}>
+                                <h3 style={{ fontSize: '1.1rem', marginBottom: '1rem', color: '#2d3748', borderBottom: '2px solid #e2e8f0', paddingBottom: '0.5rem' }}>
+                                    📋 Detalhamento das Alterações
+                                </h3>
+                                
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem' }}>
+                                    {/* Adicionados */}
+                                    <div>
+                                        <h4 style={{ color: '#16a34a', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.8rem' }}>
+                                            <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#16a34a' }}></span>
+                                            Participantes Importados ({JSON.parse(syncSummary.log_detalhado).adicionados.length})
+                                        </h4>
+                                        <div style={{ maxHeight: '200px', overflowY: 'auto', backgroundColor: 'white', borderRadius: '6px', border: '1px solid #edf2f7', fontSize: '0.85rem' }}>
+                                            {JSON.parse(syncSummary.log_detalhado).adicionados.length > 0 ? (
+                                                JSON.parse(syncSummary.log_detalhado).adicionados.map((p, idx) => (
+                                                    <div key={idx} style={{ padding: '0.6rem', borderBottom: idx < JSON.parse(syncSummary.log_detalhado).adicionados.length - 1 ? '1px solid #f1f5f9' : 'none' }}>
+                                                        <div style={{ fontWeight: '600', color: '#1a202c' }}>{p.nome}</div>
+                                                        <div style={{ color: '#718096', fontSize: '0.75rem' }}>
+                                                            CPF: {maskCPF(p.cpf)} {p.crm && `| CRM: ${p.crm}`}
+                                                        </div>
+                                                    </div>
+                                                ))
+                                            ) : <div style={{ padding: '1rem', color: '#a0aec0', fontStyle: 'italic' }}>Nenhum novo.</div>}
+                                        </div>
+                                    </div>
+
+                                    {/* Modificados */}
+                                    <div>
+                                        <h4 style={{ color: '#ca8a04', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.8rem' }}>
+                                            <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#ca8a04' }}></span>
+                                            Sincronizados/Vencidos ({JSON.parse(syncSummary.log_detalhado).modificados.length})
+                                        </h4>
+                                        <div style={{ maxHeight: '200px', overflowY: 'auto', backgroundColor: 'white', borderRadius: '6px', border: '1px solid #edf2f7', fontSize: '0.85rem' }}>
+                                            {JSON.parse(syncSummary.log_detalhado).modificados.length > 0 ? (
+                                                JSON.parse(syncSummary.log_detalhado).modificados.map((p, idx) => (
+                                                    <div key={idx} style={{ padding: '0.6rem', borderBottom: idx < JSON.parse(syncSummary.log_detalhado).modificados.length - 1 ? '1px solid #f1f5f9' : 'none' }}>
+                                                        <div style={{ fontWeight: '600', color: '#1a202c' }}>{p.nome}</div>
+                                                        <div style={{ color: '#718096', fontSize: '0.75rem' }}>
+                                                            CPF: {maskCPF(p.cpf)} {p.crm && `| CRM: ${p.crm}`}
+                                                        </div>
+                                                    </div>
+                                                ))
+                                            ) : <div style={{ padding: '1rem', color: '#a0aec0', fontStyle: 'italic' }}>Nenhum modificado.</div>}
+                                        </div>
+                                    </div>
+
+                                    {/* Inativados */}
+                                    <div>
+                                        <h4 style={{ color: '#dc2626', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.8rem' }}>
+                                            <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#dc2626' }}></span>
+                                            Inativados ({JSON.parse(syncSummary.log_detalhado).inativados.length})
+                                        </h4>
+                                        <div style={{ maxHeight: '200px', overflowY: 'auto', backgroundColor: 'white', borderRadius: '6px', border: '1px solid #edf2f7', fontSize: '0.85rem' }}>
+                                            {JSON.parse(syncSummary.log_detalhado).inativados.length > 0 ? (
+                                                JSON.parse(syncSummary.log_detalhado).inativados.map((p, idx) => (
+                                                    <div key={idx} style={{ padding: '0.6rem', borderBottom: idx < JSON.parse(syncSummary.log_detalhado).inativados.length - 1 ? '1px solid #f1f5f9' : 'none' }}>
+                                                        <div style={{ fontWeight: '600', color: '#1a202c' }}>{p.nome}</div>
+                                                        <div style={{ color: '#718096', fontSize: '0.75rem' }}>
+                                                            CPF: {maskCPF(p.cpf)} {p.crm && `| CRM: ${p.crm}`}
+                                                        </div>
+                                                    </div>
+                                                ))
+                                            ) : <div style={{ padding: '1rem', color: '#a0aec0', fontStyle: 'italic' }}>Nenhum inativado.</div>}
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         )}
@@ -530,6 +639,14 @@ function ListaEventos() {
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6" /></svg>
                 </button>
             </div>
+            {/* Estilos para animações do log */}
+            <style>
+                {`
+                @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+                @keyframes slideDown { from { transform: translateY(-10px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+                @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+                `}
+            </style>
         </>
     );
 }

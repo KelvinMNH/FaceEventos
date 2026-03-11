@@ -706,22 +706,18 @@ function ControleAcesso() {
                 {participante.genero === 'M' ? 'H' : participante.genero === 'F' ? 'M' : ''}
               </span>
             </h2>
-            <p className="access-subtitle" style={{ fontSize: '0.85rem', marginBottom: '1rem', color: 'var(--text-secondary)' }}>Acesso autorizado com sucesso</p>
+            <p style={{ fontSize: '1.1rem', marginBottom: '1.5rem', color: 'var(--success-color)', fontWeight: 'bold' }}>
+              Entrada registrada às {new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+            </p>
 
             <div className="info-grid" style={{ gap: '0.6rem', width: '100%' }}>
               <div className="info-item" style={{ padding: '0.5rem', textAlign: 'left' }}>
                 <span className="info-label" style={{ fontSize: '0.7rem' }}>CPF</span>
-                <span className="info-value" style={{ fontSize: '0.95rem' }}>{participante.cpf || '-'}</span>
+                <span className="info-value" style={{ fontSize: '0.95rem' }}>{maskCPF(participante.cpf)}</span>
               </div>
               <div className="info-item" style={{ padding: '0.5rem', textAlign: 'left' }}>
                 <span className="info-label" style={{ fontSize: '0.7rem' }}>CRM</span>
                 <span className="info-value" style={{ fontSize: '0.95rem' }}>{participante.crm || '-'}</span>
-              </div>
-              <div className="info-item" style={{ padding: '0.5rem', textAlign: 'left' }}>
-                <span className="info-label" style={{ fontSize: '0.7rem' }}>Data de Nascimento</span>
-                <span className="info-value" style={{ fontSize: '0.95rem' }}>
-                  {participante.data_nascimento ? formatDate(participante.data_nascimento) : '-'}
-                </span>
               </div>
             </div>
 

@@ -43,13 +43,13 @@ function App() {
             </PrivateRoute>
           } />
 
-          <Route path="/totem" element={
+          <Route path="/totem/:id" element={
             <PrivateRoute>
               <TotemAcesso />
             </PrivateRoute>
           } />
 
-          <Route path="/totem-checkout" element={
+          <Route path="/totem-checkout/:id" element={
             <PrivateRoute>
               <TotemSaida />
             </PrivateRoute>

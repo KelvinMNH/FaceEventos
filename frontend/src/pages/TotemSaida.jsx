@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 const API_URL = 'http://localhost:3000/api';
@@ -8,6 +8,7 @@ const API_URL = 'http://localhost:3000/api';
 
 function TotemSaida() {
     const navigate = useNavigate();
+    const { id } = useParams();
     const { token } = useAuth();
     const [evento, setEvento] = useState(null);
     const [horaAtual, setHoraAtual] = useState(new Date());
@@ -34,9 +35,9 @@ function TotemSaida() {
     // Buscar evento ativo
     useEffect(() => {
         const fetchEvento = async () => {
-            if (!token) return;
+            if (!token || !id) return;
             try {
-                const res = await fetch(`${API_URL}/evento-ativo`, {
+                const res = await fetch(`${API_URL}/eventos/${id}`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const data = await res.json();
@@ -139,7 +140,8 @@ function TotemSaida() {
                     width,
                     height,
                     device_id: 'checkout_totem_bio',
-                    check_only: true // Flag importante para não registrar entrada
+                    check_only: true, // Flag importante para não registrar entrada
+                    eventoId: id
                 })
             });
             const data = await res.json();
@@ -198,7 +200,10 @@ function TotemSaida() {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 },
-                body: JSON.stringify({ participanteId: selectedParticipant.id })
+                body: JSON.stringify({ 
+                    participanteId: selectedParticipant.id,
+                    eventoId: id
+                })
             });
             const data = await res.json();
 

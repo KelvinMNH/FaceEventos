@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 const API_URL = 'http://localhost:3000/api';
@@ -12,6 +12,7 @@ const FingerprintIcon = ({ size = "1em", ...props }) => (
 
 function TotemAcesso() {
     const navigate = useNavigate();
+    const { id } = useParams();
     const { token } = useAuth();
     const [evento, setEvento] = useState(null);
     const [horaAtual, setHoraAtual] = useState(new Date());
@@ -125,6 +126,8 @@ function TotemAcesso() {
                 bodyData.participanteId = selectedParticipant.id;
             }
 
+            bodyData.eventoId = id;
+
             const res = await fetch(url, {
                 method: 'POST',
                 headers: {
@@ -159,9 +162,9 @@ function TotemAcesso() {
     // Buscar evento ativo
     useEffect(() => {
         const fetchEvento = async () => {
-            if (!token) return;
+            if (!token || !id) return;
             try {
-                const res = await fetch(`${API_URL}/evento-ativo`, {
+                const res = await fetch(`${API_URL}/eventos/${id}`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const data = await res.json();
@@ -216,7 +219,10 @@ function TotemAcesso() {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 },
-                body: JSON.stringify({ participanteId: selectedParticipant.id })
+                body: JSON.stringify({ 
+                    participanteId: selectedParticipant.id,
+                    eventoId: id
+                })
             });
             const data = await res.json();
 

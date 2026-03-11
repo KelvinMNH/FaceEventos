@@ -242,6 +242,7 @@ class SyncParticipantesService {
 
             const cpfsRecebidos   = new Set();
             const crmsAdicionados = []; // CRMs novos para enriquecer com prioridade
+            const log_detalhes = { adicionados: [], modificados: [], inativados: [] };
 
             let adicionados = 0;
             let modificados = 0;
@@ -267,6 +268,7 @@ class SyncParticipantesService {
                         existente.ativo = false;
                         await existente.save();
                         inativados++;
+                        log_detalhes.inativados.push({ nome: existente.nome, cpf: existente.cpf, crm: existente.crm });
                     }
                     pulados++;
                     continue;
@@ -286,6 +288,7 @@ class SyncParticipantesService {
                     });
                     if (crmLimpo) crmsAdicionados.push(crmLimpo);
                     adicionados++;
+                    log_detalhes.adicionados.push({ nome: coop.nome, cpf: cpfLimpo, crm: crmLimpo });
                 } else {
                     const nomeNormalizado = coop.nome ? coop.nome.trim() : '';
                     let precisaAtualizar  = false;
@@ -302,6 +305,7 @@ class SyncParticipantesService {
                         existente.ativo = true;
                         await existente.save();
                         modificados++;
+                        log_detalhes.modificados.push({ nome: existente.nome, cpf: existente.cpf, crm: existente.crm });
                     }
                 }
             }
@@ -313,6 +317,7 @@ class SyncParticipantesService {
                     p.ativo = false;
                     await p.save();
                     inativados++;
+                    log_detalhes.inativados.push({ nome: p.nome, cpf: p.cpf, crm: p.crm });
                 }
             }
 
@@ -324,7 +329,8 @@ class SyncParticipantesService {
                 qtd_adicionados:     adicionados,
                 qtd_modificados:     modificados,
                 qtd_removidos:       inativados,
-                status:              'sucesso'
+                status:              'sucesso',
+                log_detalhado:       JSON.stringify(log_detalhes)
             });
 
             console.log(

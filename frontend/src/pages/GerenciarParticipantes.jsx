@@ -203,82 +203,85 @@ function GerenciarParticipantes() {
                 </div>
 
                 {syncStatus && (
-                    <div className="card" style={{ marginBottom: '2rem', padding: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#eaf4ff', border: '1px solid #b6d4fe' }}>
-                        <div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#004085" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.59-10.36l5.25 5.25" /></svg>
-                                <p style={{ margin: 0, fontWeight: 'bold', color: '#004085' }}>Status da Sincronização Automática</p>
-                            </div>
-                            <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.9rem', color: '#383d41' }}>
-                                Última atualização: <strong>{formatDate(syncStatus.data_sync)}</strong>
-                            </p>
-                        </div>
-                        <div style={{ display: 'flex', gap: '1rem', fontSize: '0.9rem', textAlign: 'center' }}>
-                            <div style={{ padding: '0.5rem', backgroundColor: '#fff', borderRadius: '8px', minWidth: '80px', border: '1px solid #dee2e6' }}>
-                                <div style={{ fontWeight: 'bold', color: '#28a745', fontSize: '1.2rem' }}>{syncStatus.qtd_adicionados}</div>
-                                <div style={{ fontSize: '0.75rem', color: '#6c757d', fontWeight: 'bold' }}>Adicionados</div>
-                            </div>
-                            <div style={{ padding: '0.5rem', backgroundColor: '#fff', borderRadius: '8px', minWidth: '80px', border: '1px solid #dee2e6' }}>
-                                <div style={{ fontWeight: 'bold', color: '#ffc107', fontSize: '1.2rem' }}>{syncStatus.qtd_modificados}</div>
-                                <div style={{ fontSize: '0.75rem', color: '#6c757d', fontWeight: 'bold' }}>Atualizados</div>
-                            </div>
-                            <div style={{ padding: '0.5rem', backgroundColor: '#fff', borderRadius: '8px', minWidth: '80px', border: '1px solid #dee2e6' }}>
-                                <div style={{ fontWeight: 'bold', color: '#dc3545', fontSize: '1.2rem' }}>{syncStatus.qtd_removidos}</div>
-                                <div style={{ fontSize: '0.75rem', color: '#6c757d', fontWeight: 'bold' }}>Inativados</div>
-                            </div>
-                            <div style={{ padding: '0.5rem', backgroundColor: '#fff', borderRadius: '8px', minWidth: '80px', border: '1px solid #dee2e6' }}>
-                                <div style={{ fontWeight: 'bold', color: '#007bff', fontSize: '1.2rem' }}>{syncStatus.total_participantes}</div>
-                                <div style={{ fontSize: '0.75rem', color: '#6c757d', fontWeight: 'bold' }}>Total Ativos</div>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {enriqStatus && (
-                    <div className="card" style={{
-                        marginBottom: '2rem',
-                        padding: '1rem 1.2rem',
-                        border: enriqStatus.completo ? '1px solid #b7e4c7' : '1px solid #ffe08a',
-                        backgroundColor: enriqStatus.completo ? '#f0fff4' : '#fffbeb'
+                    <div className="card" style={{ 
+                        marginBottom: '2rem', 
+                        padding: '1.2rem 1.5rem', 
+                        backgroundColor: '#eaf4ff', 
+                        border: '1px solid #b6d4fe',
+                        borderRadius: '12px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '1rem',
+                        boxShadow: '0 4px 12px rgba(0, 64, 133, 0.08)'
                     }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                {enriqStatus.completo ? (
-                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#276749" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                                ) : (
-                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#b7791f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                                )}
-                                <span style={{ fontWeight: 'bold', fontSize: '0.9rem', color: enriqStatus.completo ? '#276749' : '#975a16' }}>
-                                    {enriqStatus.completo
-                                        ? 'Perfis completos — todos os cooperados têm sexo, nascimento e especialidade'
-                                        : `Enriquecimento de dados em andamento (sincroniza automaticamente ao logar)`
-                                    }
-                                </span>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#004085" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.59-10.36l5.25 5.25" /></svg>
+                                    <p style={{ margin: 0, fontWeight: 'bold', color: '#004085', fontSize: '1.05rem' }}>Status da Sincronização Automática</p>
+                                </div>
+                                <p style={{ margin: '0.4rem 0 0 0', fontSize: '0.88rem', color: '#4a5568' }}>
+                                    Última atualização: <strong>{formatDate(syncStatus.data_sync)}</strong>
+                                </p>
                             </div>
-                            <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: enriqStatus.completo ? '#276749' : '#975a16' }}>
-                                {enriqStatus.percentual}%
-                            </span>
+                            <div style={{ display: 'flex', gap: '1rem', fontSize: '0.85rem', textAlign: 'center' }}>
+                                <div style={{ padding: '0.4rem 0.8rem', backgroundColor: '#fff', borderRadius: '8px', minWidth: '80px', border: '1px solid #dee2e6' }}>
+                                    <div style={{ fontWeight: 'bold', color: '#28a745', fontSize: '1.2rem' }}>{syncStatus.qtd_adicionados}</div>
+                                    <div style={{ fontSize: '0.75rem', color: '#6c757d', fontWeight: 'bold' }}>Novos</div>
+                                </div>
+                                <div style={{ padding: '0.4rem 0.8rem', backgroundColor: '#fff', borderRadius: '8px', minWidth: '80px', border: '1px solid #dee2e6' }}>
+                                    <div style={{ fontWeight: 'bold', color: '#ffc107', fontSize: '1.2rem' }}>{syncStatus.qtd_modificados}</div>
+                                    <div style={{ fontSize: '0.75rem', color: '#6c757d', fontWeight: 'bold' }}>Modificados</div>
+                                </div>
+                                <div style={{ padding: '0.4rem 0.8rem', backgroundColor: '#fff', borderRadius: '8px', minWidth: '80px', border: '1px solid #dee2e6' }}>
+                                    <div style={{ fontWeight: 'bold', color: '#dc3545', fontSize: '1.2rem' }}>{syncStatus.qtd_removidos}</div>
+                                    <div style={{ fontSize: '0.75rem', color: '#6c757d', fontWeight: 'bold' }}>Inativados</div>
+                                </div>
+                                <div style={{ padding: '0.4rem 0.8rem', backgroundColor: '#fff', borderRadius: '8px', minWidth: '80px', border: '1px solid #dee2e6' }}>
+                                    <div style={{ fontWeight: 'bold', color: '#007bff', fontSize: '1.2rem' }}>{syncStatus.total_participantes}</div>
+                                    <div style={{ fontSize: '0.75rem', color: '#6c757d', fontWeight: 'bold' }}>Total Ativos</div>
+                                </div>
+                            </div>
                         </div>
 
-                        {/* Barra de progresso */}
-                        <div style={{ height: '6px', borderRadius: '99px', backgroundColor: enriqStatus.completo ? '#c6f6d5' : '#feebc8', overflow: 'hidden' }}>
-                            <div style={{
-                                height: '100%',
-                                width: `${enriqStatus.percentual}%`,
-                                borderRadius: '99px',
-                                backgroundColor: enriqStatus.completo ? '#38a169' : '#f6ad55',
-                                transition: 'width 0.5s ease'
-                            }} />
-                        </div>
-
-                        {!enriqStatus.completo && (
-                            <p style={{ margin: '0.4rem 0 0 0', fontSize: '0.78rem', color: '#975a16' }}>
-                                <strong>{enriqStatus.enriquecidos}</strong> de <strong>{enriqStatus.total}</strong> cooperados têm dados completos
-                                &nbsp;·&nbsp; <strong>{enriqStatus.pendentes}</strong> aguardando próximo login
-                            </p>
+                        {/* Saúde da Base Integrada */}
+                        {enriqStatus && (
+                            <div style={{ 
+                                paddingTop: '1rem', 
+                                borderTop: '1px solid #b6d4fe',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '0.5rem'
+                            }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#004085', fontSize: '0.88rem' }}>
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                                        <span style={{ fontWeight: '700' }}>Saúde da Base (Perfis Completos):</span>
+                                        <span style={{ color: enriqStatus.completo ? '#28a745' : '#ca8a04', fontWeight: 'bold' }}>
+                                            {enriqStatus.enriquecidos} de {enriqStatus.total} ({enriqStatus.percentual}%)
+                                        </span>
+                                    </div>
+                                    <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#004085' }}>{enriqStatus.percentual}%</span>
+                                </div>
+                                <div style={{ height: '8px', backgroundColor: 'rgba(255,255,255,0.5)', borderRadius: '99px', overflow: 'hidden', border: '1px solid #b6d4fe' }}>
+                                    <div style={{
+                                        height: '100%',
+                                        width: `${enriqStatus.percentual}%`,
+                                        borderRadius: '99px',
+                                        backgroundColor: enriqStatus.completo ? '#38a169' : '#f6ad55',
+                                        transition: 'width 0.8s ease'
+                                    }} />
+                                </div>
+                                {!enriqStatus.completo && (
+                                    <p style={{ margin: 0, fontSize: '0.75rem', color: '#004085', fontStyle: 'italic', opacity: 0.8 }}>
+                                        * {enriqStatus.pendentes} cooperados aguardando próximo login para complementar dados.
+                                    </p>
+                                )}
+                            </div>
                         )}
                     </div>
                 )}
+
 
                 <div className="card" style={{ marginBottom: '2rem' }}>
                     <input

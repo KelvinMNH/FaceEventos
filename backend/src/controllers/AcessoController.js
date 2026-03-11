@@ -22,12 +22,15 @@ async function createJimpFromRaw(base64, width, height) {
 
 class AcessoController {
     async scan(req, res) {
-        const { device_id, template, width, height, force_match_id, check_only } = req.body;
-        console.log(`[Scan] Recebido: ${width}x${height} - Force: ${force_match_id} - CheckOnly: ${check_only}`);
+        const { device_id, template, width, height, force_match_id, check_only, eventoId } = req.body;
+        console.log(`[Scan] Recebido: ${width}x${height} - Force: ${force_match_id} - Evento: ${eventoId}`);
 
         try {
-            const evento = await Evento.findOne({ where: { status: 'ativo' } });
-            if (!evento) return res.json({ autorizado: false, mensagem: "Nenhum evento ativo." });
+            const evento = eventoId 
+                ? await Evento.findByPk(eventoId)
+                : await Evento.findOne({ where: { status: 'ativo' } });
+            
+            if (!evento) return res.json({ autorizado: false, mensagem: "Evento não encontrado ou inativo." });
 
             let participante = null;
 
@@ -152,8 +155,12 @@ class AcessoController {
 
     async simulate(req, res) {
         try {
-            const evento = await Evento.findOne({ where: { status: 'ativo' } });
-            if (!evento) return res.json({ success: false, msg: "Sem evento ativo" });
+            const { eventoId } = req.body;
+            const evento = eventoId 
+                ? await Evento.findByPk(eventoId)
+                : await Evento.findOne({ where: { status: 'ativo' } });
+            
+            if (!evento) return res.json({ success: false, msg: "Evento não encontrado ou inativo" });
 
             const isSuccess = Math.random() > 0.1;
             let participante = null;
@@ -184,9 +191,12 @@ class AcessoController {
 
     async manualEntry(req, res) {
         try {
-            const { query, participanteId } = req.body;
-            const evento = await Evento.findOne({ where: { status: 'ativo' } });
-            if (!evento) return res.json({ success: false, msg: "Sem evento ativo" });
+            const { query, participanteId, eventoId } = req.body;
+            const evento = eventoId 
+                ? await Evento.findByPk(eventoId)
+                : await Evento.findOne({ where: { status: 'ativo' } });
+            
+            if (!evento) return res.json({ success: false, msg: "Evento não encontrado ou inativo" });
 
             let participante = null;
 
@@ -233,9 +243,12 @@ class AcessoController {
 
     async renovarBiometriaEEntrar(req, res) {
         try {
-            const { participanteId, template } = req.body;
-            const evento = await Evento.findOne({ where: { status: 'ativo' } });
-            if (!evento) return res.json({ success: false, msg: "Sem evento ativo" });
+            const { participanteId, template, eventoId } = req.body;
+            const evento = eventoId 
+                ? await Evento.findByPk(eventoId)
+                : await Evento.findOne({ where: { status: 'ativo' } });
+            
+            if (!evento) return res.json({ success: false, msg: "Evento não encontrado ou inativo" });
 
             if (!participanteId || !template) {
                 return res.json({ success: false, autorizado: false, msg: "Dados inválidos para renovação" });
@@ -290,9 +303,12 @@ class AcessoController {
 
     async cadastrarEntrada(req, res) {
         try {
-            const { nome, cpf, crm, genero, data_nascimento } = req.body;
-            const evento = await Evento.findOne({ where: { status: 'ativo' } });
-            if (!evento) return res.json({ success: false, msg: "Sem evento ativo" });
+            const { nome, cpf, crm, genero, data_nascimento, eventoId } = req.body;
+            const evento = eventoId 
+                ? await Evento.findByPk(eventoId)
+                : await Evento.findOne({ where: { status: 'ativo' } });
+            
+            if (!evento) return res.json({ success: false, msg: "Evento não encontrado ou inativo" });
 
             let participante = await Participante.findOne({ where: { cpf } });
             if (participante) return res.json({ success: false, msg: "CPF já cadastrado." });
@@ -319,9 +335,12 @@ class AcessoController {
 
     async registrarSaida(req, res) {
         try {
-            const { participanteId } = req.body;
-            const evento = await Evento.findOne({ where: { status: 'ativo' } });
-            if (!evento) return res.json({ success: false, msg: "Sem evento ativo" });
+            const { participanteId, eventoId } = req.body;
+            const evento = eventoId 
+                ? await Evento.findByPk(eventoId)
+                : await Evento.findOne({ where: { status: 'ativo' } });
+            
+            if (!evento) return res.json({ success: false, msg: "Evento não encontrado ou inativo" });
             if (!evento.habilitar_checkout) return res.json({ success: false, msg: "Este evento não permite checkout" });
 
             const participante = await Participante.findByPk(participanteId);

@@ -8,7 +8,8 @@ const HistoricoSincronizacao = sequelize.define('HistoricoSincronizacao', {
     qtd_modificados: { type: DataTypes.INTEGER, defaultValue: 0 },
     qtd_removidos: { type: DataTypes.INTEGER, defaultValue: 0 },
     status: { type: DataTypes.ENUM('sucesso', 'erro'), defaultValue: 'sucesso' },
-    detalhes_erro: { type: DataTypes.TEXT } // Para armazenar possível erro de rede
+    detalhes_erro: { type: DataTypes.TEXT }, // Para armazenar possível erro de rede
+    log_detalhado: { type: DataTypes.TEXT } // JSON stringified com { adicionados: [], modificados: [], inativados: [] }
 });
 
 module.exports = HistoricoSincronizacao;
