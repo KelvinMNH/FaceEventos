@@ -452,7 +452,63 @@ function GerenciarParticipantes() {
                                  style={{ marginBottom: 0 }}
                              />
                          </div>
-                         <div className="modal-actions" style={{ marginTop: '1rem' }}>
+                         {isReadOnly && (
+                            <div style={{
+                                marginTop: '0.5rem',
+                                padding: '1rem',
+                                backgroundColor: '#f8f9fa',
+                                borderRadius: '12px',
+                                border: '1px solid #e2e8f0',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '1rem'
+                            }}>
+                                <div style={{
+                                    width: '45px',
+                                    height: '45px',
+                                    borderRadius: '10px',
+                                    backgroundColor: (currentParticipante?.template_biometrico && !currentParticipante.template_biometrico.startsWith('manual_')) ? '#e6fffa' : '#fff5f5',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    color: (currentParticipante?.template_biometrico && !currentParticipante.template_biometrico.startsWith('manual_')) ? '#38a169' : '#e53e3e'
+                                }}>
+                                    <FingerprintIcon size="1.8rem" />
+                                </div>
+                                <div style={{ flex: 1 }}>
+                                    <p style={{ margin: 0, fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                        Segurança e Biometria
+                                    </p>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.2rem' }}>
+                                        <span style={{ 
+                                            fontSize: '0.95rem', 
+                                            fontWeight: '700',
+                                            color: (currentParticipante?.template_biometrico && !currentParticipante.template_biometrico.startsWith('manual_')) ? '#2d3748' : '#e53e3e'
+                                        }}>
+                                            {(currentParticipante?.template_biometrico && !currentParticipante.template_biometrico.startsWith('manual_')) ? 'Biometria Cadastrada' : 'Biometria Pendente'}
+                                        </span>
+                                        {(currentParticipante?.template_biometrico && !currentParticipante.template_biometrico.startsWith('manual_')) && (
+                                            <span style={{ 
+                                                fontSize: '0.75rem', 
+                                                backgroundColor: '#c6f6d5', 
+                                                color: '#22543d', 
+                                                padding: '2px 8px', 
+                                                borderRadius: '99px',
+                                                fontWeight: 'bold'
+                                            }}>
+                                                Ativo
+                                            </span>
+                                        )}
+                                    </div>
+                                    {(currentParticipante?.template_biometrico && !currentParticipante.template_biometrico.startsWith('manual_')) && currentParticipante.data_biometria && (
+                                        <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.8rem', color: '#718096' }}>
+                                            Última captura: <strong>{formatDate(currentParticipante.data_biometria)}</strong>
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                        <div className="modal-actions" style={{ marginTop: '1.5rem' }}>
                              <button type="button" className="btn-secondary" onClick={closeModal} style={{ flex: 1 }}>
                                  {isReadOnly ? 'Fechar' : 'Cancelar'}
                              </button>

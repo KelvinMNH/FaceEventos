@@ -28,7 +28,9 @@ function estaDesligado(dt_rescisao) {
     const hoje = new Date();
     hoje.setHours(0, 0, 0, 0);
     dataRescisao.setHours(0, 0, 0, 0);
-    return dataRescisao <= hoje;
+    // Só considera desligado se a data de rescisão JÁ PASSOU.
+    // Se for hoje, ele ainda é considerado ativo.
+    return dataRescisao < hoje;
 }
 
 /**
@@ -251,44 +253,37 @@ class SyncParticipantesService {
 
             console.log(`📊 Processando ${cooperadosExternos.length} cooperados...`);
 
-            // 4. Processar cada cooperado recebido
+            // 4. Processar cada cooperado recebido (TODOS os 1044)
             for (const coop of cooperadosExternos) {
                 const cpfLimpo  = normalizarCpf(coop.cpf);
                 const crmLimpo  = coop.crm ? String(coop.crm).replace(/\D/g, '') : null;
-                const desligado = estaDesligado(coop.dt_rescisao);
+                
+                // Regra de negócio: ativo se não tiver data de rescisão OU se a data ainda não passou
+                const ehAtivo = !estaDesligado(coop.dt_rescisao);
 
                 if (cpfLimpo) cpfsRecebidos.add(cpfLimpo);
-
-                if (desligado) {
-                    const existente = cpfLimpo
-                        ? mapaAtuaisPorCpf.get(cpfLimpo)
-                        : (crmLimpo ? mapaAtuaisPorCrm.get(crmLimpo) : null);
-
-                    if (existente && existente.ativo) {
-                        existente.ativo = false;
-                        await existente.save();
-                        inativados++;
-                        log_detalhes.inativados.push({ nome: existente.nome, cpf: existente.cpf, crm: existente.crm });
-                    }
-                    pulados++;
-                    continue;
-                }
 
                 let existente = cpfLimpo ? mapaAtuaisPorCpf.get(cpfLimpo) : null;
                 if (!existente && crmLimpo) existente = mapaAtuaisPorCrm.get(crmLimpo);
 
                 if (!existente) {
-                    // Novo cooperado — criar sem genero (será preenchido no enriquecimento)
+                    // Novo cooperado — criar sempre (adiciona ao total de 1044)
                     await Participante.create({
                         nome:   coop.nome ? coop.nome.trim() : '',
                         cpf:    cpfLimpo,
                         crm:    crmLimpo || null,
                         genero: 'O',
-                        ativo:  true
+                        ativo:  ehAtivo
                     });
-                    if (crmLimpo) crmsAdicionados.push(crmLimpo);
-                    adicionados++;
-                    log_detalhes.adicionados.push({ nome: coop.nome, cpf: cpfLimpo, crm: crmLimpo });
+                    
+                    if (ehAtivo) {
+                        if (crmLimpo) crmsAdicionados.push(crmLimpo);
+                        adicionados++;
+                        log_detalhes.adicionados.push({ nome: coop.nome, cpf: cpfLimpo, crm: crmLimpo });
+                    } else {
+                        inativados++; // Já entra inativo
+                        log_detalhes.inativados.push({ nome: coop.nome, cpf: cpfLimpo, crm: crmLimpo, motivo: 'Já rescindido' });
+                    }
                 } else {
                     const nomeNormalizado = coop.nome ? coop.nome.trim() : '';
                     let precisaAtualizar  = false;
@@ -296,16 +291,27 @@ class SyncParticipantesService {
                     if (existente.nome !== nomeNormalizado)                     precisaAtualizar = true;
                     if (crmLimpo && existente.crm !== crmLimpo)                 precisaAtualizar = true;
                     if (cpfLimpo && normalizarCpf(existente.cpf) !== cpfLimpo) precisaAtualizar = true;
-                    if (existente.ativo === false)                               precisaAtualizar = true;
+                    if (existente.ativo !== ehAtivo)                            precisaAtualizar = true;
 
                     if (precisaAtualizar) {
+                        const eraAtivo = existente.ativo;
+                        
                         existente.nome  = nomeNormalizado;
                         existente.cpf   = cpfLimpo;
                         if (crmLimpo) existente.crm = crmLimpo;
-                        existente.ativo = true;
+                        existente.ativo = ehAtivo;
                         await existente.save();
-                        modificados++;
-                        log_detalhes.modificados.push({ nome: existente.nome, cpf: existente.cpf, crm: existente.crm });
+
+                        if (eraAtivo && !ehAtivo) {
+                            inativados++;
+                            log_detalhes.inativados.push({ nome: existente.nome, cpf: existente.cpf, crm: existente.crm });
+                        } else if (!eraAtivo && ehAtivo) {
+                            modificados++; // Reativado
+                            log_detalhes.modificados.push({ nome: existente.nome, cpf: existente.cpf, crm: existente.crm, info: 'Reativado' });
+                        } else {
+                            modificados++;
+                            log_detalhes.modificados.push({ nome: existente.nome, cpf: existente.cpf, crm: existente.crm });
+                        }
                     }
                 }
             }
