@@ -30,7 +30,9 @@ class AcessoController {
                 ? await Evento.findByPk(eventoId)
                 : await Evento.findOne({ where: { status: 'ativo' } });
             
-            if (!evento) return res.json({ autorizado: false, mensagem: "Evento não encontrado ou inativo." });
+            if (!evento || evento.status !== 'ativo') {
+                return res.json({ autorizado: false, mensagem: "Este evento não está ativo para novos registros." });
+            }
 
             let participante = null;
 
@@ -160,7 +162,9 @@ class AcessoController {
                 ? await Evento.findByPk(eventoId)
                 : await Evento.findOne({ where: { status: 'ativo' } });
             
-            if (!evento) return res.json({ success: false, msg: "Evento não encontrado ou inativo" });
+            if (!evento || evento.status !== 'ativo') {
+                return res.json({ success: false, msg: "Este evento não está ativo para simulações." });
+            }
 
             const isSuccess = Math.random() > 0.1;
             let participante = null;
@@ -196,7 +200,9 @@ class AcessoController {
                 ? await Evento.findByPk(eventoId)
                 : await Evento.findOne({ where: { status: 'ativo' } });
             
-            if (!evento) return res.json({ success: false, msg: "Evento não encontrado ou inativo" });
+            if (!evento || evento.status !== 'ativo') {
+                return res.json({ success: false, msg: "Este evento não está ativo para registros manuais." });
+            }
 
             let participante = null;
 
@@ -248,7 +254,9 @@ class AcessoController {
                 ? await Evento.findByPk(eventoId)
                 : await Evento.findOne({ where: { status: 'ativo' } });
             
-            if (!evento) return res.json({ success: false, msg: "Evento não encontrado ou inativo" });
+            if (!evento || evento.status !== 'ativo') {
+                return res.json({ success: false, msg: "Este evento não está ativo para renovação e entrada." });
+            }
 
             if (!participanteId || !template) {
                 return res.json({ success: false, autorizado: false, msg: "Dados inválidos para renovação" });
@@ -308,7 +316,9 @@ class AcessoController {
                 ? await Evento.findByPk(eventoId)
                 : await Evento.findOne({ where: { status: 'ativo' } });
             
-            if (!evento) return res.json({ success: false, msg: "Evento não encontrado ou inativo" });
+            if (!evento || evento.status !== 'ativo') {
+                return res.json({ success: false, msg: "Este evento não está ativo para novos cadastros." });
+            }
 
             let participante = await Participante.findOne({ where: { cpf } });
             if (participante) return res.json({ success: false, msg: "CPF já cadastrado." });
@@ -340,7 +350,9 @@ class AcessoController {
                 ? await Evento.findByPk(eventoId)
                 : await Evento.findOne({ where: { status: 'ativo' } });
             
-            if (!evento) return res.json({ success: false, msg: "Evento não encontrado ou inativo" });
+            if (!evento || evento.status !== 'ativo') {
+                return res.json({ success: false, msg: "Este evento não está ativo para registros de saída." });
+            }
             if (!evento.habilitar_checkout) return res.json({ success: false, msg: "Este evento não permite checkout" });
 
             const participante = await Participante.findByPk(participanteId);

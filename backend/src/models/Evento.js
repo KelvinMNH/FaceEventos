@@ -2,6 +2,12 @@ const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
 
 const Evento = sequelize.define('Evento', {
+    uuid: { 
+        type: DataTypes.UUID, 
+        defaultValue: DataTypes.UUIDV4,
+        allowNull: false,
+        unique: true
+    },
     nome: { type: DataTypes.STRING(255), allowNull: false },
     data_inicio: { type: DataTypes.DATEONLY, allowNull: false },
     hora_inicio: { type: DataTypes.STRING(5) },

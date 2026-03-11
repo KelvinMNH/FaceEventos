@@ -20,6 +20,7 @@ router.post('/eventos/:id/ativar', AuthController.verifyToken, EventoController.
 router.post('/eventos/:id/finalizar', AuthController.verifyToken, EventoController.finalizar); // Finalizar requer token (confirmação será logica no front/back)
 router.get('/evento-ativo', AuthController.verifyToken, EventoController.getAtivo);
 router.get('/eventos/:id', AuthController.verifyToken, EventoController.buscarPorId);
+router.get('/eventos/uuid/:uuid', AuthController.verifyToken, EventoController.buscarPorUuid);
 router.delete('/eventos/:id', AuthController.verifyToken, AuthController.requireAdmin, EventoController.excluir);
 
 // Rotas de Acesso (Algumas podem precisar de token se o totem for autenticado, por hora vamos proteger tudo que é "sistema")

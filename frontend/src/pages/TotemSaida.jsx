@@ -37,7 +37,7 @@ function TotemSaida() {
         const fetchEvento = async () => {
             if (!token || !id) return;
             try {
-                const res = await fetch(`${API_URL}/eventos/${id}`, {
+                const res = await fetch(`${API_URL}/eventos/uuid/${id}`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const data = await res.json();
@@ -141,7 +141,7 @@ function TotemSaida() {
                     height,
                     device_id: 'checkout_totem_bio',
                     check_only: true, // Flag importante para não registrar entrada
-                    eventoId: id
+                    eventoId: evento?.id
                 })
             });
             const data = await res.json();
@@ -202,7 +202,7 @@ function TotemSaida() {
                 },
                 body: JSON.stringify({ 
                     participanteId: selectedParticipant.id,
-                    eventoId: id
+                    eventoId: evento?.id
                 })
             });
             const data = await res.json();

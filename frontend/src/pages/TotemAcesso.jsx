@@ -126,7 +126,7 @@ function TotemAcesso() {
                 bodyData.participanteId = selectedParticipant.id;
             }
 
-            bodyData.eventoId = id;
+            bodyData.eventoId = evento?.id;
 
             const res = await fetch(url, {
                 method: 'POST',
@@ -164,7 +164,7 @@ function TotemAcesso() {
         const fetchEvento = async () => {
             if (!token || !id) return;
             try {
-                const res = await fetch(`${API_URL}/eventos/${id}`, {
+                const res = await fetch(`${API_URL}/eventos/uuid/${id}`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const data = await res.json();
@@ -221,7 +221,7 @@ function TotemAcesso() {
                 },
                 body: JSON.stringify({ 
                     participanteId: selectedParticipant.id,
-                    eventoId: id
+                    eventoId: evento?.id
                 })
             });
             const data = await res.json();

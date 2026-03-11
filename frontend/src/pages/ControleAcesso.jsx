@@ -898,7 +898,7 @@ function ControleAcesso() {
             <h3 style={{ margin: '0', fontSize: '1.1rem', color: 'var(--text-secondary)' }}>Lista de Entrada</h3>
             <div style={{ display: 'flex', gap: '0.5rem' }}>
               <button
-                onClick={() => window.open('/totem', '_blank')}
+                onClick={() => window.open(`/totem/${evento?.uuid}`, '_blank')}
                 style={{
                   backgroundColor: '#b1d249',
                   border: 'none',
@@ -914,7 +914,7 @@ function ControleAcesso() {
               </button>
               {evento && evento.habilitar_checkout && (
                 <button
-                  onClick={() => window.open('/totem-checkout', '_blank')}
+                  onClick={() => window.open(`/totem-checkout/${evento?.uuid}`, '_blank')}
                   style={{
                     backgroundColor: '#0d6efd',
                     border: 'none',

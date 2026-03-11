@@ -1,4 +1,4 @@
-const { Evento, LogAuditoria } = require('../models');
+const { Evento, RegistroAcesso, LogAuditoria } = require('../models');
 
 class EventoController {
     async listar(req, res) {
@@ -86,8 +86,10 @@ class EventoController {
 
             const nomeEvento = evento.nome;
 
-            // Deletar o evento (onDelete CASCADE cuidará dos registros de acesso se configurado no DB,
-            // caso contrário precisaria deletar os registros antes).
+            // Deletar os registros de acesso vinculados primeiro para evitar erro de constraint (SQLite)
+            await RegistroAcesso.destroy({ where: { EventoId: id } });
+
+            // Deletar o evento
             await evento.destroy();
 
             // Registrar Log
@@ -123,6 +125,17 @@ class EventoController {
         try {
             const { id } = req.params;
             const evento = await Evento.findByPk(id);
+            if (!evento) return res.status(404).json({ error: "Evento não encontrado" });
+            res.json(evento);
+        } catch (e) {
+            res.status(500).json({ error: e.message });
+        }
+    }
+
+    async buscarPorUuid(req, res) {
+        try {
+            const { uuid } = req.params;
+            const evento = await Evento.findOne({ where: { uuid } });
             if (!evento) return res.status(404).json({ error: "Evento não encontrado" });
             res.json(evento);
         } catch (e) {
