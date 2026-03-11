@@ -1411,8 +1411,17 @@ function ControleAcesso() {
                       onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f6f8fa'}
                       onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
                     >
-                      <span style={{ fontWeight: 600 }}>{r.nome}</span>
-                      <span style={{ color: '#666', fontSize: '0.9rem' }}>{r.cpf || r.crm}</span>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                        <span style={{ fontWeight: 600 }}>{r.nome}</span>
+                        <div style={{ color: '#666', fontSize: '0.8rem', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                          <span>CPF: {maskCPF(r.cpf)}</span>
+                          {r.crm && <span>| CRM: {r.crm}</span>}
+                        </div>
+                        {r.especialidade && <span style={{ color: '#0d6efd', fontSize: '0.75rem', fontStyle: 'italic' }}>{r.especialidade}</span>}
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center' }}>
+                        <span style={{ fontSize: '1.2rem' }}>➡️</span>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -1427,7 +1436,12 @@ function ControleAcesso() {
                 borderRadius: '8px',
                 marginBottom: '1.5rem'
               }}>
-                <p style={{ margin: 0, fontWeight: 'bold', color: '#2c7a7b' }}>Responsável: {selectedResponsible?.nome}</p>
+                <p style={{ margin: '0 0 0.2rem 0', fontWeight: 'bold', color: '#2c7a7b' }}>{selectedResponsible?.nome}</p>
+                <div style={{ color: '#319795', fontSize: '0.8rem', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                  <span>CPF: {maskCPF(selectedResponsible?.cpf)}</span>
+                  {selectedResponsible?.crm && <span>CRM: {selectedResponsible?.crm}</span>}
+                  {selectedResponsible?.especialidade && <span style={{ fontStyle: 'italic' }}>{selectedResponsible?.especialidade}</span>}
+                </div>
                 <button
                   onClick={() => { setResponsavelId(null); setSelectedResponsible(null); }}
                   style={{ background: 'none', border: 'none', color: '#2c7a7b', textDecoration: 'underline', cursor: 'pointer', fontSize: '0.85rem', marginTop: '0.5rem' }}
