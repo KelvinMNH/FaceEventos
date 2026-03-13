@@ -21,6 +21,7 @@ function ControleAcesso() {
   const [lastLogId, setLastLogId] = useState(0);
   const [modalData, setModalData] = useState(null);
   const [stats, setStats] = useState({ faixaPredominante: '-', generoPredominante: '-', generoPercent: 0, mediaIdade: 0 });
+  const [distribuicaoHorario, setDistribuicaoHorario] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
 
   const [simulating, setSimulating] = useState(false);
@@ -56,6 +57,8 @@ function ControleAcesso() {
   const [checkoutModalOpen, setCheckoutModalOpen] = useState(false);
   const [checkoutSearchTerm, setCheckoutSearchTerm] = useState('');
   const [isProcessingCheckout, setIsProcessingCheckout] = useState(false);
+  const [flowModalOpen, setFlowModalOpen] = useState(false);
+  const [submittingCompanion, setSubmittingCompanion] = useState(false);
 
   const showMessage = (title, message, type = 'info', onOk = null) => {
     setMessageModal({ open: true, title, message, type, onOk });
@@ -86,34 +89,18 @@ function ControleAcesso() {
       if (!evento || !token) return;
 
       try {
-        const res = await fetch(`${API_URL}/logs`, {
+        const resLogs = await fetch(`${API_URL}/logs?eventoUuid=${uuid}`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
-        const data = await res.json();
+        const allLogs = await resLogs.json();
 
-        // Filtrar apenas logs do evento ativo atual
-        const filteredLogs = data.filter(log => log.EventoId === evento.id);
+        // Filtrar logs deste evento
+        const filteredLogs = allLogs.filter(log => {
+          return log && log.status_validacao === 'sucesso' && (log.Participante || log.Acompanhante);
+        });
 
-        if (filteredLogs && filteredLogs.length > 0) {
-          setLogs(filteredLogs);
+        setLogs(filteredLogs);
 
-          const latest = filteredLogs[0];
-          // Se for a primeira carga (lastLogId === 0), apenas inicializamos o ID
-          // sem disparar o modal visual/sonoro.
-          if (lastLogId === 0) {
-            setLastLogId(latest.id);
-          } else if (latest.id > lastLogId) {
-            // Se o ID for maior que o anterior, é um novo acesso em tempo real
-            setLastLogId(latest.id);
-            if (latest.status_validacao === 'sucesso' || latest.status_validacao === 'nao_encontrado') {
-              showModal(latest);
-            }
-          }
-        } else {
-          setLogs([]);
-        }
-
-        // Cálculos Estatísticos (Participantes Presentes Únicos) - usar filteredLogs
         const presentesMap = new Map();
         const firstLogMap = new Map(); // Map<ParticipanteId, FirstLog>
 
@@ -130,6 +117,20 @@ function ControleAcesso() {
           }
         });
 
+        const latest = filteredLogs[0]; // Assuming filteredLogs is already sorted by createdAt DESC
+        if (filteredLogs && filteredLogs.length > 0) {
+          // Se for a primeira carga (lastLogId === 0), apenas inicializamos o ID
+          // sem disparar o modal visual/sonoro.
+          if (lastLogId === 0) {
+            setLastLogId(latest.id);
+          } else if (latest.id > lastLogId) {
+            // Se o ID for maior que o anterior, é um novo acesso em tempo real
+            setLastLogId(latest.id);
+            if (latest.status_validacao === 'sucesso' || latest.status_validacao === 'nao_encontrado') {
+              showModal(latest);
+            }
+          }
+        }
         const participantes = Array.from(presentesMap.values());
 
         // Contar Entradas Manuais (baseado na primeira entrada)
@@ -193,7 +194,6 @@ function ControleAcesso() {
         const totalSaidas = filteredLogs.filter(l => l.status_validacao === 'sucesso' && l.tipo_acesso === 'saida').length;
 
         // Distribuição Horária (para gráfico SVG)
-        const horasMap = {};
         const agora = new Date();
         
         // Base padrão: últimas 8 horas
@@ -220,24 +220,28 @@ function ControleAcesso() {
           }
         }
 
-        for(let i=0; i<8; i++) {
-          const t = new Date(startTime + (i * 3600000));
-          const h = t.getHours();
-          const label = h.toString().padStart(2, '0') + 'h';
-          horasMap[label] = 0;
+        // Calcular distribuição horária (agrupando se a janela for > 12h)
+        const durationH = (agora.getTime() - startTime) / 3600000;
+        let stepH = 1;
+        if (durationH > 12) stepH = Math.ceil(durationH / 10);
+
+        const distArray = [];
+        const numSlots = Math.ceil(durationH / stepH);
+
+        for (let i = 0; i < numSlots; i++) {
+          const t = new Date(startTime + (i * stepH * 3600000));
+          const label = t.getHours().toString().padStart(2, '0') + 'h';
+          distArray.push({ label, count: 0 });
         }
 
-        filteredLogs.forEach(l => {
-          if (l.status_validacao === 'sucesso' && l.tipo_acesso === 'entrada') {
-            const h = new Date(l.createdAt).getHours();
-            const label = h.toString().padStart(2, '0') + 'h';
-            if (horasMap.hasOwnProperty(label)) {
-              horasMap[label]++;
-            }
+        filteredLogs.filter(l => l.tipo_acesso === 'entrada').forEach(log => {
+          const logTime = new Date(log.createdAt).getTime();
+          const slotIdx = Math.floor((logTime - startTime) / (stepH * 3600000));
+          if (slotIdx >= 0 && slotIdx < numSlots) {
+            distArray[slotIdx].count++;
           }
         });
-
-        const distribuicaoHorario = Object.entries(horasMap).map(([hora, total]) => ({ hora, total }));
+        setDistribuicaoHorario(distArray);
 
         setStats({
           faixaPredominante,
@@ -251,7 +255,7 @@ function ControleAcesso() {
           totalParticipantesUnicos: participantes.length,
           totalSaidas,
           ocupacaoAtual: (participantes.length + totalAcompanhantes) - totalSaidas,
-          distribuicaoHorario
+          distribuicaoHorario: distArray // Use the new distArray here
         });
       } catch (err) {
         console.error("Erro ao buscar logs:", err);
@@ -263,7 +267,7 @@ function ControleAcesso() {
     fetchLogs(); // Primeira chamada
 
     return () => clearInterval(interval);
-  }, [lastLogId, navigate, evento, token]);
+  }, [lastLogId, navigate, evento, token, uuid]);
 
   // Simulação Loop
   useEffect(() => {
@@ -283,7 +287,7 @@ function ControleAcesso() {
       }, 7000); // A cada 7 segundos gera um log
     }
     return () => clearInterval(simInterval);
-  }, [simulating]);
+  }, [simulating, token, uuid]);
 
   // WebSocket Biometria
   const wsRef = useRef(null);
@@ -355,7 +359,7 @@ function ControleAcesso() {
         wsRef.current.close();
       }
     };
-  }, []);
+  }, [selectedManualParticipant, manualModalOpen, uuid]);
 
   const handleBiometricAttempt = async (base64Image, width = 320, height = 480) => {
     try {
@@ -551,7 +555,6 @@ function ControleAcesso() {
   const selectResponsible = (p) => {
     setResponsavelId(p.id);
     setSelectedResponsible(p);
-    setResponsibleResults([]);
     setResponsibleSearchTerm(''); // Limpa busca
   };
 
@@ -561,11 +564,11 @@ function ControleAcesso() {
     setResponsavelId(null);
     setSelectedResponsible(null);
     setResponsibleSearchTerm('');
-    setResponsibleResults([]);
   };
 
   const submitCompanion = async () => {
-    if (!companionName || !responsavelId) return;
+    if (!companionName || !responsavelId || submittingCompanion) return;
+    setSubmittingCompanion(true);
 
     try {
       const res = await fetch(`${API_URL}/registrar-acompanhante`, {
@@ -599,7 +602,10 @@ function ControleAcesso() {
         showMessage("Erro", data.msg || data.error || "Erro ao registrar acompanhante", "error");
       }
     } catch (e) {
-      showMessage("Erro", "Erro na conexão", "error");
+      console.error("Exceção capturada no submitCompanion:", e);
+      showMessage("Erro", "Erro na conexão: " + e.message, "error");
+    } finally {
+      setSubmittingCompanion(false);
     }
   };
 
@@ -784,7 +790,7 @@ function ControleAcesso() {
 
           <div style={{ opacity: 0.15, transform: 'scale(1.5)', color: 'var(--text-primary)' }}>
             <svg width="60" height="60" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-              <path d="M17.81 4.47c-.08 0-.16-.02-.23-.06C15.66 3.42 14 3 12.01 3c-1.98 0-3.86.47-5.57 1.41-.24.13-.54.04-.68-.2-.13-.24-.04-.55.2-.68C7.82 2.52 9.86 2 12.01 2c2.13 0 3.99.47 6.03 1.52.25.13.34.43.21.67-.09.18-.26.28-.44.28zM3.5 9.72c-.1 0-.2-.03-.29-.09-.23-.16-.28-.47-.12-.7.99-1.4 2.25-2.5 3.75-3.27C9.98 4.04 14 4.03 17.15 5.65c1.5.77 2.76 1.86 3.75 3.25.16.22.11.54-.12.7-.23.16-.54.11-.7-.12-.9-1.26-2.04-2.25-3.39-2.94-2.87-1.47-6.54-1.47-9.4.01-1.36.7-2.5 1.7-3.4 2.96-.08.14-.23.21-.39.21zm6.25 12.07c-.13 0-.26-.05-.35-.15-.87-.87-1.34-1.43-2.01-2.64-.69-1.23-1.05-2.73-1.05-4.34 0-2.97 2.54-5.39 5.66-5.39s5.66 2.42 5.66 5.39c0 .28-.22.5-.5.5s-.5-.22-.5-.5c0-2.42-2.09-4.39-4.66-4.39-2.57 0-4.66 1.97-4.66 4.39 0 1.44.32 2.77.93 3.85.64 1.15 1.08 1.64 1.85 2.42.19.2.19.51 0 .71-.11.1-.24.15-.37.15zm7.17-1.85c-1.19 0-2.24-.3-3.1-.89-1.49-1.01-2.38-2.65-2.38-4.39 0-.28.22-.5.5-.5s.5.22.5.5c0 1.41.72 2.74 1.94 3.56.71.48 1.54.71 2.54.71.24 0 .64-.03 1.04-.1.27-.05.53.13.58.41.05.27-.13.53-.41.58-.57.11-1.07.12-1.21.12zM14.91 22c-.04 0-.09-.01-.13-.02-1.59-.44-2.63-1.03-3.72-2.1-1.4-1.39-2.17-3.24-2.17-5.22 0-1.62 1.38-2.94 3.08-2.94 1.7 0 3.08 1.32 3.08 2.94 0 1.07.93 1.94 2.08 1.94.28 0 .5.22.5.5s-.22.5-.5.5c-1.7 0-3.08-1.32-3.08-2.94 0-1.07-.93-1.94-2.08-1.94-1.15 0-2.08.87-2.08 1.94 0 1.71.66 3.31 1.87 4.51.95.94 1.86 1.46 3.27 1.85.27.07.42.35.35.61-.05.23-.26.38-.47.38z" />
+              <path d="M17.81 4.47c-.08 0-.16-.02-.23-.06C15.66 3.42 14 3 12.01 3c-1.98 0-3.86.47-5.57 1.41-.24.13-.54.04-.68-.2-.13-.24-.04-.55.2-.68C7.82 2.52 9.86 2 12.01 2c2.13 0 3.99.47 6.03 1.52.25.13.34.43.21.67-.09.18-.26.28-.44.28zM3.5 9.72c-.1 0-.2-.03-.29-.09-.23-.16-.28-.47-.12-.7.99-1.4 2.25-2.5 3.75-3.27C9.98 4.04 14 4.03 17.15 5.65c1.5.77 2.76 1.86 3.75 3.25.16.22.11.54-.12.7-.23.16-.54.11-.7-.12-.9-1.26-2.04-2.25-3.39-2.94-2.87-1.47-6.54-1.47-9.4.01-1.36.7-2.5 1.7-3.4 2.96-.08.14-.23.21-.39.21zm6.25 12.07c-.13 0-.26-.05-.35-.15-.87-.87-1.34-1.43-2.01-2.64-.69-1.23-1.05-2.73-1.05-4.34 0-2.97 2.54-5.39 5.66-5.39s5.66 2.42 5.66 5.39c0 .28-.22.5-.5.5s-.5-.22-.5-.5c0-2.42-2.09-4.39-4.66-4.39-2.57 0-4.66 1.97-4.66 4.39 0 1.44.32 2.77.93 3.85.64 1.15 1.08 1.64 1.85 2.42.19.2.19.51 0 .71-.11.1-.24.15-.37.15zm7.17-1.85c-1.19 0-2.24-.3-3.1-.89-1.49-1.01-2.38-2.65-2.38-4.39 0-.28.22-.5.5-.5s.5.22-.5.5c0 1.41.72 2.74 1.94 3.56.71.48 1.54.71 2.54.71.24 0 .64-.03 1.04-.1.27-.05.53.13.58.41.05.27-.13.53-.41.58-.57.11-1.07.12-1.21.12zM14.91 22c-.04 0-.09-.01-.13-.02-1.59-.44-2.63-1.03-3.72-2.1-1.4-1.39-2.17-3.24-2.17-5.22 0-1.62 1.38-2.94 3.08-2.94 1.7 0 3.08 1.32 3.08 2.94 0 1.07.93 1.94 2.08 1.94.28 0 .5.22.5.5s-.22.5-.5.5c-1.7 0-3.08-1.32-3.08-2.94 0-1.07-.93-1.94-2.08-1.94-1.15 0-2.08.87-2.08 1.94 0 1.71.66 3.31 1.87 4.51.95.94 1.86 1.46 3.27 1.85.27.07.42.35.35.61-.05.23-.26.38-.47.38z" />
             </svg>
           </div>
         </div>
@@ -1043,11 +1049,11 @@ function ControleAcesso() {
               <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Pessoas no local</div>
             </div>
 
-            {/* CARD: Fluxo Horário (SVG Area Chart) */}
-            <div className="card">
-              <h2>Fluxo de Horário</h2>
+            {/* CARD: Fluxo Horário (Bar Chart) */}
+            <div className="card" onClick={() => setFlowModalOpen(true)} style={{ cursor: 'pointer', transition: 'transform 0.2s' }} onMouseOver={e => e.currentTarget.style.transform = 'scale(1.02)'} onMouseOut={e => e.currentTarget.style.transform = 'scale(1)'}>
+              <h2>Fluxo de Horário (Clique para detalhes)</h2>
               <div style={{ height: '40px', marginTop: '0.5rem', position: 'relative' }}>
-                {stats.distribuicaoHorario && stats.distribuicaoHorario.length > 0 ? (
+                {Array.isArray(distribuicaoHorario) && distribuicaoHorario.length > 0 ? (
                   <svg width="100%" height="100%" viewBox="0 0 100 40" preserveAspectRatio="none">
                     <defs>
                       <linearGradient id="gradFluxo" x1="0%" y1="0%" x2="0%" y2="100%">
@@ -1056,10 +1062,10 @@ function ControleAcesso() {
                       </linearGradient>
                     </defs>
                     {(() => {
-                      const maxVal = Math.max(...stats.distribuicaoHorario.map(d => d.total), 5);
-                      const points = stats.distribuicaoHorario.map((d, i) => {
-                        const x = (i / (stats.distribuicaoHorario.length - 1)) * 100;
-                        const y = 40 - (d.total / maxVal) * 35; // 5px margem topo
+                      const maxVal = Math.max(...distribuicaoHorario.map(d => d.count), 5);
+                      const points = distribuicaoHorario.map((d, i) => {
+                        const x = (i / Math.max(distribuicaoHorario.length - 1, 1)) * 100;
+                        const y = 40 - (d.count / maxVal) * 35; 
                         return `${x},${y}`;
                       }).join(' ');
                       
@@ -1078,9 +1084,9 @@ function ControleAcesso() {
                 )}
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.65rem', color: '#999', marginTop: '4px' }}>
-                <span>{stats.distribuicaoHorario?.[0]?.hora || ''}</span>
-                <span>Pico: {Math.max(...(stats.distribuicaoHorario?.map(d => d.total) || [0]))}</span>
-                <span>{stats.distribuicaoHorario?.[stats.distribuicaoHorario.length - 1]?.hora || ''}</span>
+                <span>{distribuicaoHorario?.[0]?.label || ''}</span>
+                <span>Pico: {Math.max(...(distribuicaoHorario?.map(d => d.count) || [0]))}</span>
+                <span>{distribuicaoHorario?.[distribuicaoHorario.length - 1]?.label || ''}</span>
               </div>
             </div>
           </div>
@@ -1797,9 +1803,15 @@ function ControleAcesso() {
           )}
 
           <div className="modal-actions">
-            <button className="btn-secondary" onClick={resetCompanionModal}>Cancelar</button>
+            <button className="btn-secondary" onClick={resetCompanionModal} disabled={submittingCompanion}>Cancelar</button>
             {responsavelId && (
-              <button className="btn-primary" onClick={submitCompanion}>Confirmar Entrada</button>
+              <button 
+                className="btn-primary" 
+                onClick={submitCompanion} 
+                disabled={submittingCompanion}
+              >
+                {submittingCompanion ? 'Registrando...' : 'Confirmar Entrada'}
+              </button>
             )}
           </div>
         </div>
@@ -1885,6 +1897,117 @@ function ControleAcesso() {
 
           <div className="modal-actions" style={{ marginTop: '1.5rem' }}>
             <button className="btn-secondary" onClick={() => setCheckoutModalOpen(false)}>Fechar</button>
+          </div>
+        </div>
+      </div>
+
+      {/* Modal: Fluxo Detalhado */}
+      <div className={`modal-overlay ${flowModalOpen ? 'open' : ''}`} onClick={() => setFlowModalOpen(false)}>
+        <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '800px', width: '95%' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+            <h2 className="modal-header" style={{ margin: 0 }}>Fluxo Detalhado de Entradas</h2>
+            <button className="close-btn" onClick={() => setFlowModalOpen(false)} style={{ color: '#999' }}>×</button>
+          </div>
+          
+          <div style={{ backgroundColor: '#f8f9fa', padding: '1.5rem', borderRadius: '12px', border: '1px solid #eee' }}>
+            <div style={{ height: '240px', position: 'relative' }}>
+              <svg width="100%" height="100%" viewBox="0 0 1000 200" preserveAspectRatio="none" style={{ overflow: 'visible' }}>
+                {/* Linhas de Grade de Horário */}
+                {(() => {
+                  const items = [];
+                  const agora = new Date();
+                  
+                  // Arredondar para a hora cheia para as linhas ficarem alinhadas (ex: 10:00, 11:00)
+                  const agoraHoraCheia = new Date(agora);
+                  agoraHoraCheia.setMinutes(0, 0, 0);
+
+                  let startTime = agoraHoraCheia.getTime() - (7 * 3600000);
+                  if (evento && evento.hora_inicio) {
+                    const [h, m] = evento.hora_inicio.split(':').map(Number);
+                    const eStart = new Date(agora);
+                    eStart.setHours(h, m, 0, 0);
+                    
+                    const limit = eStart.getTime() - 3600000;
+                    if (agora.getTime() > limit && (agora.getTime() - limit) < (8 * 3600000)) startTime = limit;
+                    else if (agora.getTime() < limit) startTime = limit;
+                  }
+
+                  const endTime = startTime + (8 * 3600000);
+
+                  // Linhas de Grade Horizontais
+                  [50, 100, 150].forEach(y => {
+                    items.push(<line key={`h-${y}`} x1="0" y1={y} x2="1000" y2={y} stroke="#f0f0f0" strokeWidth="1" />);
+                  });
+
+                  // Linhas de Grade Verticais (inteligente)
+                  const totalDurationH = (endTime - startTime) / 3600000;
+                  let gridStepH = 1;
+                  if (totalDurationH > 14) gridStepH = Math.ceil(totalDurationH / 12);
+
+                  const numGridLines = Math.floor(totalDurationH / gridStepH);
+                  for (let i = 0; i <= numGridLines; i++) {
+                    const t = new Date(startTime + (i * gridStepH * 3600000));
+                    // Posição X proporcional ao tempo total
+                    const x = ((t.getTime() - startTime) / (endTime - startTime)) * 1000;
+                    
+                    if (x >= 0 && x <= 1000) {
+                      items.push(
+                        <g key={`v-${i}`}>
+                          <line x1={x} y1="0" x2={x} y2="200" stroke="#eee" strokeWidth="1" strokeDasharray="4" />
+                          <text x={x} y="220" fontSize="12" fill="#999" textAnchor="middle">{t.getHours()}h</text>
+                        </g>
+                      );
+                    }
+                  }
+
+                  // Pontos das Entradas e Saídas
+                  logs.filter(l => l.status_validacao === 'sucesso').forEach((log, idx) => {
+                    const logTime = new Date(log.createdAt).getTime();
+                    if (logTime >= startTime && logTime <= endTime) {
+                      const x = ((logTime - startTime) / (endTime - startTime)) * 1000;
+                      // Jitter vertical para dar efeito de densidade/agrupamento
+                      const seed = typeof log.id === 'number' ? log.id : (idx + 500);
+                      const jitter = (Math.sin(seed * 123.45) * 60) + 100; 
+                      const isSaida = log.tipo_acesso === 'saida';
+                      
+                      items.push(
+                        <circle 
+                          key={`dot-${log.id}`} 
+                          cx={x} 
+                          cy={jitter} 
+                          r="4" 
+                          fill={isSaida ? '#339af0' : 'var(--accent-color)'} 
+                          fillOpacity="0.5"
+                        >
+                          <title>{log.Participante?.nome || 'Acompanhante'} - {isSaida ? 'SAÍDA' : 'ENTRADA'} - {new Date(log.createdAt).toLocaleTimeString()}</title>
+                        </circle>
+                      );
+                    }
+                  });
+
+                  return items;
+                })()}
+              </svg>
+            </div>
+          </div>
+          
+          <div style={{ marginTop: '3.5rem', fontSize: '0.9rem', color: '#666', textAlign: 'center' }}>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '2rem', marginBottom: '1rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: 'var(--accent-color)' }}></div>
+                <span>Entradas</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: '#339af0' }}></div>
+                <span>Saídas</span>
+              </div>
+            </div>
+            <p>Cada ponto representa um movimento de acesso. <br/> 
+            Zonas com <strong>maior concentração de pontos</strong> indicam horários de pico.</p>
+          </div>
+
+          <div className="modal-actions" style={{ marginTop: '1.5rem' }}>
+            <button className="btn-secondary" onClick={() => setFlowModalOpen(false)}>Fechar</button>
           </div>
         </div>
       </div>

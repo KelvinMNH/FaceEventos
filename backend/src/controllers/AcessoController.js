@@ -413,18 +413,27 @@ class AcessoController {
 
     async getLogs(req, res) {
         try {
+            const { eventoUuid } = req.query;
+            const whereClause = {};
+            const eventInclude = { model: Evento, attributes: ['nome', 'uuid'] };
+
+            if (eventoUuid) {
+                eventInclude.where = { uuid: eventoUuid };
+            }
+
             const logs = await RegistroAcesso.findAll({
+                where: whereClause,
                 order: [['createdAt', 'DESC']],
-                limit: 1000,
+                limit: eventoUuid ? 50000 : 1000, // Limite de 50k para eventos (seguro para browsers e servidores)
                 include: [
                     { model: Participante, attributes: ['id', 'nome', 'cpf', 'crm', 'genero', 'data_nascimento'] },
                     { model: Acompanhante, attributes: ['id', 'nome', 'ParticipanteId'] },
-
-                    { model: Evento, attributes: ['nome', 'uuid'] }
+                    eventInclude
                 ]
             });
             res.json(logs);
         } catch (error) {
+            console.error("Erro ao buscar logs:", error);
             res.status(500).json({ error: error.message });
         }
     }
