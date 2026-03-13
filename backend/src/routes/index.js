@@ -20,6 +20,7 @@ router.post('/eventos/:uuid/ativar', AuthController.verifyToken, EventoControlle
 router.post('/eventos/:uuid/finalizar', AuthController.verifyToken, AuthController.requireAdmin, EventoController.finalizar); 
 router.get('/evento-ativo', AuthController.verifyToken, EventoController.getAtivo);
 router.get('/eventos/:uuid', AuthController.verifyToken, EventoController.buscarPorUuid);
+router.put('/eventos/:uuid', AuthController.verifyToken, AuthController.requireAdmin, EventoController.atualizar);
 router.delete('/eventos/:uuid', AuthController.verifyToken, AuthController.requireAdmin, EventoController.excluir);
 
 // Rotas de Acesso

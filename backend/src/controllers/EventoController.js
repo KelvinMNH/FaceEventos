@@ -121,6 +121,46 @@ class EventoController {
         }
     }
 
+    async atualizar(req, res) {
+        try {
+            const { uuid } = req.params;
+            const { nome, data, hora, local, imagem, permitir_acompanhantes, max_acompanhantes, habilitar_checkout, status } = req.body;
+            
+            const evento = await Evento.findOne({ where: { uuid } });
+            if (!evento) return res.status(404).json({ error: "Evento não encontrado" });
+
+            await evento.update({
+                nome: nome !== undefined ? nome : evento.nome,
+                data_inicio: data !== undefined ? data : evento.data_inicio,
+                hora_inicio: hora !== undefined ? hora : evento.hora_inicio,
+                local: local !== undefined ? local : evento.local,
+                imagem: imagem !== undefined ? imagem : evento.imagem,
+                permitir_acompanhantes: permitir_acompanhantes !== undefined ? permitir_acompanhantes : evento.permitir_acompanhantes,
+                max_acompanhantes: max_acompanhantes !== undefined ? max_acompanhantes : evento.max_acompanhantes,
+                habilitar_checkout: habilitar_checkout !== undefined ? habilitar_checkout : evento.habilitar_checkout,
+                status: status !== undefined ? status : evento.status
+            });
+
+            // Registrar Log
+            try {
+                if (req.user && req.user.id) {
+                    await LogAuditoria.create({
+                        acao: 'ATUALIZACAO_EVENTO',
+                        usuario_id: req.user.id,
+                        detalhes: `Evento "${evento.nome}" (UUID: ${uuid}) atualizado.`
+                    });
+                }
+            } catch (logError) {
+                console.error('Erro ao registrar log de auditoria na atualização de evento:', logError);
+            }
+
+            res.json({ success: true, evento });
+        } catch (error) {
+            console.error('Erro ao atualizar evento:', error);
+            res.status(500).json({ error: "Erro ao atualizar evento", details: error.message });
+        }
+    }
+
     async buscarPorUuid(req, res) {
         try {
             const { uuid } = req.params;

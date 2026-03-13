@@ -23,7 +23,7 @@ async function createJimpFromRaw(base64, width, height) {
 class AcessoController {
     async scan(req, res) {
         const { device_id, template, width, height, force_match_id, check_only, eventoId } = req.body;
-        console.log(`[Scan] Recebido: ${width}x${height} - Force: ${force_match_id} - Evento: ${eventoId}`);
+        // console.log(`[Scan] Recebido: ${width}x${height} - Force: ${force_match_id} - Evento: ${eventoId}`);
 
         try {
             const evento = eventoId 
@@ -59,7 +59,7 @@ class AcessoController {
                 let bestMatch = null;
                 let lowestDistance = 1.0; // 1.0 = 100% diferente
 
-                console.log(`[Scan] Comparando com ${candidates.length} candidatos...`);
+                // console.log(`[Scan] Comparando com ${candidates.length} candidatos...`);
 
                 for (const cand of candidates) {
                     try {
@@ -380,6 +380,29 @@ class AcessoController {
                 EventoId: evento.id,
                 ParticipanteId: participanteId
             });
+
+            // --- CHECKOUT EM CASCATA PARA ACOMPANHANTES ---
+            const acompanhantes = await Acompanhante.findAll({
+                where: { ParticipanteId: participanteId }
+            });
+
+            for (const ac of acompanhantes) {
+                // Verificar se o último log deste acompanhante foi entrada
+                const ultimoLogAc = await RegistroAcesso.findOne({
+                    where: { EventoId: evento.id, AcompanhanteId: ac.id },
+                    order: [['createdAt', 'DESC']]
+                });
+
+                if (ultimoLogAc && ultimoLogAc.tipo_acesso === 'entrada') {
+                    await RegistroAcesso.create({
+                        tipo_acesso: 'saida',
+                        status_validacao: 'sucesso',
+                        device_id: 'auto_cascade_checkout',
+                        EventoId: evento.id,
+                        AcompanhanteId: ac.id
+                    });
+                }
+            }
 
             res.json({ success: true, participante });
         } catch (e) {

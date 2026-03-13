@@ -42,7 +42,6 @@ function ControleAcesso() {
   const [companionName, setCompanionName] = useState('');
   const [responsavelId, setResponsavelId] = useState(null);
   const [responsibleSearchTerm, setResponsibleSearchTerm] = useState('');
-  const [responsibleResults, setResponsibleResults] = useState([]);
   const [selectedResponsible, setSelectedResponsible] = useState(null); // Para mostrar o nome na tela
 
   // Modal Finish State
@@ -52,6 +51,11 @@ function ControleAcesso() {
   const [bridgeStatus, setBridgeStatus] = useState('disconnected'); // 'connected', 'disconnected' (connection to WS)
   const [scannerStatus, setScannerStatus] = useState('unknown'); // 'connected', 'disconnected' (device status)
   const [biometricQualityMsg, setBiometricQualityMsg] = useState(''); // Mensagem de feedback de qualidade
+
+  // Checkout States
+  const [checkoutModalOpen, setCheckoutModalOpen] = useState(false);
+  const [checkoutSearchTerm, setCheckoutSearchTerm] = useState('');
+  const [isProcessingCheckout, setIsProcessingCheckout] = useState(false);
 
   const showMessage = (title, message, type = 'info', onOk = null) => {
     setMessageModal({ open: true, title, message, type, onOk });
@@ -185,6 +189,56 @@ function ControleAcesso() {
         }
         if (participantes.length === 0) faixaPredominante = '-';
 
+        // Contagem de Saídas (Check-out)
+        const totalSaidas = filteredLogs.filter(l => l.status_validacao === 'sucesso' && l.tipo_acesso === 'saida').length;
+
+        // Distribuição Horária (para gráfico SVG)
+        const horasMap = {};
+        const agora = new Date();
+        
+        // Base padrão: últimas 8 horas
+        let startTime = agora.getTime() - (7 * 3600000);
+
+        if (evento && evento.hora_inicio) {
+          try {
+            const [h, m] = evento.hora_inicio.split(':').map(Number);
+            const eventStartBase = new Date(agora);
+            eventStartBase.setHours(h, m, 0, 0);
+            
+            const graphStartLimit = eventStartBase.getTime() - 3600000; // 1h antes
+            
+            // Se o 'agora' ainda não passou de 8h do início do gráfico, fixamos o início.
+            // Se já passou de 8h, deixamos o sliding window (startTime padrão) agir.
+            if (agora.getTime() > graphStartLimit && (agora.getTime() - graphStartLimit) < (8 * 3600000)) {
+              startTime = graphStartLimit;
+            } else if (agora.getTime() < graphStartLimit) {
+                // Caso o evento ainda não tenha começado, já mostramos a janela a partir de -1h
+                startTime = graphStartLimit;
+            }
+          } catch(e) { 
+            console.error("Erro calcular hora inicio", e); 
+          }
+        }
+
+        for(let i=0; i<8; i++) {
+          const t = new Date(startTime + (i * 3600000));
+          const h = t.getHours();
+          const label = h.toString().padStart(2, '0') + 'h';
+          horasMap[label] = 0;
+        }
+
+        filteredLogs.forEach(l => {
+          if (l.status_validacao === 'sucesso' && l.tipo_acesso === 'entrada') {
+            const h = new Date(l.createdAt).getHours();
+            const label = h.toString().padStart(2, '0') + 'h';
+            if (horasMap.hasOwnProperty(label)) {
+              horasMap[label]++;
+            }
+          }
+        });
+
+        const distribuicaoHorario = Object.entries(horasMap).map(([hora, total]) => ({ hora, total }));
+
         setStats({
           faixaPredominante,
           generoPredominante,
@@ -194,7 +248,10 @@ function ControleAcesso() {
           mediaIdade: idades.length ? Math.round(idades.reduce((a, b) => a + b, 0) / idades.length) : 0,
           manualCount,
           totalAcompanhantes,
-          totalParticipantesUnicos: participantes.length
+          totalParticipantesUnicos: participantes.length,
+          totalSaidas,
+          ocupacaoAtual: (participantes.length + totalAcompanhantes) - totalSaidas,
+          distribuicaoHorario
         });
       } catch (err) {
         console.error("Erro ao buscar logs:", err);
@@ -490,22 +547,6 @@ function ControleAcesso() {
 
 
 
-  const handleSearchResponsible = async (term) => {
-    setResponsibleSearchTerm(term);
-    if (term.length < 3) {
-      setResponsibleResults([]);
-      return;
-    }
-    try {
-      const res = await fetch(`${API_URL}/participantes/busca?q=${term}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const data = await res.json();
-      setResponsibleResults(data || []);
-    } catch (e) {
-      console.error(e);
-    }
-  };
 
   const selectResponsible = (p) => {
     setResponsavelId(p.id);
@@ -542,15 +583,20 @@ function ControleAcesso() {
       const data = await res.json();
 
       if (data.success) {
-        resetCompanionModal();
-        showMessage("Sucesso", "Acompanhante registrado com sucesso!", "success");
-        showModal({
+        // Capturar nomes antes de resetar o estado
+        const cProps = {
           status_validacao: 'sucesso',
           Acompanhante: { nome: companionName },
-          Responsavel: selectedResponsible
-        });
+          Responsavel: selectedResponsible,
+          tipo_acesso: 'entrada'
+        };
+
+        resetCompanionModal();
+        showMessage("Sucesso", "Acompanhante registrado com sucesso!", "success");
+        showModal(cProps);
       } else {
-        showMessage("Erro", data.msg || "Erro ao registrar acompanhante", "error");
+        console.error("Erro retornado pelo backend:", data);
+        showMessage("Erro", data.msg || data.error || "Erro ao registrar acompanhante", "error");
       }
     } catch (e) {
       showMessage("Erro", "Erro na conexão", "error");
@@ -598,6 +644,66 @@ function ControleAcesso() {
       setModalData(null);
       modalTimeoutRef.current = null;
     }, 6000);
+  };
+
+  const handleConfirmCheckout = async (participanteId) => {
+    if (!participanteId || !evento) return;
+    setIsProcessingCheckout(true);
+
+    try {
+      const res = await fetch(`${API_URL}/registrar-saida`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          participanteId,
+          eventoId: uuid
+        })
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        setCheckoutModalOpen(false);
+        setCheckoutSearchTerm('');
+        
+        // Mostrar feedback visual no painel
+        const fakeLog = {
+          status_validacao: 'sucesso',
+          tipo_acesso: 'saida', // Marker para o render
+          Participante: data.participante
+        };
+        showModal(fakeLog);
+      } else {
+        showMessage("Erro", data.msg || "Erro ao registrar saída", "error");
+      }
+    } catch (e) {
+      console.error(e);
+      showMessage("Erro", "Erro de comunicação com o servidor", "error");
+    } finally {
+      setIsProcessingCheckout(false);
+    }
+  };
+
+  // Helper para identificar quem está "Dentro"
+  const getParticipantsInside = () => {
+    // logs já vêm ordenados por createdAt DESC (mais recentes primeiro)
+    const statusMap = new Map();
+    
+    logs.forEach(log => {
+      // Registramos apenas o primeiro encontro de cada participante (que é o mais recente)
+      if (log.status_validacao === 'sucesso' && log.ParticipanteId && !statusMap.has(log.ParticipanteId)) {
+        statusMap.set(log.ParticipanteId, {
+          tipo: log.tipo_acesso,
+          participante: log.Participante
+        });
+      }
+    });
+
+    return Array.from(statusMap.values())
+      .filter(item => item.tipo === 'entrada')
+      .map(item => item.participante);
   };
 
   // Helper para formatar nome: "Kelvin Higino da Silva" -> "Kelvin H. d. S."
@@ -704,7 +810,7 @@ function ControleAcesso() {
         {isSuccess ? (
           <>
             <h2 className="access-title" style={{ 
-              color: 'var(--success-color)', 
+              color: modalData.tipo_acesso === 'saida' ? 'var(--accent-color)' : 'var(--success-color)', 
               fontSize: '1.3rem', 
               marginBottom: '0.5rem', 
               lineHeight: '1.3', 
@@ -719,15 +825,16 @@ function ControleAcesso() {
                 whiteSpace: 'nowrap',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis'
-              }} title={`Bem-vindo(a), ${participante.nome}!`}>
-                Bem-vindo(a), {participante.nome}!
+              }} title={modalData.tipo_acesso === 'saida' ? `Até logo, ${participante.nome}!` : `Bem-vindo(a), ${participante.nome}!`}>
+                {modalData.tipo_acesso === 'saida' ? `Até logo, ${participante.nome}!` : `Bem-vindo(a), ${participante.nome}!`}
               </span>
               <span style={{ fontSize: '0.7rem', opacity: 0.5, fontWeight: 'normal', backgroundColor: 'rgba(0,0,0,0.05)', padding: '2px 6px', borderRadius: '3px' }}>
                 {participante.genero === 'M' ? 'H' : participante.genero === 'F' ? 'M' : ''}
               </span>
             </h2>
-            <p style={{ fontSize: '1.1rem', marginBottom: '1.5rem', color: 'var(--success-color)', fontWeight: 'bold' }}>
-              Entrada registrada às {new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+            <p style={{ fontSize: '1.1rem', marginBottom: '1.5rem', color: modalData.tipo_acesso === 'saida' ? 'var(--accent-color)' : 'var(--success-color)', fontWeight: 'bold' }}>
+              {modalData.tipo_acesso === 'saida' ? 'Saída registrada às ' : 'Entrada registrada às '}
+              {new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
             </p>
 
             <div className="info-grid" style={{ gap: '0.6rem', width: '100%' }}>
@@ -745,7 +852,7 @@ function ControleAcesso() {
             <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '4px', backgroundColor: 'rgba(0,0,0,0.1)', overflow: 'hidden' }}>
               <div style={{
                 height: '100%',
-                backgroundColor: 'var(--success-color)',
+                backgroundColor: modalData.tipo_acesso === 'saida' ? 'var(--accent-color)' : 'var(--success-color)',
                 animation: 'progressBar 6s linear forwards',
                 width: '100%'
               }}></div>
@@ -879,13 +986,19 @@ function ControleAcesso() {
             </div>
             <div className="card">
               <h2>Participantes Presentes</h2>
-              <div className="stat-value">{stats.totalParticipantesUnicos || 0}</div>
-
-
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.8rem' }}>
+                <div className="stat-value">{stats.totalParticipantesUnicos || 0}</div>
+                {stats.totalAcompanhantes > 0 && (
+                  <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', fontWeight: 'bold' }}>
+                    + {stats.totalAcompanhantes} <span style={{ fontSize: '0.75rem', fontWeight: 'normal' }}>Acompanhantes</span>
+                  </div>
+                )}
+              </div>
             </div>
-            <div className="card" style={{ opacity: (evento && !evento.permitir_acompanhantes) ? 0.5 : 1 }}>
-              <h2>Acompanhantes Presentes</h2>
-              <div className="stat-value">{logs.filter(l => l.status_validacao === 'sucesso' && l.AcompanhanteId).length}</div>
+            <div className="card">
+              <h2>Total de Saídas</h2>
+              <div className="stat-value" style={{ color: '#888' }}>{stats.totalSaidas || 0}</div>
+              <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Check-outs realizados</div>
             </div>
             <div className="card">
               <h2>Faixa Etária Principal</h2>
@@ -917,31 +1030,96 @@ function ControleAcesso() {
               </div>
               <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Sem biometria</div>
             </div>
+
+            {/* CARD: Ocupação Atual */}
+            <div className="card" style={{ borderColor: stats.ocupacaoAtual > (evento?.capacidade * 0.9) ? 'var(--alert-color)' : 'var(--border-color)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
+                <h2>Ocupação Atual</h2>
+                {stats.totalSaidas > 0 && <span style={{ fontSize: '0.65rem', color: '#888', background: '#eee', padding: '2px 5px', borderRadius: '4px' }}>{stats.totalSaidas} Saídas</span>}
+              </div>
+              <div className="stat-value" style={{ color: stats.ocupacaoAtual > 0 ? 'var(--accent-color)' : 'inherit' }}>
+                {stats.ocupacaoAtual || 0}
+              </div>
+              <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Pessoas no local</div>
+            </div>
+
+            {/* CARD: Fluxo Horário (SVG Area Chart) */}
+            <div className="card">
+              <h2>Fluxo de Horário</h2>
+              <div style={{ height: '40px', marginTop: '0.5rem', position: 'relative' }}>
+                {stats.distribuicaoHorario && stats.distribuicaoHorario.length > 0 ? (
+                  <svg width="100%" height="100%" viewBox="0 0 100 40" preserveAspectRatio="none">
+                    <defs>
+                      <linearGradient id="gradFluxo" x1="0%" y1="0%" x2="0%" y2="100%">
+                        <stop offset="0%" style={{ stopColor: 'var(--accent-color)', stopOpacity: 0.3 }} />
+                        <stop offset="100%" style={{ stopColor: 'var(--accent-color)', stopOpacity: 0 }} />
+                      </linearGradient>
+                    </defs>
+                    {(() => {
+                      const maxVal = Math.max(...stats.distribuicaoHorario.map(d => d.total), 5);
+                      const points = stats.distribuicaoHorario.map((d, i) => {
+                        const x = (i / (stats.distribuicaoHorario.length - 1)) * 100;
+                        const y = 40 - (d.total / maxVal) * 35; // 5px margem topo
+                        return `${x},${y}`;
+                      }).join(' ');
+                      
+                      const areaPoints = `0,40 ${points} 100,40`;
+                      
+                      return (
+                        <>
+                          <polyline points={points} fill="none" stroke="var(--accent-color)" strokeWidth="2" strokeLinejoin="round" />
+                          <polygon points={areaPoints} fill="url(#gradFluxo)" />
+                        </>
+                      );
+                    })()}
+                  </svg>
+                ) : (
+                  <div style={{ fontSize: '0.7rem', color: '#999', textAlign: 'center', paddingTop: '10px' }}>Iniciando fluxo...</div>
+                )}
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.65rem', color: '#999', marginTop: '4px' }}>
+                <span>{stats.distribuicaoHorario?.[0]?.hora || ''}</span>
+                <span>Pico: {Math.max(...(stats.distribuicaoHorario?.map(d => d.total) || [0]))}</span>
+                <span>{stats.distribuicaoHorario?.[stats.distribuicaoHorario.length - 1]?.hora || ''}</span>
+              </div>
+            </div>
           </div>
 
           <div style={{
             display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
+            flexDirection: 'column',
+            gap: '1rem',
             marginBottom: '0',
             borderBottom: '1px solid #eee',
-            paddingBottom: '0.8rem'
+            paddingBottom: '1rem'
           }}>
-            <h3 style={{ margin: '0', fontSize: '1.1rem', color: 'var(--text-secondary)' }}>Lista de Entrada</h3>
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
+
+            <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.1rem', color: 'var(--text-secondary)' }}>Painel de Controle</h3>
+            <div style={{ 
+              display: 'grid', 
+              gridTemplateColumns: 'repeat(3, 1fr)', 
+              gap: '1rem',
+              alignItems: 'stretch'
+            }}>
+              {/* Linha 1: Totens */}
               <button
                 onClick={() => window.open(`/totem/${evento?.uuid}`, '_blank')}
                 style={{
                   backgroundColor: '#b1d249',
                   border: 'none',
                   color: 'white',
-                  padding: '0.6rem 1.2rem',
+                  padding: '1rem',
                   borderRadius: '6px',
                   cursor: 'pointer',
                   fontWeight: 'bold',
                   fontSize: '0.9rem',
                   transition: 'all 0.2s ease',
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.5rem',
+                  gridColumn: '1'
                 }}
                 onMouseOver={(e) => {
                   e.currentTarget.style.backgroundColor = '#9ebc41';
@@ -954,20 +1132,26 @@ function ControleAcesso() {
               >
                 Totem de Check-in
               </button>
-              {evento && evento.habilitar_checkout && (
+
+              {evento && evento.habilitar_checkout ? (
                 <button
                   onClick={() => window.open(`/totem-checkout/${evento?.uuid}`, '_blank')}
                   style={{
                     backgroundColor: '#0d6efd',
                     border: 'none',
                     color: 'white',
-                    padding: '0.6rem 1.2rem',
+                    padding: '1rem',
                     borderRadius: '6px',
                     cursor: 'pointer',
                     fontWeight: 'bold',
                     fontSize: '0.9rem',
                     transition: 'all 0.2s ease',
-                    boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.5rem',
+                    gridColumn: '2'
                   }}
                   onMouseOver={(e) => {
                     e.currentTarget.style.backgroundColor = '#0b5ed7';
@@ -980,24 +1164,33 @@ function ControleAcesso() {
                 >
                   Totem de Check-out
                 </button>
+              ) : (
+                <div style={{ gridColumn: '2' }}></div> // Spacer se checkout desligado
               )}
-              <div style={{ width: '1px', backgroundColor: '#ddd', margin: '0 0.5rem' }}></div>
+
+              {/* Spacer para manter a grade 3x2 alinhada (Coluna 3 da linha 1) */}
+              <div style={{ gridColumn: '3' }}></div>
+
+              {/* Linha 2: Ações Manuais */}
               <button
                 onClick={handleManualEntryClick}
                 style={{
                   backgroundColor: 'var(--accent-color)',
                   border: 'none',
                   color: 'white',
-                  padding: '0.6rem 1.2rem',
+                  padding: '1rem',
                   borderRadius: '6px',
                   cursor: 'pointer',
                   fontWeight: 'bold',
                   fontSize: '0.9rem',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '0.3rem',
+                  justifyContent: 'center',
+                  gap: '0.5rem',
                   transition: 'all 0.2s ease',
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                  gridRow: '2',
+                  gridColumn: '1'
                 }}
                 onMouseOver={(e) => {
                   e.currentTarget.style.backgroundColor = '#007a4a';
@@ -1012,6 +1205,45 @@ function ControleAcesso() {
               >
                 <span>+</span> Registrar Participante
               </button>
+
+              {evento && evento.habilitar_checkout ? (
+                <button
+                  onClick={() => setCheckoutModalOpen(true)}
+                  style={{
+                    backgroundColor: '#0d6efd',
+                    border: 'none',
+                    color: 'white',
+                    padding: '1rem',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontWeight: 'bold',
+                    fontSize: '0.9rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.5rem',
+                    transition: 'all 0.2s ease',
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                    gridRow: '2',
+                    gridColumn: '2'
+                  }}
+                  onMouseOver={(e) => {
+                    e.currentTarget.style.backgroundColor = '#0b5ed7';
+                    e.currentTarget.style.transform = 'translateY(-1px)';
+                    e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,0,0,0.15)';
+                  }}
+                  onMouseOut={(e) => {
+                    e.currentTarget.style.backgroundColor = '#0d6efd';
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+                  }}
+                >
+                  <span>-</span> Registrar Saída
+                </button>
+              ) : (
+                 <div style={{ gridRow: '2', gridColumn: '2' }}></div> // Spacer se checkout desligado
+              )}
+
               <button
                 onClick={() => {
                   if (evento && evento.permitir_acompanhantes) {
@@ -1027,17 +1259,20 @@ function ControleAcesso() {
                   backgroundColor: 'var(--accent-color)',
                   border: 'none',
                   color: 'white',
-                  padding: '0.6rem 1.2rem',
+                  padding: '1rem',
                   borderRadius: '6px',
                   cursor: (evento && !evento.permitir_acompanhantes) ? 'not-allowed' : 'pointer',
                   fontWeight: 'bold',
                   fontSize: '0.9rem',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '0.3rem',
+                  justifyContent: 'center',
+                  gap: '0.5rem',
                   opacity: (evento && !evento.permitir_acompanhantes) ? 0.5 : 1,
                   transition: 'all 0.2s ease',
-                  boxShadow: (evento && !evento.permitir_acompanhantes) ? 'none' : '0 2px 4px rgba(0,0,0,0.1)'
+                  boxShadow: (evento && !evento.permitir_acompanhantes) ? 'none' : '0 2px 4px rgba(0,0,0,0.1)',
+                  gridRow: '2',
+                  gridColumn: '3'
                 }}
                 onMouseOver={(e) => {
                   if (evento && evento.permitir_acompanhantes) {
@@ -1058,22 +1293,26 @@ function ControleAcesso() {
               </button>
             </div>
           </div>
-          <div className="table-filter" style={{ marginBottom: '0' }}>
-            <input
-              type="text"
-              placeholder="Localizar por Nome, CPF ou CRM..."
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '0.6rem',
-                borderRadius: '6px 6px 0 0',
-                border: '1px solid var(--border-color)',
-                borderBottom: 'none',
-                fontSize: '0.9rem',
-                boxSizing: 'border-box'
-              }}
-            />
+          {/* Container sem gap para colar o título na tabela */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
+            <h3 style={{ margin: '0', fontSize: '1.1rem', color: 'var(--text-secondary)' }}>Lista de Entrada</h3>
+            <div className="table-filter" style={{ marginBottom: '0' }}>
+              <input
+                type="text"
+                placeholder="Localizar por Nome, CPF ou CRM..."
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '0.6rem',
+                  borderRadius: '6px 6px 0 0',
+                  border: '1px solid var(--border-color)',
+                  borderBottom: 'none',
+                  fontSize: '0.9rem',
+                  boxSizing: 'border-box'
+                }}
+              />
+            </div>
           </div>
 
           <div className="table-container" style={{ borderRadius: '0 0 8px 8px', borderTop: 'none', maxHeight: '400px', overflowY: 'auto' }}>
@@ -1175,14 +1414,18 @@ function ControleAcesso() {
                     }
 
                     return (
-                      <tr key={log.id}>
+                      <tr key={log.id} style={{ 
+                        opacity: log.tipo_acesso === 'saida' ? 0.6 : 1,
+                        backgroundColor: log.tipo_acesso === 'saida' ? '#f8f9fa' : 'transparent'
+                      }}>
                         <td>{new Date(log.createdAt).toLocaleTimeString()}</td>
                         <td>
                           <div style={{
                             maxWidth: '300px',
                             whiteSpace: 'nowrap',
                             overflow: 'hidden',
-                            textOverflow: 'ellipsis'
+                            textOverflow: 'ellipsis',
+                            textDecoration: log.tipo_acesso === 'saida' ? 'line-through' : 'none'
                           }} title={pessoa.nome}>
                             {pessoa.nome}
                           </div>
@@ -1190,23 +1433,23 @@ function ControleAcesso() {
                         <td>
                           <span style={{
                             fontSize: '0.7rem',
-                            backgroundColor: badgeBg,
-                            color: badgeColor,
+                            backgroundColor: log.tipo_acesso === 'saida' ? '#eee' : badgeBg,
+                            color: log.tipo_acesso === 'saida' ? '#888' : badgeColor,
                             padding: '2px 6px',
                             borderRadius: '4px',
-                            border: `1px solid ${badgeBg}`,
+                            border: `1px solid ${log.tipo_acesso === 'saida' ? '#ddd' : badgeBg}`,
                             fontWeight: '600',
                             whiteSpace: 'nowrap'
                           }}>
-                            {badgeText}
+                            {log.tipo_acesso === 'saida' ? 'Checkout' : badgeText}
                           </span>
                         </td>
                         <td style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
                           {log.Participante?.crm || (isAcompanhante ? '-' : '-')}
                         </td>
                         <td>
-                          <span className={`badge badge-success`}>
-                            SUCESSO
+                          <span className={`badge ${log.tipo_acesso === 'saida' ? 'badge-neutral' : 'badge-success'}`}>
+                            {log.tipo_acesso === 'saida' ? 'SAÍDA' : 'SUCESSO'}
                           </span>
                         </td>
                       </tr>
@@ -1454,26 +1697,41 @@ function ControleAcesso() {
 
           {!responsavelId ? (
             <div style={{ marginBottom: '1.5rem' }}>
-              <p style={{ textAlign: 'center', marginBottom: '1rem', color: '#666' }}>Primeiro, localize o responsável:</p>
+              <p style={{ textAlign: 'center', marginBottom: '1rem', color: '#666' }}>Selecione o responsável presente:</p>
               <input
                 type="text"
                 className="modal-input"
                 autoFocus
-                placeholder="Buscar Responsável (Nome ou CPF/CRM)"
+                placeholder="Buscar por nome ou CPF..."
                 value={responsibleSearchTerm}
-                onChange={e => handleSearchResponsible(e.target.value)}
-                style={{ marginBottom: '0.5rem' }}
+                onChange={e => setResponsibleSearchTerm(e.target.value)}
+                style={{ marginBottom: '1rem' }}
               />
-              {responsibleResults.length > 0 && (
-                <div style={{
-                  border: '1px solid var(--border-color)',
-                  borderRadius: '8px',
-                  maxHeight: '200px',
-                  overflowY: 'auto',
-                  background: '#fff',
-                  marginTop: '0.5rem'
-                }}>
-                  {responsibleResults.map(r => (
+              
+              <div style={{
+                border: '1px solid var(--border-color)',
+                borderRadius: '8px',
+                maxHeight: '300px',
+                overflowY: 'auto',
+                background: '#fff'
+              }}>
+                {(() => {
+                  const present = getParticipantsInside();
+                  const filtered = present.filter(p => {
+                    if (!responsibleSearchTerm) return true;
+                    const term = responsibleSearchTerm.toLowerCase();
+                    return p.nome.toLowerCase().includes(term) || (p.cpf && p.cpf.includes(term));
+                  });
+
+                  if (filtered.length === 0) {
+                    return (
+                      <div style={{ padding: '2rem', textAlign: 'center', color: '#888' }}>
+                        {present.length === 0 ? "Ninguém está com entrada ativa no momento." : "Nenhum resultado para esta busca."}
+                      </div>
+                    );
+                  }
+
+                  return filtered.map(r => (
                     <div
                       key={r.id}
                       onClick={() => selectResponsible(r)}
@@ -1482,26 +1740,26 @@ function ControleAcesso() {
                         borderBottom: '1px solid #eee',
                         cursor: 'pointer',
                         display: 'flex',
-                        justifyContent: 'space-between'
+                        justifyContent: 'space-between',
+                        transition: 'background 0.2s'
                       }}
                       onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f6f8fa'}
                       onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
                     >
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                        <span style={{ fontWeight: 600 }}>{r.nome}</span>
+                        <span style={{ fontWeight: 600, color: '#333' }}>{r.nome}</span>
                         <div style={{ color: '#666', fontSize: '0.8rem', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                           <span>CPF: {maskCPF(r.cpf)}</span>
                           {r.crm && <span>| CRM: {r.crm}</span>}
                         </div>
-                        {r.especialidade && <span style={{ color: '#0d6efd', fontSize: '0.75rem', fontStyle: 'italic' }}>{r.especialidade}</span>}
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center' }}>
                         <span style={{ fontSize: '1.2rem' }}>➡️</span>
                       </div>
                     </div>
-                  ))}
-                </div>
-              )}
+                  ));
+                })()}
+              </div>
             </div>
           ) : (
             <div style={{ marginBottom: '1.5rem', textAlign: 'center' }}>
@@ -1546,6 +1804,90 @@ function ControleAcesso() {
           </div>
         </div>
       </div >
+
+      {/* Modal Registrar Saída (Checkout) */}
+      <div className={`modal-overlay ${checkoutModalOpen ? 'open' : ''}`} onClick={() => setCheckoutModalOpen(false)}>
+        <div className="modal-content" onClick={e => e.stopPropagation()} style={{ width: '600px', maxWidth: '95%' }}>
+          <h2 className="modal-header" style={{ color: '#0d6efd' }}>Registrar Saída (Checkout)</h2>
+          
+          <div style={{ marginBottom: '1rem' }}>
+            <input
+              type="text"
+              className="modal-input"
+              placeholder="Buscar pessoa presente por nome ou CPF..."
+              value={checkoutSearchTerm}
+              onChange={e => setCheckoutSearchTerm(e.target.value)}
+              autoFocus
+            />
+          </div>
+
+          <div style={{ 
+            maxHeight: '400px', 
+            overflowY: 'auto', 
+            border: '1px solid #eee', 
+            borderRadius: '8px' 
+          }}>
+            {(() => {
+              const present = getParticipantsInside();
+              const filtered = present.filter(p => {
+                if (!checkoutSearchTerm) return true;
+                const term = checkoutSearchTerm.toLowerCase();
+                return p.nome.toLowerCase().includes(term) || (p.cpf && p.cpf.includes(term));
+              });
+
+              if (filtered.length === 0) {
+                return (
+                  <div style={{ padding: '2rem', textAlign: 'center', color: '#888' }}>
+                    {present.length === 0 ? "Ninguém está com entrada ativa no momento." : "Nenhum resultado para esta busca."}
+                  </div>
+                );
+              }
+
+              return filtered.map(p => (
+                <div 
+                  key={p.id}
+                  onClick={() => !isProcessingCheckout && handleConfirmCheckout(p.id)}
+                  style={{
+                    padding: '1rem',
+                    borderBottom: '1px solid #f0f0f0',
+                    cursor: isProcessingCheckout ? 'not-allowed' : 'pointer',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    transition: 'background 0.2s'
+                  }}
+                  onMouseEnter={e => !isProcessingCheckout && (e.currentTarget.style.backgroundColor = '#f0f7ff')}
+                  onMouseLeave={e => !isProcessingCheckout && (e.currentTarget.style.backgroundColor = 'transparent')}
+                >
+                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    <span style={{ fontWeight: 600, color: '#333' }}>{p.nome}</span>
+                    <span style={{ fontSize: '0.8rem', color: '#666' }}>
+                      CPF: {maskCPF(p.cpf)} {p.crm ? `| CRM: ${p.crm}` : ''}
+                    </span>
+                  </div>
+                  <button 
+                    style={{
+                      backgroundColor: '#0d6efd',
+                      color: 'white',
+                      border: 'none',
+                      padding: '0.4rem 0.8rem',
+                      borderRadius: '4px',
+                      fontSize: '0.8rem',
+                      fontWeight: 'bold'
+                    }}
+                  >
+                    Confirmar Saída
+                  </button>
+                </div>
+              ));
+            })()}
+          </div>
+
+          <div className="modal-actions" style={{ marginTop: '1.5rem' }}>
+            <button className="btn-secondary" onClick={() => setCheckoutModalOpen(false)}>Fechar</button>
+          </div>
+        </div>
+      </div>
 
       <MessageModal
         isOpen={messageModal.open}

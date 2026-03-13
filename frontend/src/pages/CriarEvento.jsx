@@ -11,7 +11,10 @@ function CriarEvento() {
         data: '',
         hora: '',
         local: '',
-        imagem: ''
+        imagem: '',
+        permitir_acompanhantes: false,
+        max_acompanhantes: 0,
+        habilitar_checkout: false
     });
     const [loading, setLoading] = useState(false);
 
@@ -30,6 +33,7 @@ function CriarEvento() {
             });
 
             if (res.ok) {
+                // Redireciona para a lista de eventos (home) em vez de ir direto para o acesso
                 navigate('/');
             } else {
                 const errorData = await res.json().catch(() => ({}));
@@ -62,6 +66,7 @@ function CriarEvento() {
                 display: 'flex',
                 justifyContent: 'center',
                 alignItems: 'center',
+                padding: '2rem 0',
                 minHeight: 'calc(100vh - 100px)'
             }}>
                 <div className="card" style={{ width: '100%', maxWidth: '500px', position: 'relative' }}>
@@ -147,7 +152,6 @@ function CriarEvento() {
                                 onChange={e => setFormData({ ...formData, local: e.target.value })}
                                 style={{ width: '100%', padding: '0.8rem', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '1rem', boxSizing: 'border-box' }}
                             />
-
                         </div>
 
                         <div className="form-group">
@@ -163,6 +167,54 @@ function CriarEvento() {
                                     <img src={formData.imagem} alt="Preview" style={{ maxWidth: '100%', maxHeight: '150px', borderRadius: '6px', border: '1px solid var(--border-color)' }} />
                                 </div>
                             )}
+                        </div>
+
+                        {/* Opções Avançadas */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', padding: '1rem', backgroundColor: '#f9fafb', borderRadius: '8px', border: '1px solid #edf2f7' }}>
+                            <div className="form-group">
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+                                    <input
+                                        type="checkbox"
+                                        id="permitirAcompanhantes"
+                                        checked={formData.permitir_acompanhantes}
+                                        onChange={e => setFormData({ ...formData, permitir_acompanhantes: e.target.checked })}
+                                        style={{ width: '1.2rem', height: '1.2rem', cursor: 'pointer' }}
+                                    />
+                                    <label htmlFor="permitirAcompanhantes" style={{ fontWeight: 600, color: 'var(--text-primary)', cursor: 'pointer', fontSize: '0.95rem' }}>
+                                        Permitir Acompanhantes
+                                    </label>
+                                </div>
+
+                                {formData.permitir_acompanhantes && (
+                                    <div style={{ paddingLeft: '2rem', marginTop: '0.8rem' }}>
+                                        <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+                                            Máximo de Acompanhantes (0 = Ilimitado)
+                                        </label>
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            value={formData.max_acompanhantes}
+                                            onChange={e => setFormData({ ...formData, max_acompanhantes: parseInt(e.target.value) || 0 })}
+                                            style={{ width: '100px', padding: '0.6rem', borderRadius: '6px', border: '1px solid var(--border-color)', fontSize: '1rem', boxSizing: 'border-box' }}
+                                        />
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="form-group">
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+                                    <input
+                                        type="checkbox"
+                                        id="habilitarCheckout"
+                                        checked={formData.habilitar_checkout}
+                                        onChange={e => setFormData({ ...formData, habilitar_checkout: e.target.checked })}
+                                        style={{ width: '1.2rem', height: '1.2rem', cursor: 'pointer' }}
+                                    />
+                                    <label htmlFor="habilitarCheckout" style={{ fontWeight: 600, color: 'var(--text-primary)', cursor: 'pointer', fontSize: '0.95rem' }}>
+                                        Habilitar Checkout (Saída)
+                                    </label>
+                                </div>
+                            </div>
                         </div>
 
                         <button

@@ -36,11 +36,15 @@ class ParticipanteController {
 
     async registrarAcompanhante(req, res) {
         try {
-            const { nome, responsavel_id } = req.body;
-            const evento = await Evento.findOne({ where: { status: 'ativo' } });
+            const { nome, responsavel_id, eventoId } = req.body;
+            
+            // Buscar o evento específico pelo UUID se fornecido, senão buscar o primeiro ativo
+            const evento = eventoId 
+                ? await Evento.findOne({ where: { uuid: eventoId } })
+                : await Evento.findOne({ where: { status: 'ativo' } });
 
-            if (!evento) return res.status(400).json({ success: false, msg: "Sem evento ativo" });
-            if (!evento.permitir_acompanhantes) return res.status(400).json({ success: false, msg: "Evento não permite acompanhantes" });
+            if (!evento) return res.status(400).json({ success: false, msg: "Evento não encontrado ou sem evento ativo" });
+            if (!evento.permitir_acompanhantes) return res.status(400).json({ success: false, msg: "Este evento não permite acompanhantes" });
 
             if (evento.max_acompanhantes > 0) {
                 const currentCompanions = await Acompanhante.count({
@@ -70,13 +74,14 @@ class ParticipanteController {
 
             res.json({ success: true, msg: "Acompanhante registrado com sucesso!" });
         } catch (e) {
-            res.status(500).json({ error: "Erro ao registrar acompanhante: " + e.message });
+            console.error("Erro ao registrar acompanhante:", e);
+            res.status(500).json({ success: false, error: e.message, msg: "Erro interno ao registrar acompanhante" });
         }
     }
 
     async criar(req, res) {
         try {
-            console.log("📥 [ParticipanteController] Criando participante:", req.body);
+
             const { nome, cpf, crm, genero, data_nascimento, especialidade } = req.body;
 
             // Check se CPF já existe
@@ -104,7 +109,7 @@ class ParticipanteController {
     async atualizar(req, res) {
         try {
             const { id } = req.params;
-            console.log(`📥 [ParticipanteController] Atualizando participante ${id}:`, req.body);
+
             const { nome, cpf, crm, genero, data_nascimento, especialidade } = req.body;
 
             const participante = await Participante.findByPk(id);
@@ -127,7 +132,7 @@ class ParticipanteController {
             participante.data_nascimento = data_nascimento;
             participante.especialidade = especialidade;
 
-            console.log("💾 [ParticipanteController] Salvando objeto:", participante.toJSON ? participante.toJSON() : participante);
+
             await participante.save();
 
             res.json({ success: true, participante, msg: "Dados atualizados com sucesso." });
