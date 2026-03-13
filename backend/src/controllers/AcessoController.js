@@ -27,7 +27,7 @@ class AcessoController {
 
         try {
             const evento = eventoId 
-                ? await Evento.findByPk(eventoId)
+                ? await Evento.findOne({ where: { uuid: eventoId } })
                 : await Evento.findOne({ where: { status: 'ativo' } });
             
             if (!evento || evento.status !== 'ativo') {
@@ -159,7 +159,7 @@ class AcessoController {
         try {
             const { eventoId } = req.body;
             const evento = eventoId 
-                ? await Evento.findByPk(eventoId)
+                ? await Evento.findOne({ where: { uuid: eventoId } })
                 : await Evento.findOne({ where: { status: 'ativo' } });
             
             if (!evento || evento.status !== 'ativo') {
@@ -197,7 +197,7 @@ class AcessoController {
         try {
             const { query, participanteId, eventoId } = req.body;
             const evento = eventoId 
-                ? await Evento.findByPk(eventoId)
+                ? await Evento.findOne({ where: { uuid: eventoId } })
                 : await Evento.findOne({ where: { status: 'ativo' } });
             
             if (!evento || evento.status !== 'ativo') {
@@ -251,7 +251,7 @@ class AcessoController {
         try {
             const { participanteId, template, eventoId } = req.body;
             const evento = eventoId 
-                ? await Evento.findByPk(eventoId)
+                ? await Evento.findOne({ where: { uuid: eventoId } })
                 : await Evento.findOne({ where: { status: 'ativo' } });
             
             if (!evento || evento.status !== 'ativo') {
@@ -313,7 +313,7 @@ class AcessoController {
         try {
             const { nome, cpf, crm, genero, data_nascimento, eventoId } = req.body;
             const evento = eventoId 
-                ? await Evento.findByPk(eventoId)
+                ? await Evento.findOne({ where: { uuid: eventoId } })
                 : await Evento.findOne({ where: { status: 'ativo' } });
             
             if (!evento || evento.status !== 'ativo') {
@@ -347,7 +347,7 @@ class AcessoController {
         try {
             const { participanteId, eventoId } = req.body;
             const evento = eventoId 
-                ? await Evento.findByPk(eventoId)
+                ? await Evento.findOne({ where: { uuid: eventoId } })
                 : await Evento.findOne({ where: { status: 'ativo' } });
             
             if (!evento || evento.status !== 'ativo') {
@@ -397,7 +397,7 @@ class AcessoController {
                     { model: Participante, attributes: ['id', 'nome', 'cpf', 'crm', 'genero', 'data_nascimento'] },
                     { model: Acompanhante, attributes: ['id', 'nome', 'ParticipanteId'] },
 
-                    { model: Evento, attributes: ['nome'] }
+                    { model: Evento, attributes: ['nome', 'uuid'] }
                 ]
             });
             res.json(logs);

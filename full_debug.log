@@ -1,0 +1,7 @@
+[dotenv@17.2.3] injecting env (10) from .env -- tip: ⚙️  override existing env vars with { override: true }
+--- DATABASE STORAGE PATH --- C:\Users\kelvin.higino\Documents\UniEventos\backend\database.sqlite
+📦 Banco de Dados: Conectado ao SQLite
+--- LOADING BACKEND/SRC/ROUTES/INDEX.JS ---
+✅ Banco de dados sincronizado.
+🚀 Servidor pronto na porta 3000
+📍 API Base: http://localhost:3000/api

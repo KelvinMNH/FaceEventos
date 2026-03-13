@@ -18,6 +18,14 @@ const PrivateRoute = ({ children }) => {
   return user ? children : <Navigate to="/login" />;
 };
 
+// Componente para proteger rotas administrativas
+const AdminRoute = ({ children }) => {
+  const { user, loading, isAdmin } = useAuth();
+  if (loading) return <div>Carregando...</div>;
+  if (!user) return <Navigate to="/login" />;
+  return isAdmin && isAdmin() ? children : <Navigate to="/" />;
+};
+
 function App() {
   return (
     <AuthProvider>
@@ -32,39 +40,39 @@ function App() {
           } />
 
           <Route path="/create" element={
-            <PrivateRoute>
+            <AdminRoute>
               <CriarEvento />
-            </PrivateRoute>
+            </AdminRoute>
           } />
 
-          <Route path="/access" element={
+          <Route path="/event/:uuid/access" element={
             <PrivateRoute>
               <ControleAcesso />
             </PrivateRoute>
           } />
 
-          <Route path="/totem/:id" element={
+          <Route path="/totem/:uuid" element={
             <PrivateRoute>
               <TotemAcesso />
             </PrivateRoute>
           } />
 
-          <Route path="/totem-checkout/:id" element={
+          <Route path="/totem-checkout/:uuid" element={
             <PrivateRoute>
               <TotemSaida />
             </PrivateRoute>
           } />
 
-          <Route path="/event/:id/report" element={
+          <Route path="/event/:uuid/report" element={
             <PrivateRoute>
               <RelatorioEvento />
             </PrivateRoute>
           } />
 
           <Route path="/admin/participantes" element={
-            <PrivateRoute>
+            <AdminRoute>
               <GerenciarParticipantes />
-            </PrivateRoute>
+            </AdminRoute>
           } />
 
           <Route path="*" element={<Navigate to="/" />} />

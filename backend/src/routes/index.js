@@ -16,15 +16,13 @@ router.get('/me', AuthController.verifyToken, AuthController.me);
 // Rotas de Eventos
 router.get('/eventos', AuthController.verifyToken, EventoController.listar);
 router.post('/eventos', AuthController.verifyToken, AuthController.requireAdmin, EventoController.criar); // Admin only
-router.post('/eventos/:id/ativar', AuthController.verifyToken, EventoController.ativar);
-router.post('/eventos/:id/finalizar', AuthController.verifyToken, EventoController.finalizar); // Finalizar requer token (confirmação será logica no front/back)
+router.post('/eventos/:uuid/ativar', AuthController.verifyToken, EventoController.ativar);
+router.post('/eventos/:uuid/finalizar', AuthController.verifyToken, AuthController.requireAdmin, EventoController.finalizar); 
 router.get('/evento-ativo', AuthController.verifyToken, EventoController.getAtivo);
-router.get('/eventos/:id', AuthController.verifyToken, EventoController.buscarPorId);
-router.get('/eventos/uuid/:uuid', AuthController.verifyToken, EventoController.buscarPorUuid);
-router.delete('/eventos/:id', AuthController.verifyToken, AuthController.requireAdmin, EventoController.excluir);
+router.get('/eventos/:uuid', AuthController.verifyToken, EventoController.buscarPorUuid);
+router.delete('/eventos/:uuid', AuthController.verifyToken, AuthController.requireAdmin, EventoController.excluir);
 
-// Rotas de Acesso (Algumas podem precisar de token se o totem for autenticado, por hora vamos proteger tudo que é "sistema")
-// Scan e Simulate geralmente são públicos ou token de maquina, mas aqui é web, então protege.
+// Rotas de Acesso
 router.post('/scan', AuthController.verifyToken, AcessoController.scan);
 router.post('/simulate', AuthController.verifyToken, AcessoController.simulate);
 router.post('/manual-entry', AuthController.verifyToken, AcessoController.manualEntry);

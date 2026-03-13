@@ -432,6 +432,8 @@ tr:hover, .table-row-clickable:hover {
 
 .btn-primary:hover {
   background-color: #007a4a;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 153, 93, 0.2);
 }
 
 .btn-secondary {

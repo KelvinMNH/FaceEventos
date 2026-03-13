@@ -42,7 +42,7 @@ class ErrorBoundary extends React.Component {
 }
 
 function RelatorioEventoContent() {
-    const { id } = useParams();
+    const { uuid } = useParams();
     const navigate = useNavigate();
     const { token, isAdmin } = useAuth();
     const [processedData, setProcessedData] = useState([]);
@@ -74,7 +74,7 @@ function RelatorioEventoContent() {
             confirmText: 'Excluir',
             onConfirm: async () => {
                 try {
-                    const res = await fetch(`http://localhost:3000/api/eventos/${id}`, {
+                    const res = await fetch(`http://localhost:3000/api/eventos/${uuid}`, {
                         method: 'DELETE',
                         headers: {
                             'Authorization': `Bearer ${token}`
@@ -101,7 +101,7 @@ function RelatorioEventoContent() {
             if (!token) return;
             try {
                 // 1. Buscar Detalhes do Evento
-                const resEvento = await fetch(`http://localhost:3000/api/eventos/${id}`, {
+                const resEvento = await fetch(`http://localhost:3000/api/eventos/${uuid}`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 let eventoInfo = null;
@@ -126,17 +126,17 @@ function RelatorioEventoContent() {
 
                 // Filtrar logs deste evento (sucesso)
                 const eventLogs = allLogs.filter(log => {
-                    const logEventoId = log.EventoId || (log.Evento && log.Evento.id);
+                    const logEventoUuid = log.Evento && log.Evento.uuid;
                     return log &&
                         log.status_validacao === 'sucesso' &&
                         (log.Participante || log.Acompanhante) &&
-                        (String(logEventoId) === String(id));
+                        (logEventoUuid === uuid);
                 });
 
                 if (!eventoNome && eventLogs.length > 0) {
                     const firstLogWithEvento = eventLogs.find(l => l.Evento && l.Evento.nome);
                     if (firstLogWithEvento) setEventoNome(firstLogWithEvento.Evento.nome);
-                    else setEventoNome(`Evento #${id}`);
+                    else setEventoNome(`Evento: ${uuid.substring(0, 8)}`);
                 }
 
                 // Agrupar logs por participante
@@ -296,7 +296,7 @@ function RelatorioEventoContent() {
             }
         };
         fetchData();
-    }, [id, token]);
+    }, [uuid, token]);
 
 
     const maskCPF = (cpf) => {

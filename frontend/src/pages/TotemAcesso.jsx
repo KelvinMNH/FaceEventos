@@ -12,7 +12,7 @@ const FingerprintIcon = ({ size = "1em", ...props }) => (
 
 function TotemAcesso() {
     const navigate = useNavigate();
-    const { id } = useParams();
+    const { uuid } = useParams();
     const { token } = useAuth();
     const [evento, setEvento] = useState(null);
     const [horaAtual, setHoraAtual] = useState(new Date());
@@ -126,7 +126,7 @@ function TotemAcesso() {
                 bodyData.participanteId = selectedParticipant.id;
             }
 
-            bodyData.eventoId = evento?.id;
+            bodyData.eventoId = uuid;
 
             const res = await fetch(url, {
                 method: 'POST',
@@ -162,9 +162,9 @@ function TotemAcesso() {
     // Buscar evento ativo
     useEffect(() => {
         const fetchEvento = async () => {
-            if (!token || !id) return;
+            if (!token || !uuid) return;
             try {
-                const res = await fetch(`${API_URL}/eventos/uuid/${id}`, {
+                const res = await fetch(`${API_URL}/eventos/${uuid}`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const data = await res.json();
@@ -176,7 +176,7 @@ function TotemAcesso() {
             }
         };
         fetchEvento();
-    }, [token]);
+    }, [token, uuid]);
 
     // Focar no input quando entrar na tela de busca
     useEffect(() => {
@@ -221,7 +221,7 @@ function TotemAcesso() {
                 },
                 body: JSON.stringify({ 
                     participanteId: selectedParticipant.id,
-                    eventoId: evento?.id
+                    eventoId: uuid
                 })
             });
             const data = await res.json();

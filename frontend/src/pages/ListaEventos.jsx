@@ -91,14 +91,14 @@ function ListaEventos() {
         }
     };
 
-    const handleSelectEvent = async (id) => {
+    const handleSelectEvent = async (uuid) => {
         try {
-            const res = await fetch(`http://localhost:3000/api/eventos/${id}/ativar`, {
+            const res = await fetch(`http://localhost:3000/api/eventos/${uuid}/ativar`, {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (res.ok) {
-                navigate('/access');
+                navigate(`/event/${uuid}/access`);
             }
         } catch (err) {
             showMessage("Erro", "Erro ao selecionar evento", "error");
@@ -134,7 +134,12 @@ function ListaEventos() {
                 setIsModalOpen(false);
                 setFormData({ nome: '', data: '', hora: '', local: '', imagem: '', permitir_acompanhantes: false, max_acompanhantes: 0, habilitar_checkout: false });
                 fetchEventos();
-                navigate('/access');
+                const dataEv = await res.json();
+                if (dataEv.evento && dataEv.evento.uuid) {
+                    navigate(`/event/${dataEv.evento.uuid}/access`);
+                } else {
+                    navigate('/');
+                }
             } else {
                 showMessage("Erro", "Erro ao criar evento", "error");
             }
@@ -334,7 +339,7 @@ function ListaEventos() {
                                 <p style={{ color: 'var(--text-secondary)' }}>Nenhum evento disponível no momento.</p>
                             ) : (
                                 eventos.filter(e => e.status !== 'finalizado').map(evento => (
-                                    <div key={evento.id} className="card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', transition: 'transform 0.2s, box-shadow 0.2s' }}
+                                    <div key={evento.uuid} className="card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', transition: 'transform 0.2s, box-shadow 0.2s' }}
                                         onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 8px 16px rgba(0,0,0,0.1)'; }}
                                         onMouseLeave={(e) => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'none'; }}
                                     >
@@ -359,7 +364,7 @@ function ListaEventos() {
                                         </div>
 
                                         <button
-                                            onClick={() => handleSelectEvent(evento.id)}
+                                            onClick={() => handleSelectEvent(evento.uuid)}
                                             style={{
                                                 padding: '0.75rem',
                                                 backgroundColor: evento.status === 'ativo' ? 'var(--success-color)' : 'white',
@@ -386,7 +391,7 @@ function ListaEventos() {
                                 </h2>
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1.5rem', opacity: 0.8 }}>
                                     {eventos.filter(e => e.status === 'finalizado').map(evento => (
-                                        <div key={evento.id} className="card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                        <div key={evento.uuid} className="card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                                             <div style={{ height: '140px', overflow: 'hidden', borderRadius: '6px', marginBottom: '0.5rem' }}>
                                                 <img
                                                     src={evento.imagem || '/logo.jpg'}
@@ -407,7 +412,7 @@ function ListaEventos() {
                                             </div>
 
                                             <button
-                                                onClick={() => navigate(`/event/${evento.id}/report`)}
+                                                onClick={() => navigate(`/event/${evento.uuid}/report`)}
                                                 style={{
                                                     padding: '0.6rem',
                                                     backgroundColor: '#f6f8fa',

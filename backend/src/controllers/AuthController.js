@@ -72,7 +72,9 @@ class AuthController {
         if (!token) return res.status(401).json({ msg: 'Acesso negado. Token não fornecido.' });
 
         jwt.verify(token, JWT_SECRET, (err, decoded) => {
-            if (err) return res.status(401).json({ msg: 'Sessão expirada ou inválida' }); // 401 para o front saber que deve deslogar
+            if (err) return res.status(401).json({ msg: 'Sessão expirada ou inválida' }); 
+
+            console.log(`[AUTH DEBUG] URI: ${req.originalUrl} | Params:`, req.params);
 
             // Garantir que temos os dados básicos
             req.user = {

@@ -175,13 +175,6 @@ function Navbar({ children, onOpenCreateModal }) {
                         Lista de Eventos
                     </a>
 
-                    <a
-                        href="#"
-                        className={`sidebar-link ${location.pathname === '/access' ? 'active' : ''}`}
-                        onClick={(e) => { e.preventDefault(); handleNavigate('/access'); }}
-                    >
-                        Painel do Evento Ativo
-                    </a>
 
                     {isAdmin() && (
                         <a

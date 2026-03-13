@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import MessageModal from '../components/MessageModal';
 import { useAuth } from '../contexts/AuthContext';
@@ -14,6 +14,7 @@ const FingerprintIcon = ({ size = "1em", ...props }) => (
 
 function ControleAcesso() {
   const navigate = useNavigate();
+  const { uuid } = useParams();
   const { token } = useAuth();
   const [logs, setLogs] = useState([]);
   const [evento, setEvento] = useState(null);
@@ -57,19 +58,22 @@ function ControleAcesso() {
   };
 
   useEffect(() => {
-    // Buscar evento ativo
+    // Buscar detalhes do evento específico
     const fetchEvento = async () => {
-      if (!token) return;
+      if (!token || !uuid) return;
       try {
-        const res = await fetch(`${API_URL}/evento-ativo`, {
+        const res = await fetch(`${API_URL}/eventos/${uuid}`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         const data = await res.json();
-        if (data) setEvento(data);
+        if (data && data.id) setEvento(data);
         else {
-          showMessage("Aviso", "Nenhum evento ativo. Você será redirecionado.", "info", () => navigate('/'));
+          showMessage("Erro", "Evento não encontrado.", "error", () => navigate('/'));
         }
-      } catch (e) { console.error(e); }
+      } catch (e) { 
+        console.error(e);
+        showMessage("Erro", "Erro ao carregar evento.", "error", () => navigate('/'));
+      }
     };
     fetchEvento();
 
@@ -212,7 +216,11 @@ function ControleAcesso() {
         try {
           await fetch(`${API_URL}/simulate`, {
             method: 'POST',
-            headers: { 'Authorization': `Bearer ${token}` }
+            headers: { 
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}` 
+            },
+            body: JSON.stringify({ eventoId: uuid })
           });
         } catch (e) { console.error("Erro simulação", e); }
       }, 7000); // A cada 7 segundos gera um log
@@ -299,12 +307,14 @@ function ControleAcesso() {
         template: base64Image,
         width: width || 320,
         height: height || 480,
-        device_id: 'futronic_web'
+        device_id: 'futronic_web',
+        eventoId: uuid
       };
 
       if (selectedManualParticipant && manualModalOpen) {
         url = `${API_URL}/renovar-biometria`;
         bodyData.participanteId = selectedManualParticipant.id;
+        bodyData.eventoId = uuid;
       }
 
       const res = await fetch(url, {
@@ -389,7 +399,10 @@ function ControleAcesso() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ participanteId: p.id })
+        body: JSON.stringify({ 
+          participanteId: p.id,
+          eventoId: uuid 
+        })
       });
       const data = await res.json();
 
@@ -450,7 +463,10 @@ function ControleAcesso() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify(newParticipant)
+        body: JSON.stringify({ 
+          ...newParticipant,
+          eventoId: uuid 
+        })
       });
       const data = await res.json();
 
@@ -517,7 +533,11 @@ function ControleAcesso() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ nome: companionName, responsavel_id: responsavelId })
+        body: JSON.stringify({ 
+          nome: companionName, 
+          responsavel_id: responsavelId,
+          eventoId: uuid
+        })
       });
       const data = await res.json();
 
@@ -548,7 +568,7 @@ function ControleAcesso() {
     if (!evento) return;
 
     try {
-      const res = await fetch(`${API_URL}/eventos/${evento.id}/finalizar`, {
+      const res = await fetch(`${API_URL}/eventos/${uuid}/finalizar`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -757,11 +777,23 @@ function ControleAcesso() {
             backgroundColor: '#fd7e14',
             border: 'none',
             color: 'white',
-            padding: '0.5rem 1rem',
+            padding: '0.75rem 1.5rem',
             borderRadius: '6px',
             cursor: 'pointer',
             fontWeight: 'bold',
-            fontSize: '0.8rem'
+            fontSize: '0.95rem',
+            transition: 'all 0.2s ease',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+          }}
+          onMouseOver={(e) => {
+            e.currentTarget.style.backgroundColor = '#e66d10';
+            e.currentTarget.style.transform = 'translateY(-1px)';
+            e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,0,0,0.15)';
+          }}
+          onMouseOut={(e) => {
+            e.currentTarget.style.backgroundColor = '#fd7e14';
+            e.currentTarget.style.transform = 'translateY(0)';
+            e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
           }}
         >
           Finalizar Evento
@@ -903,11 +935,21 @@ function ControleAcesso() {
                   backgroundColor: '#b1d249',
                   border: 'none',
                   color: 'white',
-                  padding: '0.4rem 0.8rem',
-                  borderRadius: '4px',
+                  padding: '0.6rem 1.2rem',
+                  borderRadius: '6px',
                   cursor: 'pointer',
                   fontWeight: 'bold',
-                  fontSize: '0.8rem'
+                  fontSize: '0.9rem',
+                  transition: 'all 0.2s ease',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+                }}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.backgroundColor = '#9ebc41';
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.backgroundColor = '#b1d249';
+                  e.currentTarget.style.transform = 'translateY(0)';
                 }}
               >
                 Totem de Check-in
@@ -919,11 +961,21 @@ function ControleAcesso() {
                     backgroundColor: '#0d6efd',
                     border: 'none',
                     color: 'white',
-                    padding: '0.4rem 0.8rem',
-                    borderRadius: '4px',
+                    padding: '0.6rem 1.2rem',
+                    borderRadius: '6px',
                     cursor: 'pointer',
                     fontWeight: 'bold',
-                    fontSize: '0.8rem'
+                    fontSize: '0.9rem',
+                    transition: 'all 0.2s ease',
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+                  }}
+                  onMouseOver={(e) => {
+                    e.currentTarget.style.backgroundColor = '#0b5ed7';
+                    e.currentTarget.style.transform = 'translateY(-1px)';
+                  }}
+                  onMouseOut={(e) => {
+                    e.currentTarget.style.backgroundColor = '#0d6efd';
+                    e.currentTarget.style.transform = 'translateY(0)';
                   }}
                 >
                   Totem de Check-out
@@ -936,14 +988,26 @@ function ControleAcesso() {
                   backgroundColor: 'var(--accent-color)',
                   border: 'none',
                   color: 'white',
-                  padding: '0.4rem 0.8rem',
-                  borderRadius: '4px',
+                  padding: '0.6rem 1.2rem',
+                  borderRadius: '6px',
                   cursor: 'pointer',
                   fontWeight: 'bold',
-                  fontSize: '0.8rem',
+                  fontSize: '0.9rem',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '0.3rem'
+                  gap: '0.3rem',
+                  transition: 'all 0.2s ease',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                }}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.backgroundColor = '#007a4a';
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                  e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,0,0,0.15)';
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.backgroundColor = 'var(--accent-color)';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
                 }}
               >
                 <span>+</span> Registrar Participante
@@ -963,15 +1027,31 @@ function ControleAcesso() {
                   backgroundColor: 'var(--accent-color)',
                   border: 'none',
                   color: 'white',
-                  padding: '0.4rem 0.8rem',
-                  borderRadius: '4px',
+                  padding: '0.6rem 1.2rem',
+                  borderRadius: '6px',
                   cursor: (evento && !evento.permitir_acompanhantes) ? 'not-allowed' : 'pointer',
                   fontWeight: 'bold',
-                  fontSize: '0.8rem',
+                  fontSize: '0.9rem',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '0.3rem',
-                  opacity: (evento && !evento.permitir_acompanhantes) ? 0.5 : 1
+                  opacity: (evento && !evento.permitir_acompanhantes) ? 0.5 : 1,
+                  transition: 'all 0.2s ease',
+                  boxShadow: (evento && !evento.permitir_acompanhantes) ? 'none' : '0 2px 4px rgba(0,0,0,0.1)'
+                }}
+                onMouseOver={(e) => {
+                  if (evento && evento.permitir_acompanhantes) {
+                    e.currentTarget.style.backgroundColor = '#007a4a';
+                    e.currentTarget.style.transform = 'translateY(-1px)';
+                    e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,0,0,0.15)';
+                  }
+                }}
+                onMouseOut={(e) => {
+                  if (evento && evento.permitir_acompanhantes) {
+                    e.currentTarget.style.backgroundColor = 'var(--accent-color)';
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+                  }
                 }}
               >
                 <span>+</span> Registrar Acompanhante

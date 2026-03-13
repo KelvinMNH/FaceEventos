@@ -3,7 +3,7 @@ const sequelize = require('../config/database');
 
 const Evento = sequelize.define('Evento', {
     uuid: { 
-        type: DataTypes.UUID, 
+        type: DataTypes.STRING, 
         defaultValue: DataTypes.UUIDV4,
         allowNull: false,
         unique: true

@@ -8,7 +8,7 @@ const API_URL = 'http://localhost:3000/api';
 
 function TotemSaida() {
     const navigate = useNavigate();
-    const { id } = useParams();
+    const { uuid } = useParams();
     const { token } = useAuth();
     const [evento, setEvento] = useState(null);
     const [horaAtual, setHoraAtual] = useState(new Date());
@@ -35,9 +35,9 @@ function TotemSaida() {
     // Buscar evento ativo
     useEffect(() => {
         const fetchEvento = async () => {
-            if (!token || !id) return;
+            if (!token || !uuid) return;
             try {
-                const res = await fetch(`${API_URL}/eventos/uuid/${id}`, {
+                const res = await fetch(`${API_URL}/eventos/${uuid}`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const data = await res.json();
@@ -55,7 +55,7 @@ function TotemSaida() {
             }
         };
         fetchEvento();
-    }, [token]);
+    }, [token, uuid]);
 
     // Focar no input quando entrar na tela de busca
     useEffect(() => {
@@ -141,7 +141,7 @@ function TotemSaida() {
                     height,
                     device_id: 'checkout_totem_bio',
                     check_only: true, // Flag importante para não registrar entrada
-                    eventoId: evento?.id
+                    eventoId: uuid
                 })
             });
             const data = await res.json();
@@ -202,7 +202,7 @@ function TotemSaida() {
                 },
                 body: JSON.stringify({ 
                     participanteId: selectedParticipant.id,
-                    eventoId: evento?.id
+                    eventoId: uuid
                 })
             });
             const data = await res.json();
@@ -247,7 +247,7 @@ function TotemSaida() {
                 if (!evento) return;
 
                 // 2. Filtrar apenas logs do evento ativo
-                const eventoLogs = allLogs.filter(l => l.EventoId === evento.id);
+                const eventoLogs = allLogs.filter(l => l.Evento && l.Evento.uuid === uuid);
 
                 // 3. Mapear o último estado de cada participante
                 const statusMap = {};

@@ -2,6 +2,9 @@ const { Sequelize } = require('sequelize');
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '../../.env') });
 
+const storagePath = path.join(__dirname, '../../database.sqlite');
+console.log('--- DATABASE STORAGE PATH ---', path.resolve(storagePath));
+
 let sequelize;
 
 if (process.env.DB_DIALECT === 'oracle') {
