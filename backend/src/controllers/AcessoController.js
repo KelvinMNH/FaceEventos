@@ -2,36 +2,46 @@ const { Evento, Participante, Acompanhante, RegistroAcesso } = require('../model
 const { Op } = require('sequelize');
 const { Jimp, distance, diff } = require('jimp');
 
-// Helper para converter RAW grayscale em Jimp Image
-async function createJimpFromRaw(base64, width, height) {
-    const buffer = Buffer.from(base64, 'base64');
-    // Criar nova imagem preta
-    const image = new Jimp(width, height);
+// Helper para converter RAW grayscale em Jimp Image (Estritamente 320x480)
+async function createJimpFromRaw(base64) {
+    try {
+        const buffer = Buffer.from(base64, 'base64');
+        const width = 320;
+        const height = 480;
 
-    // Preencher bitmap (RAW 1 byte -> RGBA 4 bytes)
-    for (let i = 0; i < width * height; i++) {
-        const val = buffer[i];
-        const idx = i * 4;
-        image.bitmap.data[idx] = val;     // R
-        image.bitmap.data[idx + 1] = val; // G
-        image.bitmap.data[idx + 2] = val; // B
-        image.bitmap.data[idx + 3] = 255; // Alpha
+        // Estreito: Permitir apenas 320x480 (153600 bytes)
+        if (buffer.length !== 153600) {
+            throw new Error(`Resolução inválida: ${buffer.length} bytes recebidos, esperado 153600 (320x480)`);
+        }
+
+        const image = new Jimp({ width, height });
+
+        for (let i = 0; i < width * height; i++) {
+            const val = buffer[i];
+            const idx = i * 4;
+            image.bitmap.data[idx] = val;
+            image.bitmap.data[idx + 1] = val;
+            image.bitmap.data[idx + 2] = val;
+            image.bitmap.data[idx + 3] = 255;
+        }
+        return image;
+    } catch (err) {
+        console.error(`[AcessoController] Erro na biometria:`, err.message);
+        throw err;
     }
-    return image;
 }
 
 class AcessoController {
     async scan(req, res) {
-        const { device_id, template, width, height, force_match_id, check_only, eventoId } = req.body;
-        // console.log(`[Scan] Recebido: ${width}x${height} - Force: ${force_match_id} - Evento: ${eventoId}`);
-
+        const { device_id, template, force_match_id, check_only, eventId } = req.body;
+        
         try {
-            const evento = eventoId 
-                ? await Evento.findOne({ where: { uuid: eventoId } })
+            const evento = eventId 
+                ? await Evento.findOne({ where: { uuid: eventId } })
                 : await Evento.findOne({ where: { status: 'ativo' } });
             
             if (!evento || evento.status !== 'ativo') {
-                return res.json({ autorizado: false, mensagem: "Este evento não está ativo para novos registros." });
+                return res.json({ autorizado: false, mensagem: "Este evento não está ativo." });
             }
 
             let participante = null;
@@ -39,16 +49,13 @@ class AcessoController {
             if (force_match_id) {
                 participante = await Participante.findByPk(force_match_id);
             } else {
-                // --- BIOMETRIA POR SIMILARIDADE (FUZZY MATCH) ---
-                console.log(`[Scan] Validando dimensões: W=${width} H=${height}`);
-
-                if (!width || !height) {
-                    // Fallback no backend se vier zerado
-                    // Mas se realmente falhar, mudar mensagem para usuário
-                    return res.json({ autorizado: false, mensagem: "Erro na leitura biométrica (Tente novamente)" });
+                // --- BIOMETRIA ESTREITA 320x480 ---
+                if (!template) {
+                    return res.json({ autorizado: false, mensagem: "Dados biométricos ausentes." });
                 }
 
-                const probeImage = await createJimpFromRaw(template, width, height);
+                const probeImage = await createJimpFromRaw(template);
+                
                 const candidates = await Participante.findAll({
                     where: {
                         template_biometrico: { [Op.ne]: null },
@@ -57,32 +64,23 @@ class AcessoController {
                 });
 
                 let bestMatch = null;
-                let lowestDistance = 1.0; // 1.0 = 100% diferente
-
-                // console.log(`[Scan] Comparando com ${candidates.length} candidatos...`);
+                let lowestDistance = 1.0;
 
                 for (const cand of candidates) {
                     try {
-                        // O template salvo no banco deve ter o mesmo formato (RAW Base64)
-                        // Assumimos que foi salvo com o mesmo leitor/dimensões.
-                        // Se não tiver width/height salvos, assumimos o do probe (arriscado, mas por hora ok)
                         if (!cand.template_biometrico || cand.template_biometrico.startsWith('manual_')) continue;
 
-                        const candImage = await createJimpFromRaw(cand.template_biometrico, width, height);
-
-                        // Jimp.distance: 0 = idêntico, 1 = muito diferente
+                        const candImage = await createJimpFromRaw(cand.template_biometrico);
                         const dist = distance(probeImage, candImage);
-                        const difference = diff(probeImage, candImage); // diff.percent
 
-                        // Combinar métricas se quiser, ou usar só distance
-                        // console.log(`[Scan] Cand ${cand.nome}: Dist ${dist.toFixed(4)} Diff ${difference.percent.toFixed(4)}`);
+                        console.log(`[Scan] Comparando com ${cand.nome}: Dist=${dist.toFixed(4)}`);
 
-                        if (dist < 0.15 && dist < lowestDistance) { // Limiar 15%
+                        if (dist < 0.15 && dist < lowestDistance) {
                             lowestDistance = dist;
                             bestMatch = cand;
                         }
                     } catch (err) {
-                        console.error(`Erro ao comparar candidato ${cand.id}:`, err.message);
+                        console.warn(`[Scan] Ignorando candidato ${cand.nome}: ${err.message}`);
                     }
                 }
 
@@ -212,8 +210,8 @@ class AcessoController {
                 participante = await Participante.findOne({
                     where: {
                         [Op.or]: [
-                            { cpf: query },
-                            { crm: query },
+                            { cpf: { [Op.like]: `%${query}%` } },
+                            { crm: { [Op.like]: `%${query}%` } },
                             { nome: { [Op.like]: `%${query}%` } }
                         ]
                     }

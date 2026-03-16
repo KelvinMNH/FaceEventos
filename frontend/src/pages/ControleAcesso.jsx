@@ -1726,7 +1726,7 @@ function ControleAcesso() {
                   const filtered = present.filter(p => {
                     if (!responsibleSearchTerm) return true;
                     const term = responsibleSearchTerm.toLowerCase();
-                    return p.nome.toLowerCase().includes(term) || (p.cpf && p.cpf.includes(term));
+                    return p.nome.toLowerCase().includes(term) || (p.cpf && p.cpf.includes(term)) || (p.crm && p.crm.toLowerCase().includes(term));
                   });
 
                   if (filtered.length === 0) {
@@ -1844,7 +1844,7 @@ function ControleAcesso() {
               const filtered = present.filter(p => {
                 if (!checkoutSearchTerm) return true;
                 const term = checkoutSearchTerm.toLowerCase();
-                return p.nome.toLowerCase().includes(term) || (p.cpf && p.cpf.includes(term));
+                return p.nome.toLowerCase().includes(term) || (p.cpf && p.cpf.includes(term)) || (p.crm && p.crm.toLowerCase().includes(term));
               });
 
               if (filtered.length === 0) {

@@ -166,6 +166,13 @@ class ParticipanteController {
 
             if (!template) return res.status(400).json({ error: "Template biométrico não fornecido." });
 
+            const buffer = Buffer.from(template, 'base64');
+            if (buffer.length !== 153600) {
+                return res.status(400).json({ 
+                    error: `Resolução inválida: ${buffer.length} bytes recebidos, esperado 153600 (320x480).` 
+                });
+            }
+
             const participante = await Participante.findByPk(id);
             if (!participante) return res.status(404).json({ error: "Participante não encontrado." });
 

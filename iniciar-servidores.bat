@@ -6,6 +6,10 @@ echo ========================================
 echo    UNIEVENTOS - INICIALIZACAO
 echo ========================================
 echo.
+echo [0/3] Limpando instancias anteriores...
+taskkill /F /IM node.exe /T >nul 2>&1
+timeout /t 1 /nobreak >nul
+echo.
 echo Iniciando todos os servidores...
 echo.
 
