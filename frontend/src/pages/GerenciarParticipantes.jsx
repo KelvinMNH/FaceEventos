@@ -540,10 +540,14 @@ function GerenciarParticipantes() {
                         <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Posicione o dedo no leitor biométrico</p>
                     </div>
 
-                    <BiometricScanner
-                        onScanSuccess={handleBiometriaCaptured}
-                        checkOnly={false}
-                    />
+                    {isBioModalOpen && (
+                        <BiometricScanner
+                            onScanSuccess={handleBiometriaCaptured}
+                            checkOnly={false}
+                            isRegistration={true}
+                            token={token}
+                        />
+                    )}
 
                     <div className="modal-actions" style={{ marginTop: '1.5rem' }}>
                         <button type="button" className="btn-secondary" onClick={closeBioModal} style={{ width: '100%' }}>Fechar</button>

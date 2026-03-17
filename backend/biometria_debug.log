@@ -1,0 +1,130 @@
+[2026-03-16T15:29:14.594Z] [Scan] Comparando com Abelardo Barbosa Espindola: Dist=0.2969
+[2026-03-16T15:29:14.730Z] [Scan] Comparando com Abilio Lopes Silva Neto: Dist=0.3750
+[2026-03-16T15:29:14.846Z] [Scan] Comparando com Adriano Rolim Mangueira: Dist=0.3125
+[2026-03-16T15:29:22.632Z] [Scan] Comparando com Abelardo Barbosa Espindola: Dist=0.4219
+[2026-03-16T15:29:22.739Z] [Scan] Comparando com Abilio Lopes Silva Neto: Dist=0.5000
+[2026-03-16T15:29:22.823Z] [Scan] Comparando com Adriano Rolim Mangueira: Dist=0.3438
+[2026-03-16T15:29:23.524Z] [Scan] Comparando com Abelardo Barbosa Espindola: Dist=0.4219
+[2026-03-16T15:29:23.647Z] [Scan] Comparando com Abilio Lopes Silva Neto: Dist=0.5000
+[2026-03-16T15:29:23.721Z] [Scan] Comparando com Adriano Rolim Mangueira: Dist=0.3750
+[2026-03-16T15:29:28.516Z] [Scan] Comparando com Abelardo Barbosa Espindola: Dist=0.3594
+[2026-03-16T15:29:28.575Z] [Scan] Comparando com Abilio Lopes Silva Neto: Dist=0.4063
+[2026-03-16T15:29:28.673Z] [Scan] Comparando com Adriano Rolim Mangueira: Dist=0.2813
+[2026-03-16T15:29:29.431Z] [Scan] Comparando com Abelardo Barbosa Espindola: Dist=0.3281
+[2026-03-16T15:29:29.532Z] [Scan] Comparando com Abilio Lopes Silva Neto: Dist=0.4063
+[2026-03-16T15:29:29.591Z] [Scan] Comparando com Adriano Rolim Mangueira: Dist=0.3125
+[2026-03-16T15:29:45.020Z] [Scan] Comparando com Abelardo Barbosa Espindola: Dist=0.4844
+[2026-03-16T15:29:45.124Z] [Scan] Comparando com Abilio Lopes Silva Neto: Dist=0.5625
+[2026-03-16T15:29:45.235Z] [Scan] Comparando com Adriano Rolim Mangueira: Dist=0.4375
+[2026-03-16T15:29:53.412Z] [Scan] Comparando com Abelardo Barbosa Espindola: Dist=0.4063
+[2026-03-16T15:29:53.488Z] [Scan] Comparando com Abilio Lopes Silva Neto: Dist=0.3906
+[2026-03-16T15:29:53.582Z] [Scan] Comparando com Adriano Rolim Mangueira: Dist=0.2969
+[2026-03-16T15:29:54.375Z] [Scan] Comparando com Abelardo Barbosa Espindola: Dist=0.4063
+[2026-03-16T15:29:54.468Z] [Scan] Comparando com Abilio Lopes Silva Neto: Dist=0.3906
+[2026-03-16T15:29:54.540Z] [Scan] Comparando com Adriano Rolim Mangueira: Dist=0.2969
+[2026-03-16T16:13:37.269Z] [Scan] Comparando com Abelardo Barbosa Espindola: Dist=0.1875
+[2026-03-16T16:13:37.357Z] [Scan] Comparando com Abilio Lopes Silva Neto: Dist=0.2344
+[2026-03-16T16:13:37.435Z] [Scan] Comparando com Adriano Rolim Mangueira: Dist=0.3281
+[2026-03-16T16:13:37.438Z] [Scan] MATCH! Abelardo Barbosa Espindola (Dist: 0.1875)
+[2026-03-16T16:13:38.025Z] [Scan] Comparando com Abelardo Barbosa Espindola: Dist=0.1563
+[2026-03-16T16:13:38.093Z] [Scan] Comparando com Abilio Lopes Silva Neto: Dist=0.2656
+[2026-03-16T16:13:38.153Z] [Scan] Comparando com Adriano Rolim Mangueira: Dist=0.2969
+[2026-03-16T16:13:38.155Z] [Scan] MATCH! Abelardo Barbosa Espindola (Dist: 0.1563)
+[2026-03-16T16:13:47.351Z] [Scan] Comparando com Abelardo Barbosa Espindola: Dist=0.3125
+[2026-03-16T16:13:47.422Z] [Scan] Comparando com Abilio Lopes Silva Neto: Dist=0.2969
+[2026-03-16T16:13:47.482Z] [Scan] Comparando com Adriano Rolim Mangueira: Dist=0.2344
+[2026-03-16T16:13:47.484Z] [Scan] MATCH! Adriano Rolim Mangueira (Dist: 0.2344)
+[2026-03-16T16:13:56.379Z] [Scan] Comparando com Abelardo Barbosa Espindola: Dist=0.2813
+[2026-03-16T16:13:56.462Z] [Scan] Comparando com Abilio Lopes Silva Neto: Dist=0.3281
+[2026-03-16T16:13:56.524Z] [Scan] Comparando com Adriano Rolim Mangueira: Dist=0.2344
+[2026-03-16T16:13:56.526Z] [Scan] MATCH! Adriano Rolim Mangueira (Dist: 0.2344)
+[2026-03-16T16:13:57.257Z] [Scan] Comparando com Abelardo Barbosa Espindola: Dist=0.3438
+[2026-03-16T16:13:57.340Z] [Scan] Comparando com Abilio Lopes Silva Neto: Dist=0.3281
+[2026-03-16T16:13:57.416Z] [Scan] Comparando com Adriano Rolim Mangueira: Dist=0.4844
+[2026-03-16T16:13:57.417Z] [Scan] MATCH! Abilio Lopes Silva Neto (Dist: 0.3281)
+[2026-03-16T16:14:28.063Z] [Compare] Resultado: Dist=0.3281, Sim=0.6719
+[2026-03-16T16:14:31.863Z] [Compare] Resultado: Dist=0.3906, Sim=0.6094
+[2026-03-16T16:14:32.744Z] [Compare] Resultado: Dist=0.3906, Sim=0.6094
+[2026-03-16T16:14:39.567Z] [Compare] Resultado: Dist=0.1875, Sim=0.8125
+[2026-03-16T16:14:51.335Z] [Scan] Comparando com Abelardo Barbosa Espindola: Dist=0.4063
+[2026-03-16T16:14:51.406Z] [Scan] Comparando com Abilio Lopes Silva Neto: Dist=0.4219
+[2026-03-16T16:14:51.495Z] [Scan] Comparando com Adriano Rolim Mangueira: Dist=0.2344
+[2026-03-16T16:14:51.562Z] [Scan] Comparando com Adans Soares Porfirio: Dist=0.3906
+[2026-03-16T16:14:51.564Z] [Scan] MATCH! Adriano Rolim Mangueira (Dist: 0.2344)
+[2026-03-16T16:14:52.200Z] [Scan] Comparando com Abelardo Barbosa Espindola: Dist=0.3906
+[2026-03-16T16:14:52.281Z] [Scan] Comparando com Abilio Lopes Silva Neto: Dist=0.4375
+[2026-03-16T16:14:52.349Z] [Scan] Comparando com Adriano Rolim Mangueira: Dist=0.2500
+[2026-03-16T16:14:52.408Z] [Scan] Comparando com Adans Soares Porfirio: Dist=0.4063
+[2026-03-16T16:14:52.410Z] [Scan] MATCH! Adriano Rolim Mangueira (Dist: 0.2500)
+[2026-03-16T16:14:59.485Z] [Scan] Comparando com Abelardo Barbosa Espindola: Dist=0.4063
+[2026-03-16T16:14:59.558Z] [Scan] Comparando com Abilio Lopes Silva Neto: Dist=0.4219
+[2026-03-16T16:14:59.662Z] [Scan] Comparando com Adriano Rolim Mangueira: Dist=0.3594
+[2026-03-16T16:14:59.757Z] [Scan] Comparando com Adans Soares Porfirio: Dist=0.1406
+[2026-03-16T16:14:59.761Z] [Scan] MATCH! Adans Soares Porfirio (Dist: 0.1406)
+[2026-03-16T16:15:00.356Z] [Scan] Comparando com Abelardo Barbosa Espindola: Dist=0.4063
+[2026-03-16T16:15:00.454Z] [Scan] Comparando com Abilio Lopes Silva Neto: Dist=0.4219
+[2026-03-16T16:15:00.544Z] [Scan] Comparando com Adriano Rolim Mangueira: Dist=0.3281
+[2026-03-16T16:15:00.608Z] [Scan] Comparando com Adans Soares Porfirio: Dist=0.1719
+[2026-03-16T16:15:00.610Z] [Scan] MATCH! Adans Soares Porfirio (Dist: 0.1719)
+[2026-03-16T17:10:39.911Z] [Compare] Resultado: Dist=0.2031, Sim=0.7969
+[2026-03-16T17:10:44.063Z] [Compare] Resultado: Dist=0.2813, Sim=0.7188
+[2026-03-16T17:10:48.195Z] [Compare] Resultado: Dist=0.2500, Sim=0.7500
+[2026-03-16T17:10:52.391Z] [Compare] Resultado: Dist=0.2813, Sim=0.7188
+[2026-03-16T17:10:56.519Z] [Compare] Resultado: Dist=0.2813, Sim=0.7188
+[2026-03-16T17:11:00.671Z] [Compare] Resultado: Dist=0.2656, Sim=0.7344
+[2026-03-16T17:11:01.507Z] [Compare] Resultado: Dist=0.4219, Sim=0.5781
+[2026-03-16T17:11:06.451Z] [Compare] Resultado: Dist=0.3594, Sim=0.6406
+[2026-03-16T17:11:44.761Z] [Compare] Resultado: Dist=0.2188, Sim=0.7813
+[2026-03-16T17:11:48.873Z] [Compare] Resultado: Dist=0.2031, Sim=0.7969
+[2026-03-16T17:11:49.775Z] [Compare] Resultado: Dist=0.4219, Sim=0.5781
+[2026-03-16T17:11:53.039Z] [Compare] Resultado: Dist=0.3125, Sim=0.6875
+[2026-03-16T17:11:53.848Z] [Compare] Resultado: Dist=0.3438, Sim=0.6563
+[2026-03-16T17:35:27.257Z] [Compare] Resultado: Dist=0.1875, Sim=0.8125
+[2026-03-16T17:35:29.680Z] [Compare] Resultado: Dist=0.0625, Sim=0.9375
+[2026-03-16T17:35:42.234Z] [Scan] Comparando com Abelardo Barbosa Espindola: Dist=0.3594
+[2026-03-16T17:35:42.237Z] [Scan] Nenhum match encontrado. Melhor chance foi 1.0000 (Threshold: 0.20)
+[2026-03-16T17:35:43.168Z] [Scan] Comparando com Abelardo Barbosa Espindola: Dist=0.4375
+[2026-03-16T17:35:43.170Z] [Scan] Nenhum match encontrado. Melhor chance foi 1.0000 (Threshold: 0.20)
+[2026-03-16T17:35:49.056Z] [Scan] Comparando com Abelardo Barbosa Espindola: Dist=0.1719
+[2026-03-16T17:35:49.059Z] [Scan] MATCH! Abelardo Barbosa Espindola (Dist: 0.1719)
+[2026-03-16T17:35:50.104Z] [Scan] Comparando com Abelardo Barbosa Espindola: Dist=0.2500
+[2026-03-16T17:35:50.107Z] [Scan] Nenhum match encontrado. Melhor chance foi 1.0000 (Threshold: 0.20)
+[2026-03-16T17:35:55.047Z] [Scan] Comparando com Abelardo Barbosa Espindola: Dist=0.3438
+[2026-03-16T17:35:55.049Z] [Scan] Nenhum match encontrado. Melhor chance foi 1.0000 (Threshold: 0.20)
+[2026-03-16T17:35:59.263Z] [Scan] Comparando com Abelardo Barbosa Espindola: Dist=0.1406
+[2026-03-16T17:35:59.265Z] [Scan] MATCH! Abelardo Barbosa Espindola (Dist: 0.1406)
+[2026-03-16T17:36:08.624Z] [Scan] Comparando com Abelardo Barbosa Espindola: Dist=0.2500
+[2026-03-16T17:36:08.626Z] [Scan] Nenhum match encontrado. Melhor chance foi 1.0000 (Threshold: 0.20)
+[2026-03-16T17:36:09.450Z] [Scan] Comparando com Abelardo Barbosa Espindola: Dist=0.4063
+[2026-03-16T17:36:09.452Z] [Scan] Nenhum match encontrado. Melhor chance foi 1.0000 (Threshold: 0.20)
+[2026-03-16T17:36:18.442Z] [Scan] Comparando com Abelardo Barbosa Espindola: Dist=0.3125
+[2026-03-16T17:36:18.444Z] [Scan] Nenhum match encontrado. Melhor chance foi 1.0000 (Threshold: 0.20)
+[2026-03-16T17:36:19.314Z] [Scan] Comparando com Abelardo Barbosa Espindola: Dist=0.3438
+[2026-03-16T17:36:19.316Z] [Scan] Nenhum match encontrado. Melhor chance foi 1.0000 (Threshold: 0.20)
+[2026-03-16T17:36:23.979Z] [Scan] Comparando com Abelardo Barbosa Espindola: Dist=0.2969
+[2026-03-16T17:36:23.981Z] [Scan] Nenhum match encontrado. Melhor chance foi 1.0000 (Threshold: 0.20)
+[2026-03-16T17:36:34.799Z] [Scan] Comparando com Abelardo Barbosa Espindola: Dist=0.3906
+[2026-03-16T17:36:34.802Z] [Scan] Nenhum match encontrado. Melhor chance foi 1.0000 (Threshold: 0.20)
+[2026-03-16T17:36:35.677Z] [Scan] Comparando com Abelardo Barbosa Espindola: Dist=0.4063
+[2026-03-16T17:36:35.680Z] [Scan] Nenhum match encontrado. Melhor chance foi 1.0000 (Threshold: 0.20)
+[2026-03-16T17:36:55.242Z] [Scan] Comparando com Abelardo Barbosa Espindola: Dist=0.3281
+[2026-03-16T17:36:55.245Z] [Scan] Nenhum match encontrado. Melhor chance foi 1.0000 (Threshold: 0.20)
+[2026-03-16T17:37:13.194Z] [Compare] Resultado: Dist=0.3125, Sim=0.6875
+[2026-03-16T17:37:17.380Z] [Compare] Resultado: Dist=0.2344, Sim=0.7656
+[2026-03-16T17:37:18.256Z] [Compare] Resultado: Dist=0.1563, Sim=0.8438
+[2026-03-16T17:37:21.283Z] [Compare] Resultado: Dist=0.3750, Sim=0.6250
+[2026-03-16T17:37:22.159Z] [Compare] Resultado: Dist=0.3125, Sim=0.6875
+[2026-03-16T17:37:25.474Z] [Compare] Resultado: Dist=0.2969, Sim=0.7031
+[2026-03-16T17:37:26.353Z] [Compare] Resultado: Dist=0.2969, Sim=0.7031
+[2026-03-16T17:37:30.888Z] [Compare] Resultado: Dist=0.3281, Sim=0.6719
+[2026-03-16T17:37:31.764Z] [Compare] Resultado: Dist=0.2188, Sim=0.7813
+[2026-03-16T17:37:36.916Z] [Compare] Resultado: Dist=0.1719, Sim=0.8281
+[2026-03-16T17:37:49.639Z] [Scan] Comparando com Abelardo Barbosa Espindola: Dist=0.2813
+[2026-03-16T17:37:49.731Z] [Scan] Comparando com Alexandre Jose Calado Barbosa: Dist=0.3125
+[2026-03-16T17:37:49.734Z] [Scan] Nenhum match encontrado. Melhor chance foi 1.0000 (Threshold: 0.20)
+[2026-03-16T17:37:57.487Z] [Scan] Comparando com Abelardo Barbosa Espindola: Dist=0.3125
+[2026-03-16T17:37:57.604Z] [Scan] Comparando com Alexandre Jose Calado Barbosa: Dist=0.2813
+[2026-03-16T17:37:57.606Z] [Scan] Nenhum match encontrado. Melhor chance foi 1.0000 (Threshold: 0.20)
+[2026-03-16T17:37:58.336Z] [Scan] Comparando com Abelardo Barbosa Espindola: Dist=0.3594
+[2026-03-16T17:37:58.426Z] [Scan] Comparando com Alexandre Jose Calado Barbosa: Dist=0.4219
+[2026-03-16T17:37:58.429Z] [Scan] Nenhum match encontrado. Melhor chance foi 1.0000 (Threshold: 0.20)

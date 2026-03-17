@@ -25,6 +25,23 @@ function TotemAcesso() {
     const [statusMessage, setStatusMessage] = useState('');
     const [qualityMsg, setQualityMsg] = useState(''); // Novo: feedback de pressão do dedo
 
+    // Wizard Registration States
+    const [captureStep, setCaptureStep] = useState(1);
+    const [capturedTemplates, setCapturedTemplates] = useState([]);
+    const [isVerifying, setIsVerifying] = useState(false);
+    const [errorMsg, setErrorMsg] = useState('');
+
+    // Refs to avoid stale closures in WS handlers
+    const stepRef = useRef(1);
+    const templatesRef = useRef([]);
+    const isVerifyingRef = useRef(false);
+
+    // Sync refs with state
+    useEffect(() => {
+        stepRef.current = captureStep;
+        templatesRef.current = capturedTemplates;
+    }, [captureStep, capturedTemplates]);
+
 
     const searchInputRef = useRef(null);
 
@@ -113,49 +130,132 @@ function TotemAcesso() {
     }, [view]);
 
     const handleBiometricScan = async (data) => {
-        try {
-            let url = `${API_URL}/scan`;
-            let bodyData = {
-                device_id: 'TOTEM_FS80H',
-                template: data.image
-            };
+        if (isVerifyingRef.current) return;
 
-            // Se estiver na tela de confirmação e tiver alguém selecionado, tenta a renovação
+        try {
+            // Se estiver na tela de confirmação e tiver alguém selecionado, entra em fluxo de RE-REGISTRO (Wizard)
             if (view === 'confirm' && selectedParticipant) {
-                url = `${API_URL}/renovar-biometria`;
-                bodyData.participanteId = selectedParticipant.id;
+                isVerifyingRef.current = true;
+                setIsVerifying(true);
+                setErrorMsg('');
+
+                try {
+                    const currentStep = stepRef.current;
+                    const currentTemplates = templatesRef.current;
+
+                    if (currentStep === 1) {
+                        setCapturedTemplates([data.image]);
+                        setCaptureStep(2);
+                        setErrorMsg('');
+                        wsRef.current?.send('START_CAPTURE');
+                    } else {
+                        // Comparar com a captura anterior
+                        const prevImage = currentTemplates[currentTemplates.length - 1];
+                        
+                        const resC = await fetch(`${API_URL}/biometria/comparar`, {
+                            method: 'POST',
+                            headers: { 
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${token}`
+                            },
+                            body: JSON.stringify({ templateA: prevImage, templateB: data.image })
+                        });
+                        
+                        const resultC = await resC.json();
+                        
+                        if (resultC.isSameFinger) {
+                            const newTemplates = [...currentTemplates, data.image];
+                            if (currentStep === 3) {
+                                // Sucesso total! Salvar a última imagem
+                                const res = await fetch(`${API_URL}/renovar-biometria`, {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                        'Authorization': `Bearer ${token}`
+                                    },
+                                    body: JSON.stringify({
+                                        participanteId: selectedParticipant.id,
+                                        template: data.image,
+                                        eventoId: uuid
+                                    })
+                                });
+                                const finalData = await res.json();
+                                handleFinalResponse(finalData);
+                            } else {
+                                setCapturedTemplates(newTemplates);
+                                setCaptureStep(currentStep + 1);
+                                setErrorMsg('');
+                                wsRef.current?.send('START_CAPTURE');
+                            }
+                        } else {
+                            setErrorMsg('Digital não confere com a anterior. Tente usar o mesmo dedo.');
+                            setTimeout(() => {
+                                wsRef.current?.send('START_CAPTURE');
+                            }, 2000);
+                        }
+                    }
+                } catch (err) {
+                    console.error('Erro no wizard:', err);
+                    setErrorMsg('Erro na validação. Tente o mesmo dedo novamente.');
+                    wsRef.current?.send('START_CAPTURE');
+                } finally {
+                    isVerifyingRef.current = false;
+                    setIsVerifying(false);
+                }
+                return;
             }
 
-            bodyData.eventoId = uuid;
-
-            const res = await fetch(url, {
+            // Fluxo normal de SCAN
+            const res = await fetch(`${API_URL}/scan`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 },
-                body: JSON.stringify(bodyData)
+                body: JSON.stringify({
+                    device_id: 'TOTEM_FS80H',
+                    template: data.image,
+                    eventoId: uuid
+                })
             });
-            const resp = await res.json();
-            if (resp.autorizado && resp.participante) {
-                setStatusMessage(`Bem-vindo(a), ${resp.participante.nome}!`);
-                setView('success');
-                setTimeout(() => { setView('welcome'); setScannedImage(null); }, 2000);
-            } else {
-                // Se falhar
-                setStatusMessage(resp.mensagem || "Biometria não identificada");
-                setView('error');
-                setTimeout(() => {
-                    if (view === 'confirm') {
-                        setView('confirm');
-                    } else {
-                        setView('welcome');
-                    }
-                    setScannedImage(null);
-                }, 2000);
-            }
-        } catch (e) {
-            console.error('Erro API Scan', e);
+            const finalData = await res.json();
+            handleFinalResponse(finalData);
+
+        } catch (error) {
+            console.error("Erro no scan:", error);
+            isVerifyingRef.current = false;
+            setStatusMessage("Erro de comunicação com o servidor.");
+            setView('error');
+            setTimeout(() => setView('welcome'), 3000);
+        }
+    };
+
+    const handleFinalResponse = (finalData) => {
+        if (finalData.autorizado || finalData.success) {
+            const nome = finalData.participante ? finalData.participante.nome : "Participante";
+            setStatusMessage(`Bem-vindo(a), ${nome}!`);
+            setView('success');
+            setTimeout(() => {
+                setView('welcome');
+                setSelectedParticipant(null);
+                setCapturedTemplates([]);
+                setCaptureStep(1);
+                setScannedImage(null);
+            }, 3000);
+        } else {
+            setStatusMessage(finalData.mensagem || "Biometria não identificada");
+            setView('error');
+            setTimeout(() => {
+                if (view === 'confirm') {
+                    setView('confirm');
+                } else {
+                    setView('welcome');
+                }
+                setSelectedParticipant(null);
+                setCapturedTemplates([]);
+                setCaptureStep(1);
+                setScannedImage(null);
+            }, 2000);
         }
     };
 
@@ -206,6 +306,10 @@ function TotemAcesso() {
     const handleSelectParticipant = (p) => {
         setSelectedParticipant(p);
         setView('confirm');
+        setCaptureStep(1);
+        setCapturedTemplates([]);
+        setErrorMsg('');
+        setIsVerifying(false);
     };
 
     const handleConfirmCheckin = async () => {
@@ -471,51 +575,80 @@ function TotemAcesso() {
                 )}
 
                 {view === 'confirm' && selectedParticipant && (
-                    <div style={{ textAlign: 'center', animation: 'fadeIn 0.3s', backgroundColor: 'white', padding: 'clamp(1.5rem, 4vh, 3rem)', borderRadius: '20px', boxShadow: '0 10px 40px rgba(0,0,0,0.1)', display: 'flex', flexDirection: 'column', maxHeight: '100%' }}>
-                        <div style={{ fontSize: 'clamp(2.5rem, 5vh, 4rem)', marginBottom: 'clamp(0.5rem, 1vh, 1rem)' }}>👤</div>
-                        <h2 style={{ fontSize: 'clamp(1.5rem, 3vh, 2rem)', marginBottom: '0.5rem' }}>Confirmar Identidade</h2>
-                        <p style={{ fontSize: '1.1rem', color: '#666', marginBottom: 'clamp(1rem, 2vh, 2rem)' }}>Você é esta pessoa?</p>
-
+                    <div style={{ textAlign: 'center', animation: 'fadeIn 0.3s', backgroundColor: 'white', padding: 'clamp(1.5rem, 4vh, 3rem)', borderRadius: '20px', boxShadow: '0 10px 40px rgba(0,0,0,0.1)', display: 'flex', flexDirection: 'column', maxHeight: '100%', width: '100%', maxWidth: '700px' }}>
+                        <div style={{ fontSize: 'clamp(2rem, 4vh, 3rem)', marginBottom: '0.5rem' }}>👤</div>
+                        <h2 style={{ fontSize: 'clamp(1.5rem, 3vh, 1.8rem)', marginBottom: '0.5rem' }}>Confirmar Identidade</h2>
+                        
                         <div style={{ fontSize: 'clamp(1.4rem, 2.5vh, 1.8rem)', fontWeight: 'bold', color: '#198754', marginBottom: '0.5rem' }}>
                             {selectedParticipant.nome}
                         </div>
-                        <div style={{ fontSize: '1.2rem', color: '#555', marginBottom: '0.5rem' }}>
+                        <div style={{ fontSize: '1.2rem', color: '#555', marginBottom: 'clamp(1rem, 2vh, 1.5rem)' }}>
                             CPF: {maskCPF(selectedParticipant.cpf)}
                         </div>
-                        <div style={{ fontSize: '1.1rem', color: '#666', marginBottom: 'clamp(1rem, 2vh, 1.5rem)', display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-                            {selectedParticipant.crm && <span>CRM: <strong>{selectedParticipant.crm}</strong></span>}
-                            {selectedParticipant.especialidade && <span style={{ color: '#0d6efd', fontStyle: 'italic' }}>{selectedParticipant.especialidade}</span>}
-                        </div>
 
-                        <div style={{ padding: 'clamp(1rem, 2vh, 1.5rem)', backgroundColor: '#e7f5ff', borderRadius: '12px', border: '2px dashed #74c0fc', marginBottom: 'clamp(1rem, 3vh, 2rem)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                            <div style={{ fontSize: 'clamp(2rem, 4vh, 3rem)', marginBottom: '0.5rem', animation: 'bounce 2s infinite' }}>👆</div>
-                            <div style={{ color: '#1864ab', fontWeight: 'bold', fontSize: 'clamp(1rem, 2vh, 1.2rem)' }}>
-                                Coloque o dedo no leitor para gravar a biometria
+                        {/* Capture Wizard UI */}
+                        <div style={{ 
+                            padding: 'clamp(1rem, 2vh, 2rem)', 
+                            backgroundColor: '#f8f9fa', 
+                            borderRadius: '16px', 
+                            border: '1px solid #dee2e6',
+                            marginBottom: 'clamp(1rem, 3vh, 2rem)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center'
+                        }}>
+                            <div style={{ display: 'flex', gap: '10px', marginBottom: '1.5rem' }}>
+                                {[1, 2, 3].map(s => (
+                                    <div key={s} style={{
+                                        width: '60px',
+                                        height: '12px',
+                                        borderRadius: '6px',
+                                        backgroundColor: captureStep >= s ? '#198754' : '#e9ecef',
+                                        transition: 'all 0.3s ease',
+                                        boxShadow: captureStep === s ? '0 0 10px rgba(25,135,84,0.3)' : 'none'
+                                    }} />
+                                ))}
                             </div>
-                            <div style={{ color: '#1864ab', fontSize: 'clamp(0.85rem, 1.5vh, 1rem)', marginTop: '0.5rem' }}>
-                                O acesso será liberado automaticamente.
-                            </div>
+
+                            <div style={{ fontSize: 'clamp(2.5rem, 5vh, 3.5rem)', marginBottom: '1rem', animation: isVerifying ? 'pulse 1.5s infinite' : 'bounce 2s infinite' }}>👆</div>
+                            
+                            <h3 style={{ fontSize: '1.4rem', color: '#198754', marginBottom: '0.5rem' }}>
+                                Toque {captureStep} de 3
+                            </h3>
+                            
+                            <p style={{ color: '#666', fontSize: '1.1rem', marginBottom: '0.5rem' }}>
+                                {isVerifying ? 'Processando...' : (captureStep === 1 ? 'Encoste o dedo no leitor' : 'Encoste o MESMO dedo novamente')}
+                            </p>
+
+                            {errorMsg && (
+                                <p style={{ color: '#dc3545', fontWeight: 'bold', animation: 'shake 0.5s', padding: '0.5rem', backgroundColor: '#fff5f5', borderRadius: '8px', border: '1px solid #feb2b2' }}>
+                                    ⚠️ {errorMsg}
+                                </p>
+                            )}
                         </div>
 
                         <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', marginTop: 'auto' }}>
                             <button
-                                onClick={() => setView('search')}
+                                onClick={() => {
+                                    setView('search');
+                                    setCaptureStep(1);
+                                    setCapturedTemplates([]);
+                                }}
                                 style={{
-                                    padding: 'clamp(0.8rem, 1.5vh, 1rem) clamp(1rem, 2vw, 2rem)', fontSize: '1.1rem', backgroundColor: '#f8d7da', color: '#842029',
-                                    border: 'none', borderRadius: '8px', cursor: 'pointer'
+                                    padding: '1rem 2rem', fontSize: '1.1rem', backgroundColor: '#e9ecef', color: '#495057',
+                                    border: 'none', borderRadius: '12px', cursor: 'pointer', fontWeight: 'bold'
                                 }}
                             >
                                 Cancelar
                             </button>
                             <button
-                                onClick={handleConfirmCheckin}
+                                onClick={() => handleConfirmCheckin()}
                                 style={{
-                                    padding: 'clamp(0.8rem, 1.5vh, 1rem) clamp(1rem, 2vw, 2rem)', fontSize: '1.3rem', backgroundColor: '#198754', color: 'white',
-                                    border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold',
-                                    boxShadow: '0 4px 10px rgba(25,135,84,0.3)'
+                                    padding: '1rem 2rem', fontSize: '1.1rem', backgroundColor: '#6c757d', color: 'white',
+                                    border: 'none', borderRadius: '12px', cursor: 'pointer', fontWeight: '500'
                                 }}
                             >
-                                Pular Biometria e Entrar
+                                Pular Biometria
                             </button>
                         </div>
                     </div>

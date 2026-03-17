@@ -1,6 +1,14 @@
 const { Evento, Participante, Acompanhante, RegistroAcesso } = require('../models');
 const { Op } = require('sequelize');
 const { Jimp, distance, diff } = require('jimp');
+const fs = require('fs');
+const path = require('path');
+
+const DEBUG_LOG = path.join(__dirname, '../../biometria_debug.log');
+function logDebug(msg) {
+    const timestamp = new Date().toISOString();
+    fs.appendFileSync(DEBUG_LOG, `[${timestamp}] ${msg}\n`);
+}
 
 // Helper para converter RAW grayscale em Jimp Image (Estritamente 320x480)
 async function createJimpFromRaw(base64) {
@@ -24,6 +32,12 @@ async function createJimpFromRaw(base64) {
             image.bitmap.data[idx + 2] = val;
             image.bitmap.data[idx + 3] = 255;
         }
+
+        // --- PRE-PROCESSAMENTO PARA ESTABILIZAR PHASH ---
+        image.normalize();
+        image.contrast(0.3);
+        image.blur(1); 
+        
         return image;
     } catch (err) {
         console.error(`[AcessoController] Erro na biometria:`, err.message);
@@ -33,7 +47,7 @@ async function createJimpFromRaw(base64) {
 
 class AcessoController {
     async scan(req, res) {
-        const { device_id, template, force_match_id, check_only, eventId } = req.body;
+        const { device_id, force_match_id, identified_id, check_only, eventId } = req.body;
         
         try {
             const evento = eventId 
@@ -46,47 +60,20 @@ class AcessoController {
 
             let participante = null;
 
-            if (force_match_id) {
-                participante = await Participante.findByPk(force_match_id);
-            } else {
-                // --- BIOMETRIA ESTREITA 320x480 ---
-                if (!template) {
-                    return res.json({ autorizado: false, mensagem: "Dados biométricos ausentes." });
-                }
+            if (force_match_id || identified_id) {
+                participante = await Participante.findByPk(force_match_id || identified_id);
+            }
 
-                const probeImage = await createJimpFromRaw(template);
-                
-                const candidates = await Participante.findAll({
-                    where: {
-                        template_biometrico: { [Op.ne]: null },
-                        ativo: true
-                    }
-                });
-
-                let bestMatch = null;
-                let lowestDistance = 1.0;
-
-                for (const cand of candidates) {
-                    try {
-                        if (!cand.template_biometrico || cand.template_biometrico.startsWith('manual_')) continue;
-
-                        const candImage = await createJimpFromRaw(cand.template_biometrico);
-                        const dist = distance(probeImage, candImage);
-
-                        console.log(`[Scan] Comparando com ${cand.nome}: Dist=${dist.toFixed(4)}`);
-
-                        if (dist < 0.15 && dist < lowestDistance) {
-                            lowestDistance = dist;
-                            bestMatch = cand;
-                        }
-                    } catch (err) {
-                        console.warn(`[Scan] Ignorando candidato ${cand.nome}: ${err.message}`);
-                    }
-                }
-
-                if (bestMatch) {
-                    console.log(`[Scan] MATCH! ${bestMatch.nome} (S: ${(1 - lowestDistance).toFixed(2)})`);
-                    participante = bestMatch;
+            // Se for apenas verificação (para checkout ou busca)
+            if (check_only) {
+                if (participante) {
+                    return res.json({
+                        autorizado: true,
+                        participante: { id: participante.id, nome: participante.nome, cpf: participante.cpf, crm: participante.crm },
+                        mensagem: "Identificado com sucesso"
+                    });
+                } else {
+                    return res.json({ autorizado: false, mensagem: "Biometria não reconhecida" });
                 }
             }
 
@@ -422,7 +409,7 @@ class AcessoController {
             const logs = await RegistroAcesso.findAll({
                 where: whereClause,
                 order: [['createdAt', 'DESC']],
-                limit: eventoUuid ? 50000 : 1000, // Limite de 50k para eventos (seguro para browsers e servidores)
+                limit: eventoUuid ? 50000 : 1000, 
                 include: [
                     { model: Participante, attributes: ['id', 'nome', 'cpf', 'crm', 'genero', 'data_nascimento'] },
                     { model: Acompanhante, attributes: ['id', 'nome', 'ParticipanteId'] },
@@ -434,6 +421,33 @@ class AcessoController {
             console.error("Erro ao buscar logs:", error);
             res.status(500).json({ error: error.message });
         }
+    }
+
+    async candidates(req, res) {
+        try {
+            const candidates = await Participante.findAll({
+                where: {
+                    template_biometrico: { [Op.ne]: null },
+                    ativo: true
+                },
+                attributes: ['id', 'nome', 'template_biometrico']
+            });
+
+            // Filtrar apenas os que possuem template oficial (base64 longo, não manual_)
+            const oficialCandidates = candidates.filter(c => 
+                c.template_biometrico && !c.template_biometrico.startsWith('manual_')
+            );
+
+            res.json(oficialCandidates);
+        } catch (error) {
+            console.error("Erro ao buscar candidatos:", error);
+            res.status(500).json({ error: error.message });
+        }
+    }
+
+    async compare(req, res) {
+        // Agora o backend apenas recebe o resultado da comparação feita pelo bridge/frontend
+        res.json({ success: true, message: "Compare delegated to bridge" });
     }
 }
 

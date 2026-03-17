@@ -30,6 +30,8 @@ router.post('/manual-entry', AuthController.verifyToken, AcessoController.manual
 router.post('/cadastrar-entrada', AuthController.verifyToken, AcessoController.cadastrarEntrada);
 router.post('/renovar-biometria', AuthController.verifyToken, AcessoController.renovarBiometriaEEntrar);
 router.post('/registrar-saida', AuthController.verifyToken, AcessoController.registrarSaida);
+router.post('/biometria/comparar', AuthController.verifyToken, AcessoController.compare);
+router.get('/biometria/candidatos', AuthController.verifyToken, AcessoController.candidates);
 router.get('/logs', AuthController.verifyToken, AcessoController.getLogs);
 
 // Rotas de Participantes
