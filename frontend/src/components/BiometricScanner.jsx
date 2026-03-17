@@ -43,7 +43,11 @@ export const BiometricScanner = ({ onScanSuccess, checkOnly = false, isRegistrat
             ws.onopen = () => {
                 console.log('[Scanner] Bridge conectada');
                 setBridgeStatus('connected');
-                ws.send('START_CAPTURE');
+                if (isRegistration) {
+                    ws.send('START_ENROLL');
+                } else {
+                    ws.send('START_CAPTURE');
+                }
             };
 
             ws.onmessage = async (event) => {
@@ -62,17 +66,31 @@ export const BiometricScanner = ({ onScanSuccess, checkOnly = false, isRegistrat
                     } else if (data.type === 'MATCH_RESULT') {
                         if (onMatchResultRef.current) onMatchResultRef.current(data.success);
                     } else if (data.type === 'STATUS') {
-                        if (data.status === 'low_quality') {
+                        if (data.status === 'enroll_progress') {
+                            setQualityMsg(data.message);
+                            // Se o SDK diz que está pronto para processar, podemos tentar inferir passos
+                            if (data.state === 3) { // FTR_STATE_READY_TO_PROCESS
+                                setStep(prev => Math.min(prev + 1, 3));
+                            }
+                        } else if (data.status === 'low_quality') {
                             setQualityMsg(data.message);
                             setTimeout(() => setQualityMsg(''), 3000);
                         } else if (data.status === 'not_found') {
                             setErrorMsg('Digital não reconhecida.');
                             setTimeout(() => setErrorMsg(''), 3000);
                         }
+                    } else if (data.type === 'ENROLL_RESULT') {
+                        if (data.success) {
+                            onScanSuccess(data.template);
+                        } else {
+                            setErrorMsg('Falha no cadastro biométrico. Tente novamente.');
+                            setTimeout(() => ws.send('START_ENROLL'), 3000);
+                        }
                     } else if (data.type === 'DEVICE_STATUS') {
                         setScannerStatus(data.status);
                         if (data.status === 'connected') {
-                            ws.send('START_CAPTURE');
+                            if (isRegistration) ws.send('START_ENROLL');
+                            else ws.send('START_CAPTURE');
                         }
                     }
                 } catch (e) {
