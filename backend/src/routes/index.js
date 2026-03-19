@@ -49,6 +49,7 @@ router.post('/participantes', AuthController.verifyToken, AuthController.require
 router.put('/participantes/:id', AuthController.verifyToken, AuthController.requireAdmin, ParticipanteController.atualizar);
 router.delete('/participantes/:id', AuthController.verifyToken, AuthController.requireAdmin, ParticipanteController.excluir);
 router.post('/participantes/:id/biometria', AuthController.verifyToken, AuthController.requireAdmin, ParticipanteController.atualizarBiometria);
+router.delete('/participantes/:id/biometria', AuthController.verifyToken, AuthController.requireAdmin, ParticipanteController.limparBiometria);
 
 // Status (Público)
 router.get('/status', (req, res) => res.json({ online: true, time: new Date() }));

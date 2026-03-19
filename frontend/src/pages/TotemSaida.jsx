@@ -30,10 +30,12 @@ function TotemSaida() {
     const [scannerStatus, setScannerStatus] = useState('disconnected'); // 'connected' | 'disconnected'
     const [qualityMsg, setQualityMsg] = useState(''); // Novo: feedback de qualidade
     const [progress, setProgress] = useState(100);
+    const [glowColor, setGlowColor] = useState(null);
 
 
     const searchInputRef = useRef(null);
     const isVerifyingRef = useRef(false);
+    const alertCooldownsRef = useRef(new Map());
 
     // Atualizar hora
     useEffect(() => {
@@ -92,6 +94,7 @@ function TotemSaida() {
 
                 if (elapsed >= duration) {
                     setSelectedParticipant(null);
+                    setGlowColor(null);
                     clearInterval(timer);
                 }
             }, 50);
@@ -107,9 +110,27 @@ function TotemSaida() {
         // Bloqueia se já estiver processando ou se um card já estiver aberto
         if (view !== 'welcome' || selectedParticipant) return;
 
-        if (identifiedId) {
+        if (identifiedId !== undefined) {
             if (isVerifyingRef.current) return;
             isVerifyingRef.current = true;
+
+            if (identifiedId === null) {
+                setGlowColor('#dc3545'); // Vermelho se detectou mas não reconheceu
+                setTimeout(() => setGlowColor(null), 3000);
+                isVerifyingRef.current = false;
+                return;
+            }
+
+            // Cooldown para "Já Identificado" (Evita spam visual se a pessoa continuar na frente)
+            const now = Date.now();
+            const key = String(identifiedId);
+            const lastAlert = alertCooldownsRef.current.get(key) || 0;
+            if (now - lastAlert < 15000) {
+                isVerifyingRef.current = false;
+                return;
+            }
+            alertCooldownsRef.current.set(key, now);
+
             // Identificou! Busca os dados do participante
              try {
                 const res = await fetch(`${API_URL}/participantes/busca?q=${identifiedId}`, {
@@ -120,6 +141,8 @@ function TotemSaida() {
                 const p = parts.find(x => String(x.id) === String(identifiedId));
                 if (p) {
                     setSelectedParticipant(p);
+                    setGlowColor('#0d6efd'); // Azul para identificação de checkout
+                    setTimeout(() => setGlowColor(null), 5000); // Limpa após 5s se não confirmar
                     // Não muda o view, deixa no 'welcome' para mostrar o card flutuante
                 }
             } catch (e) {
@@ -174,12 +197,15 @@ function TotemSaida() {
 
             if (data.success) {
                 setStatusMessage(`Até logo, ${selectedParticipant.nome}!`);
+                setGlowColor('#0d6efd'); // Azul para saída
                 setView('success');
             } else if (data.already_checked_out) {
                 setStatusMessage("Saída já registrada anteriormente.");
+                setGlowColor('#ffc107'); // Amarelo para "já saiu" (alerta)
                 setView('error');
             } else {
                 setStatusMessage(data.msg || "Erro ao registrar saída.");
+                setGlowColor('#dc3545'); // Vermelho para erro
                 setView('error');
             }
         } catch (e) {
@@ -194,6 +220,7 @@ function TotemSaida() {
             setView('welcome');
             setStatusMessage('');
             setSelectedParticipant(null);
+            setGlowColor(null);
         }, 3000);
     };
 
@@ -329,7 +356,7 @@ function TotemSaida() {
                                 position: 'relative',
                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                                 boxShadow: '0 20px 40px rgba(0,0,0,0.15)',
-                                border: '4px solid #0d6efd'
+                                border: '1px solid #eee'
                             }}
                         >
                             <FaceScanner
@@ -337,6 +364,7 @@ function TotemSaida() {
                                 isRegistration={false}
                                 token={token}
                                 eventId={uuid}
+                                glowColor={glowColor}
                             />
 
                             {/* Card de Confirmação Flutuante (Overlay) */}

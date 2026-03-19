@@ -29,6 +29,8 @@ function TotemAcesso() {
     const [qualityMsg, setQualityMsg] = useState(''); // Novo: feedback de pressão do dedo
     const [progress, setProgress] = useState(100);
     const [biometricResult, setBiometricResult] = useState(null); // { user, type: 'success' | 'already_in' | 'error', message? }
+    const [balloonData, setBalloonData] = useState(null); // { name: string }
+    const [glowColor, setGlowColor] = useState(null);
 
     // Wizard Registration States
     const [captureStep, setCaptureStep] = useState(1);
@@ -40,6 +42,7 @@ function TotemAcesso() {
     const stepRef = useRef(1);
     const templatesRef = useRef([]);
     const isVerifyingRef = useRef(false);
+    const alertCooldownsRef = useRef(new Map());
 
     // Sync refs with state
     useEffect(() => {
@@ -72,6 +75,8 @@ function TotemAcesso() {
                 setProgress(remaining);
                 if (elapsed >= duration) {
                     setBiometricResult(null);
+                    setBalloonData(null);
+                    setGlowColor(null);
                     clearInterval(timer);
                 }
             }, 50);
@@ -79,7 +84,7 @@ function TotemAcesso() {
             clearInterval(timer);
         }
         return () => clearInterval(timer);
-    }, [biometricResult, view]);
+    }, [biometricResult, view, balloonData]);
 
     // WebSocket removido - Reconhecimento facial via câmera direta no navegador
 
@@ -118,8 +123,8 @@ function TotemAcesso() {
                 return;
             }
 
-            // Fluxo de Identificação (Scan)
-            if (identifiedId) {
+            // Fluxo de Identificação (Scan) - Processa mesmo se identifiedId for null (erro de reconhecimento)
+            if (identifiedId !== undefined) {
                 isVerifyingRef.current = true;
                 setIsVerifying(true);
                 try {
@@ -151,6 +156,7 @@ function TotemAcesso() {
     };
 
     const handleFinalResponse = (finalData) => {
+        const p = finalData.participante || finalData.Acompanhante || {};
         const msg = (finalData.mensagem || "").toLowerCase();
         const isAlreadyIn = finalData.already_in || 
                            msg.includes('ja validado') || 
@@ -158,17 +164,40 @@ function TotemAcesso() {
                            msg.includes('ja realizado') || 
                            msg.includes('ja registrado');
 
+        // 1. Cooldown para "Já Identificado" (Evita repetição excessiva se o rosto continuar no sensor)
+        if (isAlreadyIn && p.id) {
+            const now = Date.now();
+            const key = String(p.id);
+            const lastAlert = alertCooldownsRef.current.get(key) || 0;
+            if (now - lastAlert < 15000) { 
+                return; // Silencia o alerta se já foi mostrado nos últimos 15s
+            }
+            alertCooldownsRef.current.set(key, now);
+        }
+
+        // 2. Se já estivermos mostrando um SUCESSO na tela para a mesma pessoa, ignore alertas redundantes
+        if (biometricResult && biometricResult.type === 'success' && biometricResult.user) {
+            if (String(biometricResult.user.id) === String(p.id) && isAlreadyIn) {
+                return; 
+            }
+        }
+
         if (view === 'welcome') {
             if (isAlreadyIn) {
-                setBiometricResult({ user: finalData.participante || { nome: "Participante" }, type: 'already_in' });
+                const p = finalData.participante || { nome: "Participante" };
+                setBalloonData({ name: p.nome });
+                setBiometricResult({ user: p, type: 'already_in' }); // Mantemos no estado mas ocultamos o card no render
+                setGlowColor('#ffc107'); // Amarelo
                 return;
             }
             if (finalData.autorizado || finalData.success) {
                 setBiometricResult({ user: finalData.participante || { nome: "Participante" }, type: 'success' });
+                setGlowColor('#198754'); // Verde
                 return;
             }
 
             // Se chegou aqui no welcome e não reconheceu
+            setGlowColor('#dc3545'); // Vermelho
             setBiometricResult({ 
                 user: { nome: "Visitante" }, 
                 type: 'error', 
@@ -389,7 +418,7 @@ function TotemAcesso() {
                                 position: 'relative',
                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                                 boxShadow: '0 20px 40px rgba(0,0,0,0.15)',
-                                border: '4px solid #198754'
+                                border: '1px solid #eee'
                             }}
                         >
                             <FaceScanner
@@ -397,10 +426,12 @@ function TotemAcesso() {
                                 isRegistration={false}
                                 token={token}
                                 eventId={uuid}
+                                followerBalloon={balloonData}
+                                glowColor={glowColor}
                             />
 
-                            {/* Card Flutuante Biométrico (Sucesso ou Já Identificado) */}
-                            {biometricResult && (
+                            {/* Card Flutuante Biométrico (Sucesso ou Erro - Já Identificado usa BALÃO) */}
+                            {biometricResult && biometricResult.type !== 'already_in' && (
                                 <div style={{
                                     position: 'absolute',
                                     bottom: '20px',

@@ -184,6 +184,24 @@ class ParticipanteController {
         }
     }
 
+    async limparBiometria(req, res) {
+        try {
+            const { id } = req.params;
+            const participante = await Participante.findByPk(id);
+            if (!participante) return res.status(404).json({ error: "Participante não encontrado." });
+
+            participante.template_biometrico = null;
+            participante.foto_biometria = null;
+            participante.data_biometria = null;
+            await participante.save();
+
+            res.json({ success: true, msg: "Biometria removida com sucesso." });
+        } catch (e) {
+            console.error("Erro ao limpar biometria:", e);
+            res.status(500).json({ error: "Erro ao limpar biometria", details: e.message });
+        }
+    }
+
     async syncStatus(req, res) {
         try {
             const ultimoSync = await HistoricoSincronizacao.findOne({

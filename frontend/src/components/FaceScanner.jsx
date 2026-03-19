@@ -18,7 +18,7 @@ const loadModels = () => {
     return modelsPromise;
 };
 
-export const FaceScanner = ({ onScanSuccess, onFaceDetected, isRegistration = false, token = '', eventId = '', followerBalloon = null }) => {
+export const FaceScanner = ({ onScanSuccess, onFaceDetected, isRegistration = false, token = '', eventId = '', followerBalloon = null, glowColor = null }) => {
     const webcamRef = useRef(null);
     const [modelsLoaded, setModelsLoaded] = useState(false);
     const [scanCooldown, setScanCooldown] = useState(false);
@@ -155,7 +155,15 @@ export const FaceScanner = ({ onScanSuccess, onFaceDetected, isRegistration = fa
                 setTimeout(() => setScanCooldown(false), 5000); // Cooldown para evitar logs duplicados
             } else {
                 setStatusMsg('Face não reconhecida');
-                setTimeout(() => setStatusMsg('Câmera Pronta'), 2000);
+                // IMPORTANTE: Avisar o pai mesmo se não reconhecer, para ele poder mostrar o GLOW VERMELHO
+                const screenshot = webcamRef.current.getScreenshot();
+                onScanSuccess(null, null, null, null, screenshot); 
+                
+                setScanCooldown(true); // Evita spam de erro
+                setTimeout(() => {
+                    setScanCooldown(false);
+                    setStatusMsg('Câmera Pronta');
+                }, 3000);
             }
         } catch (e) {
             console.error('Erro na identificação facial:', e);
@@ -231,20 +239,23 @@ export const FaceScanner = ({ onScanSuccess, onFaceDetected, isRegistration = fa
                         </mask>
                     </defs>
                     
-                    {/* Overlay Escuro com Furo */}
-                    <rect width="400" height="400" fill="rgba(0,0,0,0.5)" mask={`url(#faceMask-${maskId})`} />
+                    {/* Overlay Escuro com Furo (Opacidade ajustada para 65%) */}
+                    <rect width="400" height="400" fill="rgba(0,0,0,0.65)" mask={`url(#faceMask-${maskId})`} />
                     
-                    {/* Borda da Elipse */}
+                    {/* Borda da Elipse (Somente brilha se houver rosto detectado) */}
                     <ellipse 
                         cx="200" 
                         cy="180" 
                         rx="112" 
                         ry="152" 
                         fill="none" 
-                        stroke={faceDetected ? '#ffc107' : 'rgba(255,255,255,0.4)'} 
+                        stroke={faceDetected ? (glowColor || '#ffc107') : 'rgba(255,255,255,0.4)'} 
                         strokeWidth="3" 
                         strokeDasharray={faceDetected ? 'none' : '10,5'}
-                        style={{ transition: 'all 0.3s ease', filter: faceDetected ? 'drop-shadow(0 0 8px #ffc107)' : 'none' }}
+                        style={{ 
+                            transition: 'all 0.3s ease', 
+                            filter: faceDetected ? `drop-shadow(0 0 10px ${glowColor || '#ffc107'})` : 'none' 
+                        }}
                     />
 
                     {/* BALÃO DE IDENTIFICAÇÃO - POSIÇÃO FIXA (Só aparece se houver alguém na frente) */}

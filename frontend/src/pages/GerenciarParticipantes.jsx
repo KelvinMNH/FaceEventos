@@ -26,6 +26,7 @@ function GerenciarParticipantes() {
     const [currentParticipante, setCurrentParticipante] = useState(null);
     const [isReadOnly, setIsReadOnly] = useState(false);
     const [formData, setFormData] = useState({ nome: '', cpf: '', crm: '', genero: 'M', data_nascimento: '', especialidade: '' });
+    const [glowColor, setGlowColor] = useState(null);
 
     // Message State
     const [msgModal, setMsgModal] = useState({ isOpen: false, type: '', message: '' });
@@ -132,6 +133,7 @@ function GerenciarParticipantes() {
     const closeBioModal = () => {
         setIsBioModalOpen(false);
         setCurrentParticipante(null);
+        setGlowColor(null);
     };
 
     const handleBiometriaCaptured = async (template) => {
@@ -150,14 +152,42 @@ function GerenciarParticipantes() {
             const data = await res.json();
 
             if (res.ok) {
+                setGlowColor('#198754'); // Verde sucesso
                 showMsg('success', data.msg);
-                closeBioModal();
-                setTimeout(() => window.location.reload(), 1000);
+                setTimeout(() => closeBioModal(), 1500); 
+                setTimeout(() => window.location.reload(), 2500);
             } else {
+                setGlowColor('#dc3545'); // Vermelho erro
                 showMsg('error', data.error || 'Erro ao gravar biometria.');
+                setTimeout(() => setGlowColor(null), 3000);
             }
         } catch (err) {
+            setGlowColor('#dc3545'); // Vermelho erro
             showMsg('error', 'Erro de conexão ao salvar biometria.');
+            setTimeout(() => setGlowColor(null), 3000);
+        }
+    };
+
+    const handleLimparBiometria = async () => {
+        if (!currentParticipante) return;
+        if (!window.confirm(`Tem certeza que deseja apagar a biometria de ${currentParticipante.nome}?`)) return;
+
+        try {
+            const res = await fetch(`${API_URL}/participantes/${currentParticipante.id}/biometria`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            if (res.ok) {
+                showMsg('success', 'Biometria removida com sucesso');
+                closeModal();
+                setTimeout(() => window.location.reload(), 1000);
+            } else {
+                const data = await res.json();
+                showMsg('error', data.error || 'Erro ao remover biometria.');
+            }
+        } catch (err) {
+            showMsg('error', 'Erro de conexão ao remover biometria.');
         }
     };
 
@@ -506,6 +536,23 @@ function GerenciarParticipantes() {
                                         </p>
                                     )}
                                 </div>
+                                {currentParticipante?.template_biometrico && !currentParticipante.template_biometrico.startsWith('manual_') && (
+                                    <button 
+                                        type="button" 
+                                        onClick={handleLimparBiometria}
+                                        className="btn-secondary"
+                                        style={{ 
+                                            padding: '0.4rem 0.8rem', 
+                                            fontSize: '0.75rem', 
+                                            color: '#e53e3e',
+                                            borderColor: '#fed7d7',
+                                            backgroundColor: '#fff',
+                                            fontWeight: 'bold'
+                                        }}
+                                    >
+                                        Limpar Biometria
+                                    </button>
+                                )}
                             </div>
                         )}
                         <div className="modal-actions" style={{ marginTop: '1.5rem' }}>
@@ -541,6 +588,7 @@ function GerenciarParticipantes() {
                             checkOnly={false}
                             isRegistration={true}
                             token={token}
+                            glowColor={glowColor}
                         />
                         <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '0.8rem' }}>Aproxime o rosto da câmera e clique no botão de captura</p>
                     </div>

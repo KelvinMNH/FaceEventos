@@ -107,7 +107,11 @@ class AcessoController {
                         autorizado: false,
                         already_in: true,
                         mensagem: "Participante já registrado no evento!",
-                        participante: { nome: participante.nome, foto_biometria: participante.foto_biometria }
+                        participante: { 
+                            id: participante.id,
+                            nome: participante.nome, 
+                            foto_biometria: participante.foto_biometria 
+                        }
                     });
                 }
             }
@@ -124,7 +128,13 @@ class AcessoController {
             if (participante) {
                 return res.json({
                     autorizado: true,
-                    participante: { nome: participante.nome, cpf: participante.cpf, crm: participante.crm, foto_biometria: participante.foto_biometria },
+                    participante: { 
+                        id: participante.id,
+                        nome: participante.nome, 
+                        cpf: participante.cpf, 
+                        crm: participante.crm, 
+                        foto_biometria: participante.foto_biometria 
+                    },
                     mensagem: "Acesso Permitido",
                     access_id: acesso.id
                 });

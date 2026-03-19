@@ -20,7 +20,9 @@ function ControleAcesso() {
   const [logs, setLogs] = useState([]);
   const [evento, setEvento] = useState(null);
   const [modalData, setModalData] = useState(null);
-  const [balloonData, setBalloonData] = useState(null); // Feedback balão que segue a cabeça
+  const [balloonData, setBalloonData] = useState(null);
+  const [glowColor, setGlowColor] = useState(null);
+ // Feedback balão que segue a cabeça
   const [isFaceDetected, setIsFaceDetected] = useState(false); // Se há um rosto na frente da câmera
   const [lastLogId, setLastLogId] = useState(0);
   const [stats, setStats] = useState({ faixaPredominante: '-', generoPredominante: '-', generoPercent: 0, mediaIdade: 0 });
@@ -30,6 +32,7 @@ function ControleAcesso() {
   const [simulating, setSimulating] = useState(false);
   const audioRef = useRef(new Audio('https://assets.mixkit.co/sfx/preview/mixkit-software-interface-start-2574.mp3')); // Som de exemplo
   const modalTimeoutRef = useRef(null);
+  const alertCooldownsRef = useRef(new Map());
 
   // Modal Manual State
   const [manualModalOpen, setManualModalOpen] = useState(false);
@@ -119,15 +122,21 @@ function ControleAcesso() {
 
         const latest = filteredLogs[0]; // Assuming filteredLogs is already sorted by createdAt DESC
         if (filteredLogs && filteredLogs.length > 0) {
-          // Se for a primeira carga (lastLogId === 0), apenas inicializamos o ID
-          // sem disparar o modal visual/sonoro.
           if (lastLogId === 0) {
-            setLastLogId(latest.id);
-          } else if (latest.id > lastLogId) {
-            // Se o ID for maior que o anterior, é um novo acesso em tempo real
-            setLastLogId(latest.id);
-            if (latest.status_validacao === 'sucesso' || latest.status_validacao === 'nao_encontrado') {
-              showModal(latest);
+            setLastLogId(filteredLogs[0].id);
+          } else {
+            const newLogs = filteredLogs.filter(l => l.id > lastLogId);
+            if (newLogs.length > 0) {
+                setLastLogId(filteredLogs[0].id);
+                // Prioridade: se houver algum SUCESSO na lista, mostre o mais recente deles.
+                // Caso contrário, mostre o mais recente (newLogs[0] pois filteredLogs é DESC)
+                const successLog = [...newLogs].sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt))
+                                            .find(l => l.status_validacao === 'sucesso');
+                
+                const logToShow = successLog || newLogs[0];
+                if (['sucesso', 'nao_encontrado', 'alerta'].includes(logToShow.status_validacao)) {
+                    showModal(logToShow);
+                }
             }
           }
         }
@@ -331,15 +340,17 @@ function ControleAcesso() {
         };
         showModal(fakeLog);
       } else {
-        const msg = (data.mensagem || "").toLowerCase();
         const isAlreadyIn = data.already_in || 
                            msg.includes('identificado') || 
                            msg.includes('registrado') || 
-                           msg.includes('validado');
+                           msg.includes('validado') ||
+                           msg.includes('entrou');
 
+        const p = data.participante || { nome: 'Não Identificado' };
         const fakeLog = {
           status_validacao: isAlreadyIn ? 'alerta' : 'falha',
-          Participante: data.participante || { nome: 'Não Identificado' },
+          Participante: p,
+          ParticipanteId: p.id, // Explicitamente passa o ID para o showModal
           mensagem: data.mensagem || "Biometria não reconhecida"
         };
         showModal(fakeLog);
@@ -561,6 +572,38 @@ function ControleAcesso() {
   };
 
   const showModal = (data) => {
+    const p = data.Participante || data.Acompanhante || {};
+    const msg = (data.mensagem || "").toLowerCase();
+    const isAlert = data.status_validacao === 'alerta' || 
+                   msg.includes('já identificado') || 
+                   msg.includes('ja registrado') || 
+                   msg.includes('já registrado') ||
+                   msg.includes('já realizado') ||
+                   msg.includes('ja realizado') ||
+                   msg.includes('entrou');
+
+    // 1. Cooldown para "Já Identificado" (Evita spam se a pessoa ficar na frente da câmera)
+    const personId = p.id || data.ParticipanteId || data.AcompanhanteId;
+    if (isAlert && personId) {
+        const now = Date.now();
+        const key = String(personId);
+        const lastAlert = alertCooldownsRef.current.get(key) || 0;
+        if (now - lastAlert < 15000) { 
+            return; // Respeita rigorosamente os 15 segundos
+        }
+        alertCooldownsRef.current.set(key, now);
+    }
+
+    // 2. Se já estivermos mostrando um SUCESSO para o mesmo participante, ignore alertas redundantes
+    if (modalData && modalData.status_validacao === 'sucesso') {
+      const currentP = modalData.Participante || modalData.Acompanhante || {};
+      const isSamePerson = (currentP.id && p.id && currentP.id === p.id);
+      
+      if (isSamePerson && isAlert) {
+         return;
+      }
+    }
+
     // Limpar timeout anterior se existir
     if (modalTimeoutRef.current) {
       clearTimeout(modalTimeoutRef.current);
@@ -571,25 +614,25 @@ function ControleAcesso() {
     if (audioRef.current) audioRef.current.play().catch(e => console.log(e));
     
     // Se for alerta de "Já identificado", ativa o balão que segue a cabeça
-    const msg = (data.mensagem || "").toLowerCase();
-    const isAlert = data.status_validacao === 'alerta' || 
-                   msg.includes('já identificado') || 
-                   msg.includes('ja registrado') || 
-                   msg.includes('ja entrou');
-                   
     if (isAlert) {
       const p = data.Participante || data.Acompanhante || {};
       setBalloonData({
         name: p.nome || 'Visitante',
         message: 'Já entrou nesse evento.'
       });
+      setGlowColor('#ffc107'); // Amarelo para duplicidade
+    } else if (data.status_validacao === 'sucesso') {
+      setGlowColor('#198754'); // Verde para entrada
+    } else {
+      setGlowColor('#dc3545'); // Vermelho para erro
     }
 
     modalTimeoutRef.current = setTimeout(() => {
       setModalData(null);
       setBalloonData(null);
+      setGlowColor(null);
       modalTimeoutRef.current = null;
-    }, 3000); // Reduzido para 3 segundos para evitar confusão com o próximo participante
+    }, 6000); // 6 segundos para dar tempo de ler e sincronizar com a barra de progresso
   };
 
   const handleConfirmCheckout = async (participanteId) => {
@@ -721,6 +764,7 @@ function ControleAcesso() {
             token={token}
             eventId={uuid}
             followerBalloon={balloonData}
+            glowColor={glowColor}
           />
         </div>
 
@@ -778,14 +822,23 @@ function ControleAcesso() {
               </div>
 
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ color: cardColor, fontSize: '0.7rem', fontWeight: 'bold', textTransform: 'uppercase' }}>
-                  {isSuccess ? 'Sucesso' : (isAlert ? 'Identificado' : 'Aviso')}
+                <div style={{ color: cardColor, fontSize: '0.8rem', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '2px' }}>
+                  {(() => {
+                    const hr = new Date().getHours();
+                    if (hr < 12) return "Bom dia";
+                    if (hr < 18) return "Boa tarde";
+                    return "Boa noite";
+                  })()}! {isSuccess ? 'Sucesso' : (isAlert ? 'Identificado' : 'Aviso')}
                 </div>
-                <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#333', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#333', marginBottom: '4px', lineHeight: '1.2' }}>
                   {participante.nome || 'Visitante'}
                 </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '0.85rem', color: '#666', marginBottom: '6px' }}>
+                  <span>CPF: {maskCPF(participante.cpf)}</span>
+                  {participante.crm && <span>CRM: <strong>{participante.crm}</strong></span>}
+                </div>
                 <div style={{ color: cardColor, fontSize: '0.9rem', fontWeight: '600' }}>
-                  {isSuccess ? 'Confirmado! ✓' : (isAlert ? 'Já registrado! ✓' : (modalData.mensagem || 'Falha'))}
+                  {isSuccess ? 'Entrada Confirmada! ✓' : (isAlert ? 'Já registrado! ✓' : (modalData.mensagem || 'Falha'))}
                 </div>
               </div>
             </div>
