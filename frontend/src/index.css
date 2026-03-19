@@ -131,6 +131,12 @@ body {
   background-color: #fff5f5;
 }
 
+.access-panel.warning {
+  border-color: #ffc107;
+  background-color: #fffcf0;
+  box-shadow: 0 0 30px rgba(255, 193, 7, 0.15);
+}
+
 .access-photo-large {
   width: 180px;
   height: 180px;

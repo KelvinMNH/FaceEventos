@@ -62,42 +62,38 @@ class AcessoController {
 
             if (force_match_id || identified_id) {
                 participante = await Participante.findByPk(force_match_id || identified_id);
-            }
-
-            // Se for apenas verificação (para checkout ou busca)
-            if (check_only) {
-                if (participante) {
-                    return res.json({
-                        autorizado: true,
-                        participante: { id: participante.id, nome: participante.nome, cpf: participante.cpf, crm: participante.crm },
-                        mensagem: "Identificado com sucesso"
-                    });
-                } else {
-                    return res.json({ autorizado: false, mensagem: "Biometria não reconhecida" });
+                // Se for apenas verificação (para checkout ou busca)
+                if (check_only) {
+                    if (participante) {
+                        return res.json({
+                            autorizado: true,
+                            participante: { 
+                                id: participante.id, 
+                                nome: participante.nome, 
+                                cpf: participante.cpf, 
+                                crm: participante.crm,
+                                foto_biometria: participante.foto_biometria 
+                            },
+                            mensagem: "Identificado com sucesso"
+                        });
+                    } else {
+                        return res.json({ autorizado: false, mensagem: "Biometria não reconhecida" });
+                    }
                 }
             }
 
-            // Se for apenas verificação (para checkout ou busca)
-            if (check_only) {
-                if (participante) {
-                    return res.json({
-                        autorizado: true,
-                        participante: { id: participante.id, nome: participante.nome, cpf: participante.cpf, crm: participante.crm },
-                        mensagem: "Identificado com sucesso"
-                    });
-                } else {
-                    return res.json({ autorizado: false, mensagem: "Biometria não reconhecida" });
-                }
-            }
-
-            // Verificação de dupla entrada
+            // Verificação de duplicidade (Bloqueia re-entrada se já houver qualquer entrada de sucesso)
             if (participante) {
-                const ultimoLog = await RegistroAcesso.findOne({
-                    where: { EventoId: evento.id, ParticipanteId: participante.id },
-                    order: [['createdAt', 'DESC']]
+                const entradaExistente = await RegistroAcesso.findOne({
+                    where: { 
+                        EventoId: evento.id, 
+                        ParticipanteId: participante.id,
+                        tipo_acesso: 'entrada',
+                        status_validacao: 'sucesso'
+                    }
                 });
 
-                if (ultimoLog && ultimoLog.tipo_acesso === 'entrada' && ultimoLog.status_validacao === 'sucesso') {
+                if (entradaExistente) {
                     // Log tentativa duplicada mas não cria registro de sucesso
                     await RegistroAcesso.create({
                         tipo_acesso: 'entrada',
@@ -109,8 +105,9 @@ class AcessoController {
 
                     return res.json({
                         autorizado: false,
-                        mensagem: `Participante já validado! (${participante.nome})`,
-                        participante: { nome: participante.nome }
+                        already_in: true,
+                        mensagem: "Participante já registrado no evento!",
+                        participante: { nome: participante.nome, foto_biometria: participante.foto_biometria }
                     });
                 }
             }
@@ -127,7 +124,7 @@ class AcessoController {
             if (participante) {
                 return res.json({
                     autorizado: true,
-                    participante: { nome: participante.nome, cpf: participante.cpf, crm: participante.crm },
+                    participante: { nome: participante.nome, cpf: participante.cpf, crm: participante.crm, foto_biometria: participante.foto_biometria },
                     mensagem: "Acesso Permitido",
                     access_id: acesso.id
                 });
@@ -207,14 +204,18 @@ class AcessoController {
 
             if (!participante) return res.json({ success: false, msg: "Participante não encontrado", not_found: true });
 
-            // Verificação de dupla entrada Manual
-            const ultimoLog = await RegistroAcesso.findOne({
-                where: { EventoId: evento.id, ParticipanteId: participante.id },
-                order: [['createdAt', 'DESC']]
+            // Verificação de duplicidade Manual (Bloqueia re-entrada se já houver qualquer entrada de sucesso)
+            const entradaExistente = await RegistroAcesso.findOne({
+                where: { 
+                    EventoId: evento.id, 
+                    ParticipanteId: participante.id,
+                    tipo_acesso: 'entrada',
+                    status_validacao: 'sucesso'
+                }
             });
 
-            if (ultimoLog && ultimoLog.tipo_acesso === 'entrada' && ultimoLog.status_validacao === 'sucesso') {
-                return res.json({ success: false, msg: "Participante já validado neste evento!", already_in: true });
+            if (entradaExistente) {
+                return res.json({ success: false, msg: "Participante já possui entrada registrada!", already_in: true });
             }
 
             await RegistroAcesso.create({
@@ -234,7 +235,7 @@ class AcessoController {
 
     async renovarBiometriaEEntrar(req, res) {
         try {
-            const { participanteId, template, eventoId } = req.body;
+            const { participanteId, template, foto, eventoId } = req.body;
             const evento = eventoId 
                 ? await Evento.findOne({ where: { uuid: eventoId } })
                 : await Evento.findOne({ where: { status: 'ativo' } });
@@ -252,20 +253,25 @@ class AcessoController {
 
             // Atualiza a biometria
             participante.template_biometrico = template;
+            if (foto) participante.foto_biometria = foto;
             participante.ativo = true;
             await participante.save();
 
-            // Verificação de dupla entrada Manual
-            const ultimoLog = await RegistroAcesso.findOne({
-                where: { EventoId: evento.id, ParticipanteId: participante.id },
-                order: [['createdAt', 'DESC']]
+            // Verificação de duplicidade na Renovação
+            const entradaExistente = await RegistroAcesso.findOne({
+                where: { 
+                    EventoId: evento.id, 
+                    ParticipanteId: participante.id,
+                    tipo_acesso: 'entrada',
+                    status_validacao: 'sucesso'
+                }
             });
 
-            if (ultimoLog && ultimoLog.tipo_acesso === 'entrada' && ultimoLog.status_validacao === 'sucesso') {
+            if (entradaExistente) {
                 return res.json({
                     success: false,
                     autorizado: false,
-                    msg: "Biometria atualizada, mas participante já validado neste evento!",
+                    msg: "Biometria atualizada, mas participante já possui entrada registrada!",
                     already_in: true,
                     participante: { nome: participante.nome, cpf: participante.cpf, crm: participante.crm }
                 });
@@ -284,7 +290,7 @@ class AcessoController {
                 success: true, // compatibilidade entry
                 autorizado: true, // compatibilidade scan
                 status: 'sucesso',
-                participante: { id: participante.id, nome: participante.nome, cpf: participante.cpf, crm: participante.crm, genero: participante.genero, data_nascimento: participante.data_nascimento },
+                participante: { id: participante.id, nome: participante.nome, cpf: participante.cpf, crm: participante.crm, genero: participante.genero, data_nascimento: participante.data_nascimento, foto_biometria: participante.foto_biometria },
                 mensagem: "Biometria cadastrada e Acesso Permitido",
                 access_id: acesso.id
             });
@@ -296,7 +302,7 @@ class AcessoController {
 
     async cadastrarEntrada(req, res) {
         try {
-            const { nome, cpf, crm, genero, data_nascimento, eventoId } = req.body;
+            const { nome, cpf, crm, genero, data_nascimento, eventoId, template_biometrico, foto } = req.body;
             const evento = eventoId 
                 ? await Evento.findOne({ where: { uuid: eventoId } })
                 : await Evento.findOne({ where: { status: 'ativo' } });
@@ -310,7 +316,9 @@ class AcessoController {
 
             participante = await Participante.create({
                 nome, cpf, crm, genero: genero || 'Outro', data_nascimento,
-                ativo: true, template_biometrico: 'manual_' + Date.now()
+                ativo: true, 
+                template_biometrico: template_biometrico || ('manual_' + Date.now()),
+                foto_biometria: foto
             });
 
             await RegistroAcesso.create({

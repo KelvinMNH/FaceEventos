@@ -10,6 +10,7 @@ class ParticipanteController {
             const participantes = await Participante.findAll({
                 where: {
                     [Op.or]: [
+                        { id: q }, // Busca exata por ID (útil para identificação facial)
                         { nome: { [Op.like]: `%${q}%` } },
                         { cpf: { [Op.like]: `%${q}%` } },
                         { crm: { [Op.like]: `%${q}%` } }
@@ -82,7 +83,7 @@ class ParticipanteController {
     async criar(req, res) {
         try {
 
-            const { nome, cpf, crm, genero, data_nascimento, especialidade } = req.body;
+            const { nome, cpf, crm, genero, data_nascimento, especialidade, foto_biometria } = req.body;
 
             // Check se CPF já existe
             if (cpf) {
@@ -96,7 +97,7 @@ class ParticipanteController {
             }
 
             const participante = await Participante.create({
-                nome, cpf, crm, genero, data_nascimento, especialidade, ativo: true
+                nome, cpf, crm, genero, data_nascimento, especialidade, foto_biometria, ativo: true
             });
 
             res.json({ success: true, participante, msg: "Participante criado com sucesso." });
@@ -110,7 +111,7 @@ class ParticipanteController {
         try {
             const { id } = req.params;
 
-            const { nome, cpf, crm, genero, data_nascimento, especialidade } = req.body;
+            const { nome, cpf, crm, genero, data_nascimento, especialidade, foto_biometria } = req.body;
 
             const participante = await Participante.findByPk(id);
             if (!participante) return res.status(404).json({ error: "Participante não encontrado." });
@@ -131,6 +132,7 @@ class ParticipanteController {
             participante.genero = genero;
             participante.data_nascimento = data_nascimento;
             participante.especialidade = especialidade;
+            if (foto_biometria) participante.foto_biometria = foto_biometria;
 
 
             await participante.save();
@@ -162,7 +164,7 @@ class ParticipanteController {
     async atualizarBiometria(req, res) {
         try {
             const { id } = req.params;
-            const { template } = req.body;
+            const { template, foto } = req.body;
 
             if (!template) return res.status(400).json({ error: "Template biométrico não fornecido." });
 
@@ -170,6 +172,7 @@ class ParticipanteController {
             if (!participante) return res.status(404).json({ error: "Participante não encontrado." });
 
             participante.template_biometrico = template;
+            if (foto) participante.foto_biometria = foto;
             participante.data_biometria = new Date();
             participante.ativo = true;
             await participante.save();

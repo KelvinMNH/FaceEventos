@@ -3,13 +3,13 @@ import { useNavigate, useParams } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import MessageModal from '../components/MessageModal';
 import { useAuth } from '../contexts/AuthContext';
-import { BiometricScanner } from '../components/BiometricScanner';
+import { FaceScanner } from '../components/FaceScanner';
 
-const API_URL = 'http://localhost:3000/api';
+const API_URL = `http://${window.location.hostname}:3000/api`;
 
-const FingerprintIcon = ({ size = "1em", ...props }) => (
+const FaceIcon = ({ size = "1em", ...props }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" {...props}>
-    <path d="M17.81 4.47c-.08 0-.16-.02-.23-.06C15.66 3.42 14 3 12.01 3c-1.98 0-3.86.47-5.57 1.41-.24.13-.54.04-.68-.2-.13-.24-.04-.55.2-.68C7.82 2.52 9.86 2 12.01 2c2.13 0 3.99.47 6.03 1.52.25.13.34.43.21.67-.09.18-.26.28-.44.28zM3.5 9.72c-.1 0-.2-.03-.29-.09-.23-.16-.28-.47-.12-.7.99-1.4 2.25-2.5 3.75-3.27C9.98 4.04 14 4.03 17.15 5.65c1.5.77 2.76 1.86 3.75 3.25.16.22.11.54-.12.7-.23.16-.54.11-.7-.12-.9-1.26-2.04-2.25-3.39-2.94-2.87-1.47-6.54-1.47-9.4.01-1.36.7-2.5 1.7-3.4 2.96-.08.14-.23.21-.39.21zm6.25 12.07c-.13 0-.26-.05-.35-.15-.87-.87-1.34-1.43-2.01-2.64-.69-1.23-1.05-2.73-1.05-4.34 0-2.97 2.54-5.39 5.66-5.39s5.66 2.42 5.66 5.39c0 .28-.22.5-.5.5s-.5-.22-.5-.5c0-2.42-2.09-4.39-4.66-4.39-2.57 0-4.66 1.97-4.66 4.39 0 1.44.32 2.77.93 3.85.64 1.15 1.08 1.64 1.85 2.42.19.2.19.51 0 .71-.11.1-.24.15-.37.15zm7.17-1.85c-1.19 0-2.24-.3-3.1-.89-1.49-1.01-2.38-2.65-2.38-4.39 0-.28.22-.5.5-.5s.5.22.5.5c0 1.41.72 2.74 1.94 3.56.71.48 1.54.71 2.54.71.24 0 .64-.03 1.04-.1.27-.05.53.13.58.41.05.27-.13.53-.41.58-.57.11-1.07.12-1.21.12zM14.91 22c-.04 0-.09-.01-.13-.02-1.59-.44-2.63-1.03-3.72-2.1-1.4-1.39-2.17-3.24-2.17-5.22 0-1.62 1.38-2.94 3.08-2.94 1.7 0 3.08 1.32 3.08 2.94 0 1.07.93 1.94 2.08 1.94.28 0 .5.22.5.5s-.22.5-.5.5c-1.7 0-3.08-1.32-3.08-2.94 0-1.07-.93-1.94-2.08-1.94-1.15 0-2.08.87-2.08 1.94 0 1.71.66 3.31 1.87 4.51.95.94 1.86 1.46 3.27 1.85.27.07.42.35.35.61-.05.23-.26.38-.47.38z" />
+    <path d="M9 11.75c-.41 0-.75-.34-.75-.75s.34-.75.75-.75.75.34.75.75-.34.75-.75.75zm6 0c-.41 0-.75-.34-.75-.75s.34-.75.75-.75.75.34.75.75-.34.75-.75.75zM12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-2.5c-2.33 0-4.31-1.46-5.11-3.5h10.22c-.8 2.04-2.78 3.5-5.11 3.5z"/>
   </svg>
 );
 
@@ -19,8 +19,10 @@ function ControleAcesso() {
   const { token } = useAuth();
   const [logs, setLogs] = useState([]);
   const [evento, setEvento] = useState(null);
-  const [lastLogId, setLastLogId] = useState(0);
   const [modalData, setModalData] = useState(null);
+  const [balloonData, setBalloonData] = useState(null); // Feedback balão que segue a cabeça
+  const [isFaceDetected, setIsFaceDetected] = useState(false); // Se há um rosto na frente da câmera
+  const [lastLogId, setLastLogId] = useState(0);
   const [stats, setStats] = useState({ faixaPredominante: '-', generoPredominante: '-', generoPercent: 0, mediaIdade: 0 });
   const [distribuicaoHorario, setDistribuicaoHorario] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -135,7 +137,7 @@ function ControleAcesso() {
         let manualCount = 0;
         firstLogMap.forEach(log => {
           // Se o device_id NÃO for 'futronic_web', consideramos manual (inclui 'manual_entry_web', 'new_entry_web', etc)
-          if (log.device_id !== 'futronic_web') {
+          if (log.device_id && !log.device_id.includes('web')) {
             manualCount++;
           }
         });
@@ -287,22 +289,22 @@ function ControleAcesso() {
     return () => clearInterval(simInterval);
   }, [simulating, token, uuid]);
 
-  // BiometricScanner will handle connection
+  // Facial recognition handle
 
-  const handleBiometricAttempt = async (image, width, height, identifiedId) => {
+  const handleBiometricAttempt = async (template, width, height, identifiedId, image) => {
     try {
       let url = `${API_URL}/scan`;
       let bodyData = {
         identified_id: identifiedId,
-        device_id: 'futronic_web',
-        eventoId: uuid
+        device_id: 'face_admin',
+        eventId: uuid
       };
 
       if (selectedManualParticipant && manualModalOpen) {
         url = `${API_URL}/renovar-biometria`;
         bodyData.participanteId = selectedManualParticipant.id;
-        bodyData.template = image; // Agora recebemos o template se for Registro
-        bodyData.eventoId = uuid;
+        bodyData.template = image;
+        bodyData.eventId = uuid;
       }
 
       const res = await fetch(url, {
@@ -329,9 +331,15 @@ function ControleAcesso() {
         };
         showModal(fakeLog);
       } else {
+        const msg = (data.mensagem || "").toLowerCase();
+        const isAlreadyIn = data.already_in || 
+                           msg.includes('identificado') || 
+                           msg.includes('registrado') || 
+                           msg.includes('validado');
+
         const fakeLog = {
-          status_validacao: 'falha',
-          Participante: { nome: 'Não Identificado' },
+          status_validacao: isAlreadyIn ? 'alerta' : 'falha',
+          Participante: data.participante || { nome: 'Não Identificado' },
           mensagem: data.mensagem || "Biometria não reconhecida"
         };
         showModal(fakeLog);
@@ -552,21 +560,36 @@ function ControleAcesso() {
     }
   };
 
-  const showModal = (log) => {
+  const showModal = (data) => {
     // Limpar timeout anterior se existir
     if (modalTimeoutRef.current) {
       clearTimeout(modalTimeoutRef.current);
     }
 
-    setModalData(log);
+    setModalData(data);
     // Tocar som
     if (audioRef.current) audioRef.current.play().catch(e => console.log(e));
+    
+    // Se for alerta de "Já identificado", ativa o balão que segue a cabeça
+    const msg = (data.mensagem || "").toLowerCase();
+    const isAlert = data.status_validacao === 'alerta' || 
+                   msg.includes('já identificado') || 
+                   msg.includes('ja registrado') || 
+                   msg.includes('ja entrou');
+                   
+    if (isAlert) {
+      const p = data.Participante || data.Acompanhante || {};
+      setBalloonData({
+        name: p.nome || 'Visitante',
+        message: 'Já entrou nesse evento.'
+      });
+    }
 
-    // Manter dados visíveis por 6 segundos
     modalTimeoutRef.current = setTimeout(() => {
       setModalData(null);
+      setBalloonData(null);
       modalTimeoutRef.current = null;
-    }, 6000);
+    }, 3000); // Reduzido para 3 segundos para evitar confusão com o próximo participante
   };
 
   const handleConfirmCheckout = async (participanteId) => {
@@ -663,113 +686,130 @@ function ControleAcesso() {
     return cpf;
   };
 
-  // Helper para renderizar o painel direito
   const renderAccessPanel = () => {
-    if (!modalData) {
-      return (
-        <div className="access-panel waiting" style={{ padding: '2rem', justifyContent: 'center' }}>
-          <div className="access-photo-large" style={{ width: '120px', height: '120px', fontSize: '3rem', margin: '0 auto 1.5rem' }}>
-            <span role="img" aria-label="fingerprint">👆</span>
-          </div>
-          <h2 className="access-title" style={{ fontSize: '1.5rem' }}>Aguardando Validação</h2>
-          <p className="access-subtitle" style={{ fontSize: '1rem', marginBottom: '2rem' }}>
-             Posicione seu dedo no leitor biométrico
-          </p>
-
-          <BiometricScanner 
-            onScanSuccess={handleBiometricAttempt} 
-            isRegistration={false} 
-            token={token}
-          />
-
-          <div style={{ opacity: 0.15, transform: 'scale(1.5)', color: 'var(--text-primary)', marginTop: '2rem' }}>
-            <svg width="60" height="60" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-              <path d="M17.81 4.47c-.08 0-.16-.02-.23-.06C15.66 3.42 14 3 12.01 3c-1.98 0-3.86.47-5.57 1.41-.24.13-.54.04-.68-.2-.13-.24-.04-.55.2-.68C7.82 2.52 9.86 2 12.01 2c2.13 0 3.99.47 6.03 1.52.25.13.34.43.21.67-.09.18-.26.28-.44.28zM3.5 9.72c-.1 0-.2-.03-.29-.09-.23-.16-.28-.47-.12-.7.99-1.4 2.25-2.5 3.75-3.27C9.98 4.04 14 4.03 17.15 5.65c1.5.77 2.76 1.86 3.75 3.25.16.22.11.54-.12.7-.23.16-.54.11-.7-.12-.9-1.26-2.04-2.25-3.39-2.94-2.87-1.47-6.54-1.47-9.4.01-1.36.7-2.5 1.7-3.4 2.96-.08.14-.23.21-.39.21zm6.25 12.07c-.13 0-.26-.05-.35-.15-.87-.87-1.34-1.43-2.01-2.64-.69-1.23-1.05-2.73-1.05-4.34 0-2.97 2.54-5.39 5.66-5.39s5.66 2.42 5.66 5.39c0 .28-.22.5-.5.5s-.5-.22-.5-.5c0-2.42-2.09-4.39-4.66-4.39-2.57 0-4.66 1.97-4.66 4.39 0 1.44.32 2.77.93 3.85.64 1.15 1.08 1.64 1.85 2.42.19.2.19.51 0 .71-.11.1-.24.15-.37.15zm7.17-1.85c-1.19 0-2.24-.3-3.1-.89-1.49-1.01-2.38-2.65-2.38-4.39 0-.28.22-.5.5-.5s.5.22-.5.5c0 1.41.72 2.74 1.94 3.56.71.48 1.54.71 2.54.71.24 0 .64-.03 1.04-.1.27-.05.53.13.58.41.05.27-.13.53-.41.58-.57.11-1.07.12-1.21.12zM14.91 22c-.04 0-.09-.01-.13-.02-1.59-.44-2.63-1.03-3.72-2.1-1.4-1.39-2.17-3.24-2.17-5.22 0-1.62 1.38-2.94 3.08-2.94 1.7 0 3.08 1.32 3.08 2.94 0 1.07.93 1.94 2.08 1.94.28 0 .5.22.5.5s-.22.5-.5.5c-1.7 0-3.08-1.32-3.08-2.94 0-1.07-.93-1.94-2.08-1.94-1.15 0-2.08.87-2.08 1.94 0 1.71.66 3.31 1.87 4.51.95.94 1.86 1.46 3.27 1.85.27.07.42.35.35.61-.05.23-.26.38-.47.38z" />
-            </svg>
-          </div>
-        </div>
-      );
-    }
-
-    const isSuccess = modalData.status_validacao === 'sucesso';
-    const statusClass = isSuccess ? 'success' : 'error';
-    const participante = modalData.Participante || modalData.Acompanhante || {};
+    const isSuccess = modalData?.status_validacao === 'sucesso';
+    const isAlert = modalData?.status_validacao === 'alerta';
+    const participante = modalData?.Participante || modalData?.Acompanhante || {};
+    const cardColor = isSuccess ? '#198754' : (isAlert ? '#ffc107' : '#dc3545');
 
     return (
-      <div className={`access-panel ${statusClass}`} style={{ position: 'relative', overflow: 'hidden', padding: '1rem', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-        <div className="access-photo-large" style={{
-          width: '120px',
-          height: '120px',
-          fontSize: '2.5rem',
-          margin: '0 auto 1rem',
-          borderWidth: '4px'
+      <div className="access-panel-container" style={{ 
+        position: 'relative', 
+        height: '600px', 
+        background: '#f8f9fa',
+        borderRadius: '12px',
+        border: '1px solid #e1e4e8',
+        overflow: 'hidden'
+      }}>
+        {/* Camera Feed - Absolutely positioned to prevent shifts */}
+        <div style={{ 
+          width: '400px', 
+          height: '400px', 
+          position: 'absolute',
+          top: '40px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          borderRadius: '15px', 
+          overflow: 'hidden', 
+          boxShadow: '0 8px 32px rgba(0,0,0,0.1)',
+          zIndex: 1
         }}>
-          {participante.nome ? participante.nome.charAt(0) : '!'}
+          <FaceScanner 
+            onScanSuccess={handleBiometricAttempt} 
+            onFaceDetected={setIsFaceDetected}
+            isRegistration={false} 
+            token={token}
+            eventId={uuid}
+            followerBalloon={balloonData}
+          />
         </div>
 
-        {isSuccess ? (
-          <>
-            <h2 className="access-title" style={{ 
-              color: modalData.tipo_acesso === 'saida' ? 'var(--accent-color)' : 'var(--success-color)', 
-              fontSize: '1.3rem', 
-              marginBottom: '0.5rem', 
-              lineHeight: '1.3', 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '0.5rem', 
-              justifyContent: 'center',
-              width: '100%'
-            }}>
-              <span style={{
-                maxWidth: '80%',
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis'
-              }} title={modalData.tipo_acesso === 'saida' ? `Até logo, ${participante.nome}!` : `Bem-vindo(a), ${participante.nome}!`}>
-                {modalData.tipo_acesso === 'saida' ? `Até logo, ${participante.nome}!` : `Bem-vindo(a), ${participante.nome}!`}
-              </span>
-              <span style={{ fontSize: '0.7rem', opacity: 0.5, fontWeight: 'normal', backgroundColor: 'rgba(0,0,0,0.05)', padding: '2px 6px', borderRadius: '3px' }}>
-                {participante.genero === 'M' ? 'H' : participante.genero === 'F' ? 'M' : ''}
-              </span>
-            </h2>
-            <p style={{ fontSize: '1.1rem', marginBottom: '1.5rem', color: modalData.tipo_acesso === 'saida' ? 'var(--accent-color)' : 'var(--success-color)', fontWeight: 'bold' }}>
-              {modalData.tipo_acesso === 'saida' ? 'Saída registrada às ' : 'Entrada registrada às '}
-              {new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-            </p>
+        {/* Status Text Area - Persistent to keep layout stable */}
+        <div style={{ 
+          position: 'absolute',
+          top: '460px',
+          width: '100%',
+          textAlign: 'center',
+          visibility: 'visible',
+          zIndex: 1
+        }}>
+          <h2 className="access-title" style={{ fontSize: '1.4rem' }}>Aproximar Rosto</h2>
+          <p className="access-subtitle" style={{ fontSize: '0.9rem' }}>O reconhecimento facial está ativo</p>
+        </div>
 
-            <div className="info-grid" style={{ gap: '0.6rem', width: '100%' }}>
-              <div className="info-item" style={{ padding: '0.5rem', textAlign: 'left' }}>
-                <span className="info-label" style={{ fontSize: '0.7rem' }}>CPF</span>
-                <span className="info-value" style={{ fontSize: '0.95rem' }}>{maskCPF(participante.cpf)}</span>
+        {/* Floating Card - Only if identified and NOT shown via balloon */}
+        {modalData && !balloonData && (
+          <div style={{
+            position: 'absolute',
+            bottom: '20px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 10,
+            backgroundColor: '#ffffff',
+            width: '90%',
+            maxWidth: '340px',
+            padding: '1.2rem 1.5rem',
+            borderRadius: '1.2rem',
+            boxShadow: '0 15px 45px rgba(0,0,0,0.2)',
+            textAlign: 'center',
+            border: `2px solid ${cardColor}44`,
+            animation: 'modalFadeIn 0.3s ease-out'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', textAlign: 'left' }}>
+              <div style={{
+                width: '60px',
+                height: '60px',
+                borderRadius: '50%',
+                border: `3px solid ${cardColor}22`,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: '#f8f9fa',
+                overflow: 'hidden',
+                flexShrink: 0
+              }}>
+                {participante.foto_biometria ? (
+                  <img src={participante.foto_biometria} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="Face" />
+                ) : (
+                  <span style={{ fontSize: '1.5rem', color: cardColor, fontWeight: 'bold' }}>
+                    {participante.nome ? participante.nome.charAt(0) : '?'}
+                  </span>
+                )}
               </div>
-              <div className="info-item" style={{ padding: '0.5rem', textAlign: 'left' }}>
-                <span className="info-label" style={{ fontSize: '0.7rem' }}>CRM</span>
-                <span className="info-value" style={{ fontSize: '0.95rem' }}>{participante.crm || '-'}</span>
+
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ color: cardColor, fontSize: '0.7rem', fontWeight: 'bold', textTransform: 'uppercase' }}>
+                  {isSuccess ? 'Sucesso' : (isAlert ? 'Identificado' : 'Aviso')}
+                </div>
+                <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#333', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {participante.nome || 'Visitante'}
+                </div>
+                <div style={{ color: cardColor, fontSize: '0.9rem', fontWeight: '600' }}>
+                  {isSuccess ? 'Confirmado! ✓' : (isAlert ? 'Já registrado! ✓' : (modalData.mensagem || 'Falha'))}
+                </div>
               </div>
             </div>
 
-            {/* Progress Bar */}
-            <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '4px', backgroundColor: 'rgba(0,0,0,0.1)', overflow: 'hidden' }}>
+            {/* Progress Bar (at bottom of card) */}
+            <div style={{ 
+              position: 'absolute', 
+              bottom: 0, 
+              left: 0, 
+              right: 0, 
+              height: '4px', 
+              backgroundColor: 'rgba(0,0,0,0.05)', 
+              borderBottomLeftRadius: '1.2rem',
+              borderBottomRightRadius: '1.2rem',
+              overflow: 'hidden' 
+            }}>
               <div style={{
                 height: '100%',
-                backgroundColor: modalData.tipo_acesso === 'saida' ? 'var(--accent-color)' : 'var(--success-color)',
+                backgroundColor: cardColor,
                 animation: 'progressBar 6s linear forwards',
                 width: '100%'
               }}></div>
             </div>
-
-          </>
-        ) : (
-          <>
-            <h2 className="access-title" style={{ color: 'var(--error-color)', fontSize: '1.5rem' }}>Biometria não reconhecida</h2>
-            <p className="access-subtitle" style={{ fontSize: '1rem' }}>Biometria não identificada</p>
-            <div className="info-grid" style={{ gap: '1rem', width: '100%' }}>
-              <div className="info-item" style={{ padding: '0.8rem' }}>
-                <span className="info-label">Status</span>
-                <span className="info-value" style={{ color: 'var(--error-color)', fontSize: '1.1rem' }}>Não Cadastrado</span>
-              </div>
-            </div>
-          </>
+          </div>
         )}
       </div>
     );
@@ -1369,7 +1409,7 @@ function ControleAcesso() {
 
       {/* Modal Manual */}
       <div className={`modal-overlay ${manualModalOpen ? 'open' : ''}`} onClick={() => { setManualModalOpen(false); setManualMode('search'); setSelectedManualParticipant(null); }}>
-        <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '500px' }}>
+        <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '650px', width: '95%' }}>
           {manualMode === 'search' ? (
             selectedManualParticipant ? (
               // TELA DE CONFIRMAÇÃO
@@ -1401,9 +1441,15 @@ function ControleAcesso() {
                   </div>
 
                   <div style={{ marginTop: '1.5rem', padding: '1rem', backgroundColor: '#e7f5ff', border: '1px solid #74c0fc', borderRadius: '8px', color: '#1864ab' }}>
-                    <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>👆</div>
-                    <strong>Renovação de Biometria:</strong><br />
-                    Peça ao participante para colocar o dedo no leitor para registrar a biometria agora e confirmar o acesso automaticamente.
+                    <FaceScanner 
+                      onScanSuccess={(template) => handleBiometricAttempt(template)} 
+                      isRegistration={true} 
+                      token={token}
+                    />
+                    <div style={{ marginTop: '0.8rem', fontSize: '0.85rem' }}>
+                      <strong>Captura Facial para Renovação:</strong><br />
+                      Clique no botão flutuante para capturar o rosto e atualizar a biometria.
+                    </div>
                   </div>
                 </div>
 
@@ -1469,9 +1515,9 @@ function ControleAcesso() {
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                           {p.template_biometrico && !p.template_biometrico.startsWith('manual_') ? (
-                            <span title="Biometria Cadastrada" style={{ color: '#4CAF50', display: 'flex' }}><FingerprintIcon size="1.8rem" /></span>
+                            <span title="Face Cadastrada" style={{ color: '#4CAF50', display: 'flex' }}><FaceIcon size="1.8rem" /></span>
                           ) : (
-                            <span title="Sem Biometria" style={{ color: '#666', opacity: 0.3, filter: 'grayscale(100%)', display: 'flex' }}><FingerprintIcon size="1.8rem" /></span>
+                            <span title="Sem Biometria" style={{ color: '#666', opacity: 0.3, filter: 'grayscale(100%)', display: 'flex' }}><FaceIcon size="1.8rem" /></span>
                           )}
                           <span style={{ fontSize: '1.2rem' }}>➡️</span>
                         </div>
@@ -1524,15 +1570,28 @@ function ControleAcesso() {
                   value={newParticipant.data_nascimento}
                   onChange={e => setNewParticipant({ ...newParticipant, data_nascimento: e.target.value })}
                 />
-                <select
-                  className="modal-input"
-                  value={newParticipant.genero}
-                  onChange={e => setNewParticipant({ ...newParticipant, genero: e.target.value })}
-                >
-                  <option value="M">Masculino</option>
-                  <option value="F">Feminino</option>
-                  <option value="Outro">Outro</option>
-                </select>
+                  <select
+                    className="modal-input"
+                    value={newParticipant.genero}
+                    onChange={e => setNewParticipant({ ...newParticipant, genero: e.target.value })}
+                  >
+                    <option value="M">Masculino</option>
+                    <option value="F">Feminino</option>
+                    <option value="Outro">Outro</option>
+                  </select>
+
+                  <div style={{ marginTop: '0.5rem', borderRadius: '8px', overflow: 'hidden', border: '1px solid #ddd' }}>
+                    <FaceScanner 
+                      onScanSuccess={(template) => setNewParticipant({ ...newParticipant, template_biometrico: template })} 
+                      isRegistration={true} 
+                      token={token}
+                    />
+                  </div>
+                  {newParticipant.template_biometrico && (
+                    <div style={{ fontSize: '0.8rem', color: 'var(--success-color)', textAlign: 'center', fontWeight: 'bold' }}>
+                      ✓ Rosto Capturado
+                    </div>
+                  )}
               </div>
               <div className="modal-actions">
                 <button className="btn-secondary" onClick={() => { setManualMode('search'); setNewParticipant({ nome: '', cpf: '', crm: '', data_nascimento: '', genero: 'Outro' }); }}>Voltar</button>

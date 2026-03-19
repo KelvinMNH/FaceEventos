@@ -2,13 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import Navbar from '../components/Navbar';
 import MessageModal from '../components/MessageModal';
-import { BiometricScanner } from '../components/BiometricScanner';
+import { FaceScanner } from '../components/FaceScanner';
 
-const API_URL = 'http://localhost:3000/api';
+const API_URL = `http://${window.location.hostname}:3000/api`;
 
-const FingerprintIcon = ({ size = "1em", ...props }) => (
+const FaceIcon = ({ size = "1em", ...props }) => (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" {...props}>
-        <path d="M17.81 4.47c-.08 0-.16-.02-.23-.06C15.66 3.42 14 3 12.01 3c-1.98 0-3.86.47-5.57 1.41-.24.13-.54.04-.68-.2-.13-.24-.04-.55.2-.68C7.82 2.52 9.86 2 12.01 2c2.13 0 3.99.47 6.03 1.52.25.13.34.43.21.67-.09.18-.26.28-.44.28zM3.5 9.72c-.1 0-.2-.03-.29-.09-.23-.16-.28-.47-.12-.7.99-1.4 2.25-2.5 3.75-3.27C9.98 4.04 14 4.03 17.15 5.65c1.5.77 2.76 1.86 3.75 3.25.16.22.11.54-.12.7-.23.16-.54.11-.7-.12-.9-1.26-2.04-2.25-3.39-2.94-2.87-1.47-6.54-1.47-9.4.01-1.36.7-2.5 1.7-3.4 2.96-.08.14-.23.21-.39.21zm6.25 12.07c-.13 0-.26-.05-.35-.15-.87-.87-1.34-1.43-2.01-2.64-.69-1.23-1.05-2.73-1.05-4.34 0-2.97 2.54-5.39 5.66-5.39s5.66 2.42 5.66 5.39c0 .28-.22.5-.5.5s-.5-.22-.5-.5c0-2.42-2.09-4.39-4.66-4.39-2.57 0-4.66 1.97-4.66 4.39 0 1.44.32 2.77.93 3.85.64 1.15 1.08 1.64 1.85 2.42.19.2.19.51 0 .71-.11.1-.24.15-.37.15zm7.17-1.85c-1.19 0-2.24-.3-3.1-.89-1.49-1.01-2.38-2.65-2.38-4.39 0-.28.22-.5.5-.5s.5.22.5.5c0 1.41.72 2.74 1.94 3.56.71.48 1.54.71 2.54.71.24 0 .64-.03 1.04-.1.27-.05.53.13.58.41.05.27-.13.53-.41.58-.57.11-1.07.12-1.21.12zM14.91 22c-.04 0-.09-.01-.13-.02-1.59-.44-2.63-1.03-3.72-2.1-1.4-1.39-2.17-3.24-2.17-5.22 0-1.62 1.38-2.94 3.08-2.94 1.7 0 3.08 1.32 3.08 2.94 0 1.07.93 1.94 2.08 1.94.28 0 .5.22.5.5s-.22.5-.5.5c-1.7 0-3.08-1.32-3.08-2.94 0-1.07-.93-1.94-2.08-1.94-1.15 0-2.08.87-2.08 1.94 0 1.71.66 3.31 1.87 4.51.95.94 1.86 1.46 3.27 1.85.27.07.42.35.35.61-.05.23-.26.38-.47.38z" />
+        <path d="M9 11.75c-.41 0-.75-.34-.75-.75s.34-.75.75-.75.75.34.75.75-.34.75-.75.75zm6 0c-.41 0-.75-.34-.75-.75s.34-.75.75-.75.75.34.75.75-.34.75-.75.75zM12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-2.5c-2.33 0-4.31-1.46-5.11-3.5h10.22c-.8 2.04-2.78 3.5-5.11 3.5z"/>
     </svg>
 );
 
@@ -325,8 +325,8 @@ function GerenciarParticipantes() {
                                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem' }}>
                                                 {p.template_biometrico && !p.template_biometrico.startsWith('manual_') ? (
                                                     <>
-                                                        <span title="Biometria Cadastrada" style={{ color: '#4CAF50', display: 'flex' }}>
-                                                            <FingerprintIcon size="1.8rem" />
+                                                        <span title="Face Cadastrada" style={{ color: '#4CAF50', display: 'flex' }}>
+                                                            <FaceIcon size="1.8rem" />
                                                         </span>
                                                         {p.data_biometria && (
                                                             <span style={{ fontSize: '0.65rem', color: '#718096', fontWeight: '500' }}>
@@ -336,7 +336,7 @@ function GerenciarParticipantes() {
                                                     </>
                                                 ) : (
                                                     <span title="Sem Biometria" style={{ color: '#666', opacity: 0.3, filter: 'grayscale(100%)', display: 'flex' }}>
-                                                        <FingerprintIcon size="1.8rem" />
+                                                        <FaceIcon size="1.8rem" />
                                                     </span>
                                                 )}
                                             </div>
@@ -348,7 +348,7 @@ function GerenciarParticipantes() {
                                                      className="btn-primary"
                                                      style={{ padding: '0.5rem 0.8rem', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
                                                  >
-                                                     <FingerprintIcon size="1.2rem" /> Biometria
+                                                     <FaceIcon size="1.2rem" /> Capturar Face
                                                  </button>
                                              </div>
                                          </td>
@@ -464,17 +464,17 @@ function GerenciarParticipantes() {
                                 gap: '1rem'
                             }}>
                                 <div style={{
-                                    width: '45px',
-                                    height: '45px',
-                                    borderRadius: '10px',
-                                    backgroundColor: (currentParticipante?.template_biometrico && !currentParticipante.template_biometrico.startsWith('manual_')) ? '#e6fffa' : '#fff5f5',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    color: (currentParticipante?.template_biometrico && !currentParticipante.template_biometrico.startsWith('manual_')) ? '#38a169' : '#e53e3e'
-                                }}>
-                                    <FingerprintIcon size="1.8rem" />
-                                </div>
+                                     width: '45px',
+                                     height: '45px',
+                                     borderRadius: '10px',
+                                     backgroundColor: (currentParticipante?.template_biometrico && !currentParticipante.template_biometrico.startsWith('manual_')) ? '#e6fffa' : '#fff5f5',
+                                     display: 'flex',
+                                     alignItems: 'center',
+                                     justifyContent: 'center',
+                                     color: (currentParticipante?.template_biometrico && !currentParticipante.template_biometrico.startsWith('manual_')) ? '#38a169' : '#e53e3e'
+                                 }}>
+                                     <FaceIcon size="1.8rem" />
+                                 </div>
                                 <div style={{ flex: 1 }}>
                                     <p style={{ margin: 0, fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                                         Segurança e Biometria
@@ -522,32 +522,28 @@ function GerenciarParticipantes() {
 
             {/* Modal de Biometria */}
             <div className={`modal-overlay ${isBioModalOpen ? 'open' : ''}`} onClick={closeBioModal}>
-                <div className="modal-content" style={{ textAlign: 'center', maxWidth: '450px' }} onClick={e => e.stopPropagation()}>
+                <div className="modal-content" style={{ textAlign: 'center', maxWidth: '600px', width: '95%' }} onClick={e => e.stopPropagation()}>
                     <h2 className="modal-header">Renovar Biometria</h2>
                     {currentParticipante && <p style={{ color: 'var(--accent-color)', marginBottom: '1.5rem', fontWeight: 'bold', fontSize: '1.1rem' }}>{currentParticipante.nome}</p>}
 
                     <div style={{
-                        padding: '2rem',
+                        padding: '1rem',
                         backgroundColor: '#f8f9fa',
                         borderRadius: '12px',
                         marginBottom: '1.5rem',
                         display: 'flex',
                         flexDirection: 'column',
                         alignItems: 'center',
-                        border: '2px dashed var(--border-color)'
+                        border: '1px solid var(--border-color)'
                     }}>
-                        <FingerprintIcon size="4rem" style={{ marginBottom: '1rem', color: 'var(--accent-color)' }} />
-                        <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Posicione o dedo no leitor biométrico</p>
-                    </div>
-
-                    {isBioModalOpen && (
-                        <BiometricScanner
+                        <FaceScanner
                             onScanSuccess={handleBiometriaCaptured}
                             checkOnly={false}
                             isRegistration={true}
                             token={token}
                         />
-                    )}
+                        <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '0.8rem' }}>Aproxime o rosto da câmera e clique no botão de captura</p>
+                    </div>
 
                     <div className="modal-actions" style={{ marginTop: '1.5rem' }}>
                         <button type="button" className="btn-secondary" onClick={closeBioModal} style={{ width: '100%' }}>Fechar</button>

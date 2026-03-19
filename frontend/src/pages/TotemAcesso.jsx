@@ -2,11 +2,13 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
-const API_URL = 'http://localhost:3000/api';
+import { FaceScanner } from '../components/FaceScanner';
 
-const FingerprintIcon = ({ size = "1em", ...props }) => (
+const API_URL = `http://${window.location.hostname}:3000/api`;
+
+const FaceIcon = ({ size = "1em", ...props }) => (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" {...props}>
-        <path d="M17.81 4.47c-.08 0-.16-.02-.23-.06C15.66 3.42 14 3 12.01 3c-1.98 0-3.86.47-5.57 1.41-.24.13-.54.04-.68-.2-.13-.24-.04-.55.2-.68C7.82 2.52 9.86 2 12.01 2c2.13 0 3.99.47 6.03 1.52.25.13.34.43.21.67-.09.18-.26.28-.44.28zM3.5 9.72c-.1 0-.2-.03-.29-.09-.23-.16-.28-.47-.12-.7.99-1.4 2.25-2.5 3.75-3.27C9.98 4.04 14 4.03 17.15 5.65c1.5.77 2.76 1.86 3.75 3.25.16.22.11.54-.12.7-.23.16-.54.11-.7-.12-.9-1.26-2.04-2.25-3.39-2.94-2.87-1.47-6.54-1.47-9.4.01-1.36.7-2.5 1.7-3.4 2.96-.08.14-.23.21-.39.21zm6.25 12.07c-.13 0-.26-.05-.35-.15-.87-.87-1.34-1.43-2.01-2.64-.69-1.23-1.05-2.73-1.05-4.34 0-2.97 2.54-5.39 5.66-5.39s5.66 2.42 5.66 5.39c0 .28-.22.5-.5.5s-.5-.22-.5-.5c0-2.42-2.09-4.39-4.66-4.39-2.57 0-4.66 1.97-4.66 4.39 0 1.44.32 2.77.93 3.85.64 1.15 1.08 1.64 1.85 2.42.19.2.19.51 0 .71-.11.1-.24.15-.37.15zm7.17-1.85c-1.19 0-2.24-.3-3.1-.89-1.49-1.01-2.38-2.65-2.38-4.39 0-.28.22-.5.5-.5s.5.22.5.5c0 1.41.72 2.74 1.94 3.56.71.48 1.54.71 2.54.71.24 0 .64-.03 1.04-.1.27-.05.53.13.58.41.05.27-.13.53-.41.58-.57.11-1.07.12-1.21.12zM14.91 22c-.04 0-.09-.01-.13-.02-1.59-.44-2.63-1.03-3.72-2.1-1.4-1.39-2.17-3.24-2.17-5.22 0-1.62 1.38-2.94 3.08-2.94 1.7 0 3.08 1.32 3.08 2.94 0 1.07.93 1.94 2.08 1.94.28 0 .5.22.5.5s-.22.5-.5.5c-1.7 0-3.08-1.32-3.08-2.94 0-1.07-.93-1.94-2.08-1.94-1.15 0-2.08.87-2.08 1.94 0 1.71.66 3.31 1.87 4.51.95.94 1.86 1.46 3.27 1.85.27.07.42.35.35.61-.05.23-.26.38-.47.38z" />
+        <path d="M9 11.75c-.41 0-.75-.34-.75-.75s.34-.75.75-.75.75.34.75.75-.34.75-.75.75zm6 0c-.41 0-.75-.34-.75-.75s.34-.75.75-.75.75.34.75.75-.34.75-.75.75zM12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-2.5c-2.33 0-4.31-1.46-5.11-3.5h10.22c-.8 2.04-2.78 3.5-5.11 3.5z"/>
     </svg>
 );
 
@@ -23,7 +25,10 @@ function TotemAcesso() {
     const [searchResults, setSearchResults] = useState([]);
     const [selectedParticipant, setSelectedParticipant] = useState(null);
     const [statusMessage, setStatusMessage] = useState('');
+    const [scannedUser, setScannedUser] = useState(null); // Para exibir a foto no sucesso
     const [qualityMsg, setQualityMsg] = useState(''); // Novo: feedback de pressão do dedo
+    const [progress, setProgress] = useState(100);
+    const [biometricResult, setBiometricResult] = useState(null); // { user, type: 'success' | 'already_in' | 'error', message? }
 
     // Wizard Registration States
     const [captureStep, setCaptureStep] = useState(1);
@@ -54,150 +59,58 @@ function TotemAcesso() {
         return () => clearInterval(interval);
     }, []);
 
-    // WebSocket Bridge Conexão
+    // Efeito para o countdown do card flutuante (Biometria)
     useEffect(() => {
-        let ws = null;
-        let reconnectTimeout = null;
-
-        const connectBridge = () => {
-            if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
-
-            try {
-                ws = new WebSocket('ws://localhost:4000');
-                wsRef.current = ws;
-
-                ws.onopen = () => {
-                    console.log('WS Bridge Conectado');
-                    ws.send('START_CAPTURE');
-                };
-
-                ws.onmessage = (event) => {
-                    try {
-                        const data = JSON.parse(event.data);
-                        if (data.type === 'IMAGE_DATA') {
-                            setScannedImage({
-                                buffer: data.image,
-                                width: data.width,
-                                height: data.height
-                            });
-                            handleBiometricScan(data);
-                        } else if (data.type === 'STATUS') {
-                            console.log('Bridge Status:', data.message);
-                            if (data.status === 'low_quality') {
-                                setQualityMsg(data.message);
-                                setTimeout(() => setQualityMsg(''), 3000);
-                            }
-                        }
-                    } catch (e) {
-                        console.error('Erro WS msg:', e);
-                    }
-                };
-
-                ws.onclose = () => {
-                    console.log('WS Bridge Fechado. Reconectando em 3s...');
-                    wsRef.current = null;
-                    reconnectTimeout = setTimeout(connectBridge, 3000);
-                };
-
-                ws.onerror = (e) => {
-                    console.log('WS Erro:', e);
-                    if (ws.readyState === WebSocket.OPEN) ws.close();
-                };
-
-            } catch (e) {
-                console.log('Erro conexão bridge', e);
-                reconnectTimeout = setTimeout(connectBridge, 3000);
-            }
-        };
-
-        connectBridge();
-
-        return () => {
-            if (reconnectTimeout) clearTimeout(reconnectTimeout);
-            if (wsRef.current) {
-                wsRef.current.onclose = null; // Evita loop no unmount
-                wsRef.current.close();
-            }
-        };
-    }, []);
-
-    // Reiniciar captura ao voltar para tela inicial
-    useEffect(() => {
-        if (view === 'welcome' && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-            console.log('Reiniciando captura...');
-            wsRef.current.send('START_CAPTURE');
+        let timer;
+        if (biometricResult && view === 'welcome') {
+            setProgress(100);
+            const startTime = Date.now();
+            const duration = 5000;
+            timer = setInterval(() => {
+                const elapsed = Date.now() - startTime;
+                const remaining = Math.max(0, 100 - (elapsed / duration) * 100);
+                setProgress(remaining);
+                if (elapsed >= duration) {
+                    setBiometricResult(null);
+                    clearInterval(timer);
+                }
+            }, 50);
+        } else {
+            clearInterval(timer);
         }
-    }, [view]);
+        return () => clearInterval(timer);
+    }, [biometricResult, view]);
 
-    const handleBiometricScan = async (data) => {
+    // WebSocket removido - Reconhecimento facial via câmera direta no navegador
+
+    const handleBiometricScan = async (template, width, height, identifiedId, photo) => {
         if (isVerifyingRef.current) return;
 
         try {
-            // Se estiver na tela de confirmação e tiver alguém selecionado, entra em fluxo de RE-REGISTRO (Wizard)
-            if (view === 'confirm' && selectedParticipant) {
+            // Fluxo de Cadastro/Renovação (Wizard Simplificado)
+            if (view === 'confirm' && selectedParticipant && template) {
                 isVerifyingRef.current = true;
                 setIsVerifying(true);
-                setErrorMsg('');
-
+                
                 try {
-                    const currentStep = stepRef.current;
-                    const currentTemplates = templatesRef.current;
-
-                    if (currentStep === 1) {
-                        setCapturedTemplates([data.image]);
-                        setCaptureStep(2);
-                        setErrorMsg('');
-                        wsRef.current?.send('START_CAPTURE');
-                    } else {
-                        // Comparar com a captura anterior
-                        const prevImage = currentTemplates[currentTemplates.length - 1];
-                        
-                        const resC = await fetch(`${API_URL}/biometria/comparar`, {
-                            method: 'POST',
-                            headers: { 
-                                'Content-Type': 'application/json',
-                                'Authorization': `Bearer ${token}`
-                            },
-                            body: JSON.stringify({ templateA: prevImage, templateB: data.image })
-                        });
-                        
-                        const resultC = await resC.json();
-                        
-                        if (resultC.isSameFinger) {
-                            const newTemplates = [...currentTemplates, data.image];
-                            if (currentStep === 3) {
-                                // Sucesso total! Salvar a última imagem
-                                const res = await fetch(`${API_URL}/renovar-biometria`, {
-                                    method: 'POST',
-                                    headers: {
-                                        'Content-Type': 'application/json',
-                                        'Authorization': `Bearer ${token}`
-                                    },
-                                    body: JSON.stringify({
-                                        participanteId: selectedParticipant.id,
-                                        template: data.image,
-                                        eventoId: uuid
-                                    })
-                                });
-                                const finalData = await res.json();
-                                handleFinalResponse(finalData);
-                            } else {
-                                setCapturedTemplates(newTemplates);
-                                setCaptureStep(currentStep + 1);
-                                setErrorMsg('');
-                                wsRef.current?.send('START_CAPTURE');
-                            }
-                        } else {
-                            setErrorMsg('Digital não confere com a anterior. Tente usar o mesmo dedo.');
-                            setTimeout(() => {
-                                wsRef.current?.send('START_CAPTURE');
-                            }, 2000);
-                        }
-                    }
+                    const res = await fetch(`${API_URL}/renovar-biometria`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({
+                            participanteId: selectedParticipant.id,
+                            template: template,
+                            foto: photo,
+                            eventoId: uuid
+                        })
+                    });
+                    const finalData = await res.json();
+                    handleFinalResponse(finalData);
                 } catch (err) {
-                    console.error('Erro no wizard:', err);
-                    setErrorMsg('Erro na validação. Tente o mesmo dedo novamente.');
-                    wsRef.current?.send('START_CAPTURE');
+                    console.error('Erro na renovação facial:', err);
+                    setErrorMsg('Erro ao salvar biometria facial.');
                 } finally {
                     isVerifyingRef.current = false;
                     setIsVerifying(false);
@@ -205,25 +118,32 @@ function TotemAcesso() {
                 return;
             }
 
-            // Fluxo normal de SCAN
-            const res = await fetch(`${API_URL}/scan`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({
-                    device_id: 'TOTEM_FS80H',
-                    template: data.image,
-                    eventoId: uuid
-                })
-            });
-            const finalData = await res.json();
-            handleFinalResponse(finalData);
+            // Fluxo de Identificação (Scan)
+            if (identifiedId) {
+                isVerifyingRef.current = true;
+                setIsVerifying(true);
+                try {
+                    const res = await fetch(`${API_URL}/scan`, { 
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({
+                            identified_id: identifiedId,
+                            eventId: uuid
+                        })
+                    });
+                    const finalData = await res.json();
+                    handleFinalResponse(finalData);
+                } finally {
+                    isVerifyingRef.current = false;
+                    setIsVerifying(false);
+                }
+            }
 
         } catch (error) {
-            console.error("Erro no scan:", error);
-            isVerifyingRef.current = false;
+            console.error("Erro no processamento facial:", error);
             setStatusMessage("Erro de comunicação com o servidor.");
             setView('error');
             setTimeout(() => setView('welcome'), 3000);
@@ -231,8 +151,35 @@ function TotemAcesso() {
     };
 
     const handleFinalResponse = (finalData) => {
+        const msg = (finalData.mensagem || "").toLowerCase();
+        const isAlreadyIn = finalData.already_in || 
+                           msg.includes('ja validado') || 
+                           msg.includes('ja identificado') || 
+                           msg.includes('ja realizado') || 
+                           msg.includes('ja registrado');
+
+        if (view === 'welcome') {
+            if (isAlreadyIn) {
+                setBiometricResult({ user: finalData.participante || { nome: "Participante" }, type: 'already_in' });
+                return;
+            }
+            if (finalData.autorizado || finalData.success) {
+                setBiometricResult({ user: finalData.participante || { nome: "Participante" }, type: 'success' });
+                return;
+            }
+
+            // Se chegou aqui no welcome e não reconheceu
+            setBiometricResult({ 
+                user: { nome: "Visitante" }, 
+                type: 'error', 
+                message: "Rosto não reconhecido, tente novamente ou localize seu cadastro abaixo"
+            });
+            return;
+        }
+
         if (finalData.autorizado || finalData.success) {
             const nome = finalData.participante ? finalData.participante.nome : "Participante";
+            setScannedUser(finalData.participante);
             setStatusMessage(`Bem-vindo(a), ${nome}!`);
             setView('success');
             setTimeout(() => {
@@ -241,6 +188,7 @@ function TotemAcesso() {
                 setCapturedTemplates([]);
                 setCaptureStep(1);
                 setScannedImage(null);
+                setScannedUser(null);
             }, 3000);
         } else {
             setStatusMessage(finalData.mensagem || "Biometria não identificada");
@@ -278,10 +226,14 @@ function TotemAcesso() {
         fetchEvento();
     }, [token, uuid]);
 
-    // Focar no input quando entrar na tela de busca
+    // Focar no input e limpar busca quando entrar na tela de busca
     useEffect(() => {
-        if (view === 'search' && searchInputRef.current) {
-            searchInputRef.current.focus();
+        if (view === 'search') {
+            setSearchTerm('');
+            setSearchResults([]);
+            setTimeout(() => {
+                if (searchInputRef.current) searchInputRef.current.focus();
+            }, 100);
         }
     }, [view]);
 
@@ -427,62 +379,65 @@ function TotemAcesso() {
 
                         {/* Círculo do Totem agora com estilo idêntico ao Access Panel */}
                         <div
-                            className="totem-circle totem-circle-animated"
                             style={{
-                                width: 'min(200px, 25vh)',
-                                height: 'min(200px, 25vh)',
-                                borderRadius: '50%',
+                                width: 'min(450px, 60vh)',
+                                height: 'min(450px, 60vh)',
+                                borderRadius: '30px',
+                                overflow: 'hidden',
                                 backgroundColor: '#ffffff',
                                 margin: '0 auto clamp(1rem, 3vh, 3rem)',
                                 position: 'relative',
                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                boxShadow: '0 10px 30px rgba(0,0,0,0.1)'
+                                boxShadow: '0 20px 40px rgba(0,0,0,0.15)',
+                                border: '4px solid #198754'
                             }}
                         >
-                            {/* A animação agora vem da classe .totem-circle-animated::before no index.css */}
+                            <FaceScanner
+                                onScanSuccess={handleBiometricScan}
+                                isRegistration={false}
+                                token={token}
+                                eventId={uuid}
+                            />
 
-                            {scannedImage ? (
-                                <canvas
-                                    ref={canvas => {
-                                        if (canvas && scannedImage) {
-                                            const ctx = canvas.getContext('2d');
-                                            const { width, height, buffer } = scannedImage;
-                                            canvas.width = width;
-                                            canvas.height = height;
+                            {/* Card Flutuante Biométrico (Sucesso ou Já Identificado) */}
+                            {biometricResult && (
+                                <div style={{
+                                    position: 'absolute',
+                                    bottom: '20px',
+                                    left: '50%',
+                                    transform: 'translateX(-50%)',
+                                    width: '85%',
+                                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                                    padding: '1.2rem',
+                                    borderRadius: '15px',
+                                    boxShadow: '0 10px 25px rgba(0,0,0,0.2)',
+                                    textAlign: 'center',
+                                    animation: 'slideUp 0.3s ease-out',
+                                    zIndex: 100,
+                                    border: '2px solid #198754',
+                                    backdropFilter: 'blur(5px)'
+                                }}>
+                                    {/* Barra de Progresso */}
+                                    <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '4px', backgroundColor: '#eee', borderRadius: '15px 15px 0 0', overflow: 'hidden' }}>
+                                        <div style={{ width: `${progress}%`, height: '100%', backgroundColor: '#198754', transition: 'width 0.05s linear' }} />
+                                    </div>
 
-                                            // Converte Base64
-                                            const binaryString = window.atob(buffer);
-                                            const len = binaryString.length;
-                                            const bytes = new Uint8Array(len);
-                                            for (let i = 0; i < len; i++) {
-                                                bytes[i] = binaryString.charCodeAt(i);
-                                            }
-
-                                            // Cria ImageData
-                                            const imgData = ctx.createImageData(width, height);
-                                            for (let i = 0; i < len; i++) {
-                                                const val = bytes[i];
-                                                imgData.data[i * 4] = val;
-                                                imgData.data[i * 4 + 1] = val;
-                                                imgData.data[i * 4 + 2] = val;
-                                                imgData.data[i * 4 + 3] = 255;
-                                            }
-                                            ctx.putImageData(imgData, 0, 0);
-                                        }
-                                    }}
-                                    style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: '50%', position: 'relative', zIndex: 2 }}
-                                />
-                            ) : (
-                                <span style={{ fontSize: '6rem', position: 'relative', zIndex: 2 }}>👆</span>
+                                    <div style={{ color: biometricResult.type === 'error' ? '#dc3545' : '#198754', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '0.3rem', fontWeight: 'bold' }}>
+                                        {biometricResult.type === 'success' ? 'Sucesso' : (biometricResult.type === 'error' ? 'Aviso' : 'Informativo')}
+                                    </div>
+                                    <div style={{ fontWeight: 'bold', fontSize: '1.1rem', color: '#333' }}>
+                                        {biometricResult.type === 'error' ? 'Não Identificado' : biometricResult.user.nome}
+                                    </div>
+                                    <div style={{ color: biometricResult.type === 'error' ? '#dc3545' : '#198754', fontSize: '1rem', marginTop: '0.2rem', fontWeight: '500' }}>
+                                        {biometricResult.type === 'success' ? 'Entrada Confirmada! ✅' : 
+                                         (biometricResult.type === 'error' ? (biometricResult.message || 'Rosto não reconhecido') : (biometricResult.user.nome + ' já registrado! ✅'))}
+                                    </div>
+                                </div>
                             )}
                         </div>
 
                         <p style={{ fontSize: 'clamp(1rem, 2.5vh, 1.2rem)', color: '#666', marginBottom: 'clamp(1rem, 4vh, 3rem)', fontWeight: 'bold' }}>
-                            {scannedImage ? 'Processando biometria...' : (
-                                qualityMsg ? (
-                                    <span style={{ color: '#FF9800', animation: 'shake 0.5s infinite' }}>⚠️ {qualityMsg}</span>
-                                ) : 'Posicione seu dedo no leitor biométrico'
-                            )}
+                            Aproxime seu rosto da câmera para entrar
                         </p>
 
                         <button
@@ -558,13 +513,13 @@ function TotemAcesso() {
                                                 {p.especialidade && <span style={{ color: '#0d6efd', fontSize: '0.85rem', fontStyle: 'italic' }}>{p.especialidade}</span>}
                                             </div>
                                         </div>
-                                        <div style={{ display: 'flex', alignItems: 'center' }}>
-                                            {p.template_biometrico && !p.template_biometrico.startsWith('manual_') ? (
-                                                <span title="Biometria Cadastrada" style={{ color: '#4CAF50', display: 'flex' }}><FingerprintIcon size="2rem" /></span>
-                                            ) : (
-                                                <span title="Sem Biometria" style={{ color: '#666', opacity: 0.3, filter: 'grayscale(100%)', display: 'flex' }}><FingerprintIcon size="2rem" /></span>
-                                            )}
-                                        </div>
+                                         <div style={{ display: 'flex', alignItems: 'center' }}>
+                                             {p.template_biometrico && !p.template_biometrico.startsWith('manual_') ? (
+                                                 <span title="Face Cadastrada" style={{ color: '#4CAF50', display: 'flex' }}><FaceIcon size="2rem" /></span>
+                                             ) : (
+                                                 <span title="Sem Biometria" style={{ color: '#666', opacity: 0.3, filter: 'grayscale(100%)', display: 'flex' }}><FaceIcon size="2rem" /></span>
+                                             )}
+                                         </div>
                                     </div>
                                 ))}
                             </div>
@@ -586,38 +541,28 @@ function TotemAcesso() {
                             CPF: {maskCPF(selectedParticipant.cpf)}
                         </div>
 
-                        {/* Capture Wizard UI */}
+                        {/* Face Capture UI */}
                         <div style={{ 
-                            padding: 'clamp(1rem, 2vh, 2rem)', 
+                            padding: '1rem', 
                             backgroundColor: '#f8f9fa', 
                             borderRadius: '16px', 
                             border: '1px solid #dee2e6',
-                            marginBottom: 'clamp(1rem, 3vh, 2rem)',
+                            marginBottom: '1.5rem',
                             display: 'flex',
                             flexDirection: 'column',
-                            alignItems: 'center'
+                            alignItems: 'center',
+                            width: '100%'
                         }}>
-                            <div style={{ display: 'flex', gap: '10px', marginBottom: '1.5rem' }}>
-                                {[1, 2, 3].map(s => (
-                                    <div key={s} style={{
-                                        width: '60px',
-                                        height: '12px',
-                                        borderRadius: '6px',
-                                        backgroundColor: captureStep >= s ? '#198754' : '#e9ecef',
-                                        transition: 'all 0.3s ease',
-                                        boxShadow: captureStep === s ? '0 0 10px rgba(25,135,84,0.3)' : 'none'
-                                    }} />
-                                ))}
+                            <div style={{ width: '100%', maxWidth: '400px', borderRadius: '12px', overflow: 'hidden', border: '3px solid #198754' }}>
+                                <FaceScanner
+                                    onScanSuccess={handleBiometricScan}
+                                    isRegistration={true}
+                                    token={token}
+                                />
                             </div>
-
-                            <div style={{ fontSize: 'clamp(2.5rem, 5vh, 3.5rem)', marginBottom: '1rem', animation: isVerifying ? 'pulse 1.5s infinite' : 'bounce 2s infinite' }}>👆</div>
                             
-                            <h3 style={{ fontSize: '1.4rem', color: '#198754', marginBottom: '0.5rem' }}>
-                                Toque {captureStep} de 3
-                            </h3>
-                            
-                            <p style={{ color: '#666', fontSize: '1.1rem', marginBottom: '0.5rem' }}>
-                                {isVerifying ? 'Processando...' : (captureStep === 1 ? 'Encoste o dedo no leitor' : 'Encoste o MESMO dedo novamente')}
+                            <p style={{ color: '#666', fontSize: '1.1rem', marginTop: '1rem', fontWeight: 'bold' }}>
+                                {isVerifying ? 'Salvando...' : 'Aproxime o rosto e clique no botão circular'}
                             </p>
 
                             {errorMsg && (
@@ -656,7 +601,29 @@ function TotemAcesso() {
 
                 {view === 'success' && (
                     <div style={{ textAlign: 'center', animation: 'popIn 0.5s' }}>
-                        <div style={{ fontSize: '6rem', color: '#198754', marginBottom: '1rem' }}>✅</div>
+                        <div style={{
+                            width: '260px',
+                            height: '260px',
+                            margin: '0 auto 1.5rem',
+                            borderRadius: '50%',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            backgroundColor: 'white',
+                            border: '10px solid #198754',
+                            boxShadow: '0 10px 30px rgba(25,135,84,0.2)',
+                            overflow: 'hidden'
+                        }}>
+                            {scannedUser?.foto_biometria ? (
+                                <img 
+                                    src={scannedUser.foto_biometria} 
+                                    alt="Foto" 
+                                    style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                                />
+                            ) : (
+                                <div style={{ fontSize: '8rem' }}>✅</div>
+                            )}
+                        </div>
                         <h2 style={{ fontSize: '2.5rem', color: '#198754', marginBottom: '1rem' }}>Entrada Confirmada!</h2>
                         <p style={{ 
                             fontSize: '1.5rem', 

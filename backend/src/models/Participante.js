@@ -10,6 +10,7 @@ const Participante = sequelize.define('Participante', {
     data_nascimento: { type: DataTypes.DATEONLY },
     especialidade: { type: DataTypes.STRING(255) },
     data_biometria: { type: DataTypes.DATE },
+    foto_biometria: { type: DataTypes.TEXT('long') },
     ativo: { type: DataTypes.BOOLEAN, defaultValue: true }
 }, {
     indexes: [

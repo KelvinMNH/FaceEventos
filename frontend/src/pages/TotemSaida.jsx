@@ -2,7 +2,15 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
-const API_URL = 'http://localhost:3000/api';
+import { FaceScanner } from '../components/FaceScanner';
+
+const API_URL = `http://${window.location.hostname}:3000/api`;
+
+const FaceIcon = ({ size = "1em", ...props }) => (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" {...props}>
+        <path d="M9 11.75c-.41 0-.75-.34-.75-.75s.34-.75.75-.75.75.34.75.75-.34.75-.75.75zm6 0c-.41 0-.75-.34-.75-.75s.34-.75.75-.75.75.34.75.75-.34.75-.75.75zM12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-2.5c-2.33 0-4.31-1.46-5.11-3.5h10.22c-.8 2.04-2.78 3.5-5.11 3.5z"/>
+    </svg>
+);
 
 
 
@@ -21,10 +29,11 @@ function TotemSaida() {
     const [statusMessage, setStatusMessage] = useState('');
     const [scannerStatus, setScannerStatus] = useState('disconnected'); // 'connected' | 'disconnected'
     const [qualityMsg, setQualityMsg] = useState(''); // Novo: feedback de qualidade
+    const [progress, setProgress] = useState(100);
 
 
     const searchInputRef = useRef(null);
-    const wsRef = useRef(null);
+    const isVerifyingRef = useRef(false);
 
     // Atualizar hora
     useEffect(() => {
@@ -57,112 +66,67 @@ function TotemSaida() {
         fetchEvento();
     }, [token, uuid]);
 
-    // Focar no input quando entrar na tela de busca
+    // Focar no input e limpar busca quando entrar na tela de busca
     useEffect(() => {
-        if (view === 'search' && searchInputRef.current) {
-            searchInputRef.current.focus();
+        if (view === 'search') {
+            setSearchTerm('');
+            setSearchResults([]);
+            setTimeout(() => {
+                if (searchInputRef.current) searchInputRef.current.focus();
+            }, 100);
         }
     }, [view]);
 
-    // WebSocket Bridge Connect
+    // Efeito para o countdown de auto-cancelamento (5s)
     useEffect(() => {
-        let ws = null;
-        let reconnectTimer = null;
+        let timer;
+        if (selectedParticipant && !isVerifyingRef.current && view === 'welcome') {
+            setProgress(100);
+            const startTime = Date.now();
+            const duration = 5000;
 
-        const connect = () => {
-            if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
+            timer = setInterval(() => {
+                const elapsed = Date.now() - startTime;
+                const remaining = Math.max(0, 100 - (elapsed / duration) * 100);
+                setProgress(remaining);
 
-            ws = new WebSocket('ws://localhost:4000');
-            wsRef.current = ws;
-
-            ws.onopen = () => {
-                console.log('Bridge conectada');
-                setScannerStatus('connected');
-                ws.send('START_CAPTURE');
-            };
-
-            ws.onmessage = (event) => {
-                try {
-                    const data = JSON.parse(event.data);
-                    if (data.type === 'IMAGE_DATA') {
-                        handleBiometricAttempt(data.image, data.width, data.height);
-                    } else if (data.type === 'STATUS') {
-                        console.log('Bridge Status:', data.message);
-                        if (data.status === 'low_quality') {
-                            setQualityMsg(data.message);
-                            setTimeout(() => setQualityMsg(''), 3000);
-                        }
-                    } else if (data.type === 'DEVICE_STATUS') {
-                        setScannerStatus(data.status);
-                    }
-                } catch (e) {
-                    console.error('Erro ao processar mensagem', e);
+                if (elapsed >= duration) {
+                    setSelectedParticipant(null);
+                    clearInterval(timer);
                 }
-            };
+            }, 50);
+        } else {
+            clearInterval(timer);
+        }
+        return () => clearInterval(timer);
+    }, [selectedParticipant, isVerifyingRef.current, view]);
 
-            ws.onclose = () => {
-                console.log('Bridge desconectada. Tentando reconectar...');
-                setScannerStatus('disconnected');
-                wsRef.current = null;
-                reconnectTimer = setTimeout(connect, 3000);
-            };
+    // WebSocket removido - Reconhecimento facial via câmera direta no navegador
 
-            ws.onerror = (err) => {
-                console.error('Erro no WebSocket:', err);
-                if (ws.readyState === WebSocket.OPEN) ws.close();
-            };
-        };
+    const handleBiometricAttempt = async (templateOrResult, w, h, identifiedId) => {
+        // Bloqueia se já estiver processando ou se um card já estiver aberto
+        if (view !== 'welcome' || selectedParticipant) return;
 
-        connect();
-
-        return () => {
-            if (reconnectTimer) clearTimeout(reconnectTimer);
-            if (wsRef.current) {
-                wsRef.current.onclose = null;
-                wsRef.current.close();
-            }
-        };
-    }, []);
-
-    const handleBiometricAttempt = async (base64Image, width, height) => {
-        // Só processa biometria se estiver na tela inicial ou busca
-        if (view !== 'welcome' && view !== 'search') return;
-
-        try {
-            const res = await fetch(`${API_URL}/scan`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({
-                    template: base64Image,
-                    width,
-                    height,
-                    device_id: 'checkout_totem_bio',
-                    check_only: true, // Flag importante para não registrar entrada
-                    eventoId: uuid
-                })
-            });
-            const data = await res.json();
-
-            if (data.autorizado && data.participante) {
-                // Identificou! Vai para confirmação
-                handleSelectParticipant(data.participante);
-            } else {
-                setStatusMessage("Biometria não reconhecida. Tente novamente.");
-                setView('error');
-            }
-        } catch (e) {
-            console.error("Erro na validação biométrica:", e);
-        } finally {
-            // Reiniciar captura após 2 segundos
-            setTimeout(() => {
-                if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-                    wsRef.current.send('START_CAPTURE');
+        if (identifiedId) {
+            if (isVerifyingRef.current) return;
+            isVerifyingRef.current = true;
+            // Identificou! Busca os dados do participante
+             try {
+                const res = await fetch(`${API_URL}/participantes/busca?q=${identifiedId}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const parts = await res.json();
+                // Comparação segura de ID (string vs number)
+                const p = parts.find(x => String(x.id) === String(identifiedId));
+                if (p) {
+                    setSelectedParticipant(p);
+                    // Não muda o view, deixa no 'welcome' para mostrar o card flutuante
                 }
-                setView(prev => prev === 'error' ? 'welcome' : prev);
-            }, 2000);
+            } catch (e) {
+                console.error("Erro na busca pós-scan:", e);
+            } finally {
+                isVerifyingRef.current = false;
+            }
         }
     };
 
@@ -187,11 +151,12 @@ function TotemSaida() {
 
     const handleSelectParticipant = (p) => {
         setSelectedParticipant(p);
-        setView('confirm');
+        setView('confirm'); // Volta para a tela de confirmação tradicional
     };
 
     const handleConfirmCheckout = async () => {
-        if (!selectedParticipant) return;
+        if (!selectedParticipant || isVerifyingRef.current) return;
+        isVerifyingRef.current = true;
 
         try {
             const res = await fetch(`${API_URL}/registrar-saida`, {
@@ -201,7 +166,7 @@ function TotemSaida() {
                     'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify({ 
-                    participanteId: selectedParticipant.id,
+                    participanteId: parseInt(selectedParticipant.id),
                     eventoId: uuid
                 })
             });
@@ -214,22 +179,22 @@ function TotemSaida() {
                 setStatusMessage("Saída já registrada anteriormente.");
                 setView('error');
             } else {
-                setStatusMessage(data.msg || "Erro ao registrar saída");
+                setStatusMessage(data.msg || "Erro ao registrar saída.");
                 setView('error');
             }
         } catch (e) {
-            setStatusMessage("Erro de comunicação");
+            console.error(e);
+            setStatusMessage("Erro de conexão.");
             setView('error');
+        } finally {
+            isVerifyingRef.current = false;
         }
 
-        // Reset após delay
         setTimeout(() => {
             setView('welcome');
-            setSearchTerm('');
-            setSearchResults([]);
-            setSelectedParticipant(null);
             setStatusMessage('');
-        }, 4000);
+            setSelectedParticipant(null);
+        }, 3000);
     };
 
     // Simulação de Checkout Inteligente
@@ -341,19 +306,7 @@ function TotemSaida() {
                 <div style={{ flex: '1', textAlign: 'right' }}>
                     <div style={{ fontSize: '4.5rem', fontWeight: 'bold', fontFamily: 'monospace', lineHeight: 1 }}>{formatTime(horaAtual)}</div>
                     <div style={{ fontSize: '1.6rem', marginTop: '5px' }}>{formatDate(horaAtual)}</div>
-                    <div style={{
-                        marginTop: '10px',
-                        fontSize: '0.8rem',
-                        color: scannerStatus === 'connected' ? '#198754' : '#dc3545',
-                        display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '5px'
-                    }}>
-                        <span style={{
-                            width: '10px', height: '10px', borderRadius: '50%',
-                            backgroundColor: scannerStatus === 'connected' ? '#198754' : '#dc3545',
-                            display: 'inline-block'
-                        }}></span>
-                        {scannerStatus === 'connected' ? 'Leitor Online' : 'Leitor Offline'}
-                    </div>
+                    {/* Status do leitor removido (câmera integrada) */}
                 </div>
             </div>
 
@@ -361,43 +314,88 @@ function TotemSaida() {
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '1rem', minHeight: 'min-content' }}>
 
                 {view === 'welcome' && (
-                    <div style={{ textAlign: 'center', animation: 'fadeIn 0.5s' }}>
-                        <h2 style={{ fontSize: 'clamp(1.8rem, 4vh, 2.5rem)', color: '#333', marginBottom: 'clamp(1rem, 3vh, 3rem)' }}>Já vai embora?</h2>
+                    <div style={{ textAlign: 'center', animation: 'fadeIn 0.5s', position: 'relative' }}>
+                        <h2 style={{ fontSize: 'clamp(1.8rem, 4vh, 2.5rem)', color: '#333', marginBottom: 'clamp(1rem, 3vh, 3rem)' }}>Realizar Checkout</h2>
 
+                        {/* Círculo do Totem com Câmera Sempre Ativa */}
                         <div
-                            className="totem-circle totem-circle-animated"
                             style={{
-                                width: 'min(200px, 25vh)',
-                                height: 'min(200px, 25vh)',
-                                borderRadius: '50%',
+                                width: 'min(450px, 60vh)',
+                                height: 'min(450px, 60vh)',
+                                borderRadius: '30px',
+                                overflow: 'hidden',
                                 backgroundColor: '#ffffff',
                                 margin: '0 auto clamp(1rem, 3vh, 3rem)',
                                 position: 'relative',
                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                boxShadow: '0 10px 30px rgba(0,0,0,0.1)',
-                                '--accent-color': '#0d6efd'
+                                boxShadow: '0 20px 40px rgba(0,0,0,0.15)',
+                                border: '4px solid #0d6efd'
                             }}
                         >
-                            <span style={{ fontSize: 'clamp(4rem, 8vh, 6rem)', position: 'relative', zIndex: 2 }}>👆</span>
+                            <FaceScanner
+                                onScanSuccess={handleBiometricAttempt}
+                                isRegistration={false}
+                                token={token}
+                                eventId={uuid}
+                            />
+
+                            {/* Card de Confirmação Flutuante (Overlay) */}
+                            {selectedParticipant && (
+                                <div style={{
+                                    position: 'absolute',
+                                    bottom: '20px',
+                                    left: '20px',
+                                    right: '20px',
+                                    backgroundColor: 'white',
+                                    borderRadius: '15px',
+                                    padding: '1.2rem',
+                                    boxShadow: '0 10px 30px rgba(0,0,0,0.3)',
+                                    animation: 'popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+                                    zIndex: 100,
+                                    border: '2px solid #0d6efd'
+                                }}>
+                                    {/* Barra de Progresso */}
+                                    <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '4px', backgroundColor: '#eee', borderRadius: '15px 15px 0 0', overflow: 'hidden' }}>
+                                        <div style={{ width: `${progress}%`, height: '100%', backgroundColor: '#0d6efd', transition: 'width 0.05s linear' }} />
+                                    </div>
+
+                                    <div style={{ color: '#666', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '0.5rem', marginTop: '4px' }}>Identificado</div>
+                                    <div style={{ fontWeight: 'bold', fontSize: '1.1rem', color: '#333', marginBottom: '0.2rem' }}>{selectedParticipant.nome}</div>
+                                    <div style={{ color: '#888', fontSize: '0.9rem', marginBottom: '1rem' }}>Confirmar a saída deste participante?</div>
+                                    
+                                    <div style={{ display: 'flex', gap: '0.8rem' }}>
+                                        <button 
+                                            onClick={() => setSelectedParticipant(null)}
+                                            style={{ flex: 1, padding: '0.8rem', borderRadius: '8px', border: '1px solid #ddd', backgroundColor: '#f8f9fa', color: '#555', cursor: 'pointer', fontWeight: 'bold' }}
+                                        >
+                                            Cancelar
+                                        </button>
+                                        <button 
+                                            onClick={handleConfirmCheckout}
+                                            disabled={isVerifyingRef.current}
+                                            style={{ flex: 1, padding: '0.8rem', borderRadius: '8px', border: 'none', backgroundColor: '#0d6efd', color: 'white', cursor: 'pointer', fontWeight: 'bold', boxShadow: '0 4px 10px rgba(13, 110, 253, 0.3)' }}
+                                        >
+                                            {isVerifyingRef.current ? '...' : 'Sim, Sair'}
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
                         <p style={{ fontSize: 'clamp(1rem, 2.5vh, 1.2rem)', color: '#666', marginBottom: 'clamp(1rem, 4vh, 3rem)', fontWeight: 'bold' }}>
-                            {qualityMsg ? (
-                                <span style={{ color: '#FF9800', animation: 'shake 0.5s infinite' }}>⚠️ {qualityMsg}</span>
-                            ) : (
-                                "Posicione seu dedo no leitor biométrico para fazer o checkout."
-                            )}
+                            Aproxime seu rosto para realizar o checkout
                         </p>
 
                         <button
                             onClick={() => setView('search')}
                             style={{
                                 padding: '1.2rem 3rem', fontSize: '1.3rem', backgroundColor: '#0d6efd', color: 'white',
-                                border: 'none', borderRadius: '50px', cursor: 'pointer', boxShadow: '0 4px 15px rgba(13,110,253,0.3)',
-                                transition: 'transform 0.2s', fontWeight: 'bold'
+                                border: 'none', borderRadius: '50px', cursor: 'pointer', boxShadow: '0 4px 15px rgba(13, 110, 253, 0.3)',
+                                display: 'flex', alignItems: 'center', gap: '10px', margin: '0 auto'
                             }}
                         >
-                            🔍 Localizar meu Cadastro
+                            <span style={{ fontSize: '1.5rem' }}>🔍</span>
+                            Localizar meu Cadastro
                         </button>
                     </div>
                 )}
@@ -453,12 +451,21 @@ function TotemSaida() {
                                         onMouseDown={e => e.currentTarget.style.transform = 'scale(0.98)'}
                                         onMouseUp={e => e.currentTarget.style.transform = 'scale(1)'}
                                     >
-                                        <div style={{ fontWeight: 'bold', fontSize: '1.1rem', marginBottom: '0.4rem' }}>{p.nome}</div>
-                                        <div style={{ color: '#666', fontSize: '0.9rem', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                            <span>CPF: {maskCPF(p.cpf)}</span>
-                                            {p.crm && <span style={{ color: '#2c3e50', fontWeight: '500' }}>CRM: {p.crm}</span>}
-                                            {p.especialidade && <span style={{ color: '#0d6efd', fontSize: '0.85rem', fontStyle: 'italic' }}>{p.especialidade}</span>}
-                                        </div>
+                                         <div style={{ flex: 1 }}>
+                                             <div style={{ fontWeight: 'bold', fontSize: '1.1rem', marginBottom: '0.4rem' }}>{p.nome}</div>
+                                             <div style={{ color: '#666', fontSize: '0.9rem', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                                 <span>CPF: {maskCPF(p.cpf)}</span>
+                                                 {p.crm && <span style={{ color: '#2c3e50', fontWeight: '500' }}>CRM: {p.crm}</span>}
+                                                 {p.especialidade && <span style={{ color: '#0d6efd', fontSize: '0.85rem', fontStyle: 'italic' }}>{p.especialidade}</span>}
+                                             </div>
+                                         </div>
+                                         <div style={{ display: 'flex', alignItems: 'center' }}>
+                                             {p.template_biometrico && !p.template_biometrico.startsWith('manual_') ? (
+                                                 <span title="Face Cadastrada" style={{ color: '#0d6efd', display: 'flex' }}><FaceIcon size="2rem" /></span>
+                                             ) : (
+                                                 <span title="Sem Biometria" style={{ color: '#666', opacity: 0.3, filter: 'grayscale(100%)', display: 'flex' }}><FaceIcon size="2rem" /></span>
+                                             )}
+                                         </div>
                                     </div>
                                 ))}
                             </div>
@@ -487,7 +494,10 @@ function TotemSaida() {
 
                         <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', marginTop: 'auto' }}>
                             <button
-                                onClick={() => setView('search')}
+                                onClick={() => {
+                                    setSelectedParticipant(null);
+                                    setView('search');
+                                }}
                                 style={{
                                     padding: 'clamp(0.8rem, 1.5vh, 1rem) clamp(1rem, 2vw, 2rem)', fontSize: '1.1rem', backgroundColor: '#f8d7da', color: '#842029',
                                     border: 'none', borderRadius: '8px', cursor: 'pointer'
@@ -511,7 +521,29 @@ function TotemSaida() {
 
                 {view === 'success' && (
                     <div style={{ textAlign: 'center', animation: 'popIn 0.5s' }}>
-                        <div style={{ fontSize: '6rem', color: '#0d6efd', marginBottom: '1rem' }}>👋</div>
+                        <div style={{
+                            width: '260px',
+                            height: '260px',
+                            margin: '0 auto 1.5rem',
+                            borderRadius: '50%',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            backgroundColor: 'white',
+                            border: '10px solid #0d6efd',
+                            boxShadow: '0 10px 30px rgba(13,110,253,0.2)',
+                            overflow: 'hidden'
+                        }}>
+                            {selectedParticipant?.foto_biometria ? (
+                                <img 
+                                    src={selectedParticipant.foto_biometria} 
+                                    alt="Foto" 
+                                    style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                                />
+                            ) : (
+                                <div style={{ fontSize: '8rem' }}>👋</div>
+                            )}
+                        </div>
                         <h2 style={{ fontSize: '2.5rem', color: '#0d6efd', marginBottom: '1rem' }}>Saída Confirmada!</h2>
                         <p style={{ 
                             fontSize: '1.5rem', 
