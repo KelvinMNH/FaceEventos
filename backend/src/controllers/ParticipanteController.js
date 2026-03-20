@@ -177,7 +177,7 @@ class ParticipanteController {
             participante.ativo = true;
             await participante.save();
 
-            res.json({ success: true, msg: "Biometria atualizada com sucesso." });
+            res.json({ success: true, msg: "Biometria atualizada com sucesso.", participante });
         } catch (e) {
             console.error("Erro ao atualizar biometria:", e);
             res.status(500).json({ error: "Erro ao atualizar biometria", details: e.message });

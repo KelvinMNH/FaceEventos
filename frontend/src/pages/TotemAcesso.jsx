@@ -165,13 +165,20 @@ function TotemAcesso() {
                            msg.includes('ja registrado');
 
         // 1. Cooldown para "Já Identificado" (Evita repetição excessiva se o rosto continuar no sensor)
-        if (isAlreadyIn && p.id) {
+        // NOTA: Agora ativamos o cooldown também em caso de SUCESSO, para evitar que um alerta "Já Identificado"
+        // apareça logo em seguida enquanto a pessoa ainda está na frente do sensor.
+        const isSuccess = finalData.autorizado || finalData.success;
+        if ((isAlreadyIn || isSuccess) && p.id) {
             const now = Date.now();
             const key = String(p.id);
             const lastAlert = alertCooldownsRef.current.get(key) || 0;
-            if (now - lastAlert < 15000) { 
-                return; // Silencia o alerta se já foi mostrado nos últimos 15s
+            
+            // Se for um alerta tentando aparecer em cima de um alerta ou sucesso recente (< 15s)
+            if (isAlreadyIn && (now - lastAlert < 15000)) { 
+                return; // Silencia o alerta
             }
+            
+            // Atualiza o timestamp para futuras supressões de alerta
             alertCooldownsRef.current.set(key, now);
         }
 
@@ -631,18 +638,29 @@ function TotemAcesso() {
                 )}
 
                 {view === 'success' && (
-                    <div style={{ textAlign: 'center', animation: 'popIn 0.5s' }}>
+                    <div style={{ 
+                        textAlign: 'center', 
+                        animation: 'popIn 0.5s',
+                        width: '100%',
+                        maxWidth: '800px',
+                        padding: '3rem 2rem',
+                        borderRadius: '30px',
+                        backgroundColor: 'rgba(25, 135, 84, 0.5)', 
+                        color: 'white',
+                        boxShadow: '0 20px 50px rgba(0,0,0,0.3)',
+                        border: '4px solid white',
+                        backdropFilter: 'blur(10px)'
+                    }}>
                         <div style={{
-                            width: '260px',
-                            height: '260px',
+                            width: '240px',
+                            height: '240px',
                             margin: '0 auto 1.5rem',
                             borderRadius: '50%',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            backgroundColor: 'white',
-                            border: '10px solid #198754',
-                            boxShadow: '0 10px 30px rgba(25,135,84,0.2)',
+                            backgroundColor: 'rgba(255,255,255,0.2)',
+                            border: '8px solid white',
                             overflow: 'hidden'
                         }}>
                             {scannedUser?.foto_biometria ? (
@@ -655,18 +673,31 @@ function TotemAcesso() {
                                 <div style={{ fontSize: '8rem' }}>✅</div>
                             )}
                         </div>
-                        <h2 style={{ fontSize: '2.5rem', color: '#198754', marginBottom: '1rem' }}>Entrada Confirmada!</h2>
-                        <p style={{ 
-                            fontSize: '1.5rem', 
-                            color: '#333',
-                            maxWidth: '90vw',
-                            margin: '0 auto',
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis'
-                        }} title={statusMessage}>
-                            {statusMessage}
-                        </p>
+
+                        <h2 style={{ fontSize: '2.5rem', margin: '0 0 0.5rem 0', fontWeight: 'bold' }}>
+                            {scannedUser?.genero === 'F' ? 'Bem-vinda' : (scannedUser?.genero === 'M' ? 'Bem-vindo' : 'Bem-vindo(a)')},
+                        </h2>
+                        
+                        <h1 style={{ fontSize: '3rem', margin: '0 0 0.5rem 0', lineHeight: '1.2' }}>
+                            {scannedUser?.nome || 'Participante'}
+                        </h1>
+
+                        {scannedUser?.crm && (
+                            <div style={{ fontSize: '1.8rem', marginBottom: '1.5rem', fontWeight: 'bold', color: 'rgba(255,255,255,0.9)' }}>
+                                CRM: {scannedUser.crm}
+                            </div>
+                        )}
+
+                        <div style={{ 
+                            fontSize: '1.8rem', 
+                            fontWeight: '600', 
+                            backgroundColor: 'rgba(0,0,0,0.2)', 
+                            padding: '1rem 2rem', 
+                            borderRadius: '50px',
+                            display: 'inline-block'
+                        }}>
+                            Tenha um bom evento!
+                        </div>
                     </div>
                 )}
 

@@ -340,6 +340,7 @@ function ControleAcesso() {
         };
         showModal(fakeLog);
       } else {
+        const msg = (data.mensagem || "").toLowerCase();
         const isAlreadyIn = data.already_in || 
                            msg.includes('identificado') || 
                            msg.includes('registrado') || 
@@ -583,21 +584,29 @@ function ControleAcesso() {
                    msg.includes('entrou');
 
     // 1. Cooldown para "Já Identificado" (Evita spam se a pessoa ficar na frente da câmera)
+    // NOTA: Agora ativamos o cooldown também em caso de SUCESSO, para evitar que um alerta "Já Identificado"
+    // apareça logo em seguida enquanto a pessoa ainda está na frente do sensor.
+    const isSuccess = data.status_validacao === 'sucesso';
     const personId = p.id || data.ParticipanteId || data.AcompanhanteId;
-    if (isAlert && personId) {
+    
+    if ((isAlert || isSuccess) && personId) {
         const now = Date.now();
         const key = String(personId);
         const lastAlert = alertCooldownsRef.current.get(key) || 0;
-        if (now - lastAlert < 15000) { 
-            return; // Respeita rigorosamente os 15 segundos
+        
+        // Se for um alerta tentando aparecer em cima de um alerta ou sucesso recente (< 15s)
+        if (isAlert && (now - lastAlert < 15000)) { 
+            return; // Silencia o alerta
         }
+        
+        // Atualiza o timestamp para futuras supressões de alerta
         alertCooldownsRef.current.set(key, now);
     }
 
     // 2. Se já estivermos mostrando um SUCESSO para o mesmo participante, ignore alertas redundantes
     if (modalData && modalData.status_validacao === 'sucesso') {
       const currentP = modalData.Participante || modalData.Acompanhante || {};
-      const isSamePerson = (currentP.id && p.id && currentP.id === p.id);
+      const isSamePerson = (currentP.id && p.id && String(currentP.id) === String(p.id));
       
       if (isSamePerson && isAlert) {
          return;
@@ -781,8 +790,64 @@ function ControleAcesso() {
           <p className="access-subtitle" style={{ fontSize: '0.9rem' }}>O reconhecimento facial está ativo</p>
         </div>
 
-        {/* Floating Card - Only if identified and NOT shown via balloon */}
-        {modalData && !balloonData && (
+        {/* Full Success Overlay (400x400) */}
+        {isSuccess && (
+          <div style={{
+            position: 'absolute',
+            top: '40px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            width: '400px',
+            height: '400px',
+            backgroundColor: 'rgba(25, 135, 84, 0.5)',
+            borderRadius: '15px',
+            zIndex: 10,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: 'white',
+            textAlign: 'center',
+            padding: '20px',
+            animation: 'modalFadeIn 0.3s ease-out'
+          }}>
+            <div style={{
+                width: '100px',
+                height: '100px',
+                borderRadius: '50%',
+                border: '4px solid white',
+                overflow: 'hidden',
+                marginBottom: '1rem',
+                backgroundColor: 'rgba(255,255,255,0.2)'
+            }}>
+                {participante.foto_biometria ? (
+                    <img src={participante.foto_biometria} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="Face" />
+                ) : (
+                    <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '3rem', fontWeight: 'bold' }}>
+                        {participante.nome ? participante.nome.charAt(0) : '?'}
+                    </div>
+                )}
+            </div>
+            
+            <h2 style={{ fontSize: '1.8rem', margin: '0 0 0.5rem 0', fontWeight: 'bold' }}>
+                {participante.genero === 'F' ? 'Bem-vinda' : (participante.genero === 'M' ? 'Bem-vindo' : 'Bem-vindo(a)')},
+            </h2>
+            <h1 style={{ fontSize: '2rem', margin: '0 0 0.5rem 0', lineHeight: '1.1' }}>
+                {participante.nome || 'Visitante'}
+            </h1>
+            {participante.crm && (
+                <div style={{ fontSize: '1.1rem', marginBottom: '1rem', fontWeight: 'bold', color: 'rgba(255,255,255,0.9)' }}>
+                    CRM: {participante.crm}
+                </div>
+            )}
+            <div style={{ fontSize: '1.2rem', fontWeight: '500', backgroundColor: 'rgba(0,0,0,0.2)', padding: '0.5rem 1rem', borderRadius: '50px' }}>
+                Tenha um bom evento!
+            </div>
+          </div>
+        )}
+
+        {/* Floating Card - Only if identified and NOT shown via balloon and NOT shown via full success overlay */}
+        {modalData && !balloonData && !isSuccess && (
           <div style={{
             position: 'absolute',
             bottom: '20px',

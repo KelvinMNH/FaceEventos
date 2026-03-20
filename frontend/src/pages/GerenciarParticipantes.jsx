@@ -115,8 +115,15 @@ function GerenciarParticipantes() {
 
             if (res.ok) {
                 showMsg('success', data.msg);
+                
+                // Atualizar estado sem reload
+                if (currentParticipante) {
+                    setParticipantes(prev => prev.map(p => p.id === currentParticipante.id ? { ...p, ...data.participante } : p));
+                } else if (data.participante) {
+                    setParticipantes(prev => [data.participante, ...prev]);
+                }
+                
                 closeModal();
-                setTimeout(() => window.location.reload(), 1000);
             } else {
                 showMsg('error', data.error || 'Erro ao salvar.');
             }
@@ -154,8 +161,16 @@ function GerenciarParticipantes() {
             if (res.ok) {
                 setGlowColor('#198754'); // Verde sucesso
                 showMsg('success', data.msg);
+                
+                // Atualizar participante na lista local
+                if (data.participante) {
+                    setParticipantes(prev => prev.map(p => 
+                        p.id === currentParticipante.id ? { ...p, ...data.participante } : p
+                    ));
+                    setCurrentParticipante({ ...currentParticipante, ...data.participante });
+                }
+
                 setTimeout(() => closeBioModal(), 1500); 
-                setTimeout(() => window.location.reload(), 2500);
             } else {
                 setGlowColor('#dc3545'); // Vermelho erro
                 showMsg('error', data.error || 'Erro ao gravar biometria.');
@@ -180,8 +195,22 @@ function GerenciarParticipantes() {
 
             if (res.ok) {
                 showMsg('success', 'Biometria removida com sucesso');
-                closeModal();
-                setTimeout(() => window.location.reload(), 1000);
+                
+                // Atualizar estado local
+                setParticipantes(prev => prev.map(p => 
+                    p.id === currentParticipante.id 
+                        ? { ...p, template_biometrico: null, foto_biometria: null, data_biometria: null } 
+                        : p
+                ));
+                // Se o modal de detalhes estiver aberto (setCurrentParticipante), atualiza ele também
+                setCurrentParticipante({ 
+                    ...currentParticipante, 
+                    template_biometrico: null, 
+                    foto_biometria: null, 
+                    data_biometria: null 
+                });
+
+                // Se houver um MessageModal aberto com os detalhes (pelo openModal), a UI vai reagir.
             } else {
                 const data = await res.json();
                 showMsg('error', data.error || 'Erro ao remover biometria.');

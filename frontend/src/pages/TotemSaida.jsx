@@ -121,11 +121,11 @@ function TotemSaida() {
                 return;
             }
 
-            // Cooldown para "Já Identificado" (Evita spam visual se a pessoa continuar na frente)
+            // Cooldown para evitar spam de busca (reduzido de 15s para 2s no checkout)
             const now = Date.now();
             const key = String(identifiedId);
             const lastAlert = alertCooldownsRef.current.get(key) || 0;
-            if (now - lastAlert < 15000) {
+            if (now - lastAlert < 2000) { 
                 isVerifyingRef.current = false;
                 return;
             }
@@ -389,7 +389,7 @@ function TotemSaida() {
 
                                     <div style={{ color: '#666', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '0.5rem', marginTop: '4px' }}>Identificado</div>
                                     <div style={{ fontWeight: 'bold', fontSize: '1.1rem', color: '#333', marginBottom: '0.2rem' }}>{selectedParticipant.nome}</div>
-                                    <div style={{ color: '#888', fontSize: '0.9rem', marginBottom: '1rem' }}>Confirmar a saída deste participante?</div>
+                                    <div style={{ color: '#888', fontSize: '0.9rem', marginBottom: '1rem' }}>Deseja confirmar sua saída do evento agora?</div>
                                     
                                     <div style={{ display: 'flex', gap: '0.8rem' }}>
                                         <button 
@@ -403,7 +403,7 @@ function TotemSaida() {
                                             disabled={isVerifyingRef.current}
                                             style={{ flex: 1, padding: '0.8rem', borderRadius: '8px', border: 'none', backgroundColor: '#0d6efd', color: 'white', cursor: 'pointer', fontWeight: 'bold', boxShadow: '0 4px 10px rgba(13, 110, 253, 0.3)' }}
                                         >
-                                            {isVerifyingRef.current ? '...' : 'Sim, Sair'}
+                                            {isVerifyingRef.current ? '...' : 'Sair do Evento'}
                                         </button>
                                     </div>
                                 </div>
@@ -506,8 +506,8 @@ function TotemSaida() {
                 {view === 'confirm' && selectedParticipant && (
                     <div style={{ textAlign: 'center', animation: 'fadeIn 0.3s', backgroundColor: 'white', padding: 'clamp(1.5rem, 4vh, 3rem)', borderRadius: '20px', boxShadow: '0 10px 40px rgba(0,0,0,0.1)', display: 'flex', flexDirection: 'column', maxHeight: '100%' }}>
                         <div style={{ fontSize: 'clamp(2.5rem, 5vh, 4rem)', marginBottom: 'clamp(0.5rem, 1vh, 1rem)' }}>🏁</div>
-                        <h2 style={{ fontSize: 'clamp(1.5rem, 3vh, 2rem)', marginBottom: '0.5rem' }}>Confirmar Saída</h2>
-                        <p style={{ fontSize: '1.1rem', color: '#666', marginBottom: 'clamp(1rem, 2vh, 2rem)' }}>Você está realizando o checkout?</p>
+                        <h2 style={{ fontSize: 'clamp(1.5rem, 3vh, 2rem)', marginBottom: '0.5rem' }}>Confirmar minha Saída</h2>
+                        <p style={{ fontSize: '1.1rem', color: '#666', marginBottom: 'clamp(1rem, 2vh, 2rem)' }}>Você deseja realizar o seu checkout?</p>
 
                         <div style={{ fontSize: 'clamp(1.4rem, 2.5vh, 1.8rem)', fontWeight: 'bold', color: '#0d6efd', marginBottom: '0.5rem' }}>
                             {selectedParticipant.nome}
@@ -541,25 +541,36 @@ function TotemSaida() {
                                     boxShadow: '0 4px 10px rgba(13, 110, 253, 0.3)'
                                 }}
                             >
-                                ✅ Confirmar Saída
+                                ✅ Sair do Evento
                             </button>
                         </div>
                     </div>
                 )}
 
                 {view === 'success' && (
-                    <div style={{ textAlign: 'center', animation: 'popIn 0.5s' }}>
+                    <div style={{ 
+                        textAlign: 'center', 
+                        animation: 'popIn 0.5s',
+                        width: '100%',
+                        maxWidth: '800px',
+                        padding: '3rem 2rem',
+                        borderRadius: '30px',
+                        backgroundColor: 'rgba(25, 135, 84, 0.5)', 
+                        color: 'white',
+                        boxShadow: '0 20px 50px rgba(0,0,0,0.3)',
+                        border: '4px solid white',
+                        backdropFilter: 'blur(10px)'
+                    }}>
                         <div style={{
-                            width: '260px',
-                            height: '260px',
+                            width: '240px',
+                            height: '240px',
                             margin: '0 auto 1.5rem',
                             borderRadius: '50%',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            backgroundColor: 'white',
-                            border: '10px solid #0d6efd',
-                            boxShadow: '0 10px 30px rgba(13,110,253,0.2)',
+                            backgroundColor: 'rgba(255,255,255,0.2)',
+                            border: '8px solid white',
                             overflow: 'hidden'
                         }}>
                             {selectedParticipant?.foto_biometria ? (
@@ -572,19 +583,31 @@ function TotemSaida() {
                                 <div style={{ fontSize: '8rem' }}>👋</div>
                             )}
                         </div>
-                        <h2 style={{ fontSize: '2.5rem', color: '#0d6efd', marginBottom: '1rem' }}>Saída Confirmada!</h2>
-                        <p style={{ 
-                            fontSize: '1.5rem', 
-                            color: '#333',
-                            maxWidth: '90vw',
-                            margin: '0 auto',
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis'
-                        }} title={statusMessage}>
-                            {statusMessage}
-                        </p>
-                        <p style={{ fontSize: '1.1rem', color: '#666', marginTop: '1rem' }}>Obrigado pela presença!</p>
+
+                        <h2 style={{ fontSize: '2.5rem', margin: '0 0 0.5rem 0', fontWeight: 'bold' }}>
+                            {selectedParticipant?.genero === 'F' ? 'Até logo, Dra.' : (selectedParticipant?.genero === 'M' ? 'Até logo, Dr.' : 'Até logo,')},
+                        </h2>
+                        
+                        <h1 style={{ fontSize: '3rem', margin: '0 0 0.5rem 0', lineHeight: '1.2' }}>
+                            {selectedParticipant?.nome || 'Participante'}
+                        </h1>
+
+                        {selectedParticipant?.crm && (
+                            <div style={{ fontSize: '1.8rem', marginBottom: '1.5rem', fontWeight: 'bold', color: 'rgba(255,255,255,0.9)' }}>
+                                CRM: {selectedParticipant.crm}
+                            </div>
+                        )}
+
+                        <div style={{ 
+                            fontSize: '1.8rem', 
+                            fontWeight: '600', 
+                            backgroundColor: 'rgba(0,0,0,0.2)', 
+                            padding: '1rem 2rem', 
+                            borderRadius: '50px',
+                            display: 'inline-block'
+                        }}>
+                            Obrigado pela presença!
+                        </div>
                     </div>
                 )}
 

@@ -1,101 +1,60 @@
 # UniEventos
 
-Sistema moderno de gestão de eventos e controle de acesso biométrico.
+Sistema profissional de gestão de eventos e controle de acesso com **Reconhecimento Facial** e Biometria.
 
-## 🚀 Pré-requisitos para Instalação
+---
 
-Antes de começar em um **novo computador**, certifique-se de ter instalado:
-
-1.  **Node.js (v18 ou superior)**: [Baixar aqui](https://nodejs.org/).
-2.  **Git**: Para clonar o repositório.
-3.  **Drivers do Leitor Futronic FS80H**:
-    *   Instale o driver USB oficial da Futronic.
-    *   **Importante**: O arquivo `ftrScanAPI.dll` deve estar presente na pasta `bridge/`. (Já incluído no projeto, mas verifique se o antivírus não removeu).
-4.  **Visual C++ Redistributable**: Necessário para módulos nativos do Node.js.
+## 🚀 Tecnologias
+- **Backend**: Node.js, Express, Sequelize (SQLite/PostgreSQL/Oracle)
+- **Frontend**: React, Vite, face-api.js, react-webcam
+- **Bridge**: Serviço local em Node.js para integração com hardware Futronic (Opcional)
 
 ---
 
 ## 📦 Instalação e Execução
 
-### Passo 1: Instalar Dependências
+### 1. Pré-requisitos
+- **Node.js**: v18 ou superior.
+- **Webcam**: Necessária para o reconhecimento facial.
+- **Leitor Futronic FS80H (Opcional)**: Caso utilize biometria digital.
 
-Abra o terminal na pasta raiz do projeto (`UniEventos`) e instale as dependências de cada módulo:
-
+### 2. Instalação das Dependências
+Execute o comando abaixo na pasta raiz para instalar as dependências de todos os módulos:
 ```bash
-# Backend (API)
-cd backend
-npm install
-
-# Frontend (Interface)
-cd ../frontend
-npm install
-
-# Bridge (Biometria)
-cd ../bridge
-npm install
+# Na raiz do projeto /UniEventos
+cd backend && npm install
+cd ../frontend && npm install
+cd ../bridge && npm install
 ```
 
-*Opcional: Crie um arquivo `.env` na pasta `backend` se necessário.*
-
----
-
-### Passo 2: Rodar o Projeto
-
-⚠️ **Conecte o leitor biométrico USB antes de iniciar.**
-
-#### Método Rápido (Recomendado)
-Execute o script que inicia tudo automaticamente:
+### 3. Execução Rápida
+Utilize o script de inicialização interativo para rodar todo o ecossistema:
 ```bash
 iniciar-servidores.bat
 ```
-
-#### Método Manual (Alternativa)
-Abra **3 terminais** e execute em cada um:
-
-**Terminal 1 - Backend:**
-```bash
-cd backend
-node server.js
-```
-
-**Terminal 2 - Frontend:**
-```bash
-cd frontend
-npm run dev
-```
-
-**Terminal 3 - Bridge:**
-```bash
-cd bridge
-node connector_futronic.js
-```
-
-**Acesse:** `http://localhost:5173`
+*Este script permite reiniciar os servidores rapidamente pressionando a tecla **R**.*
 
 ---
 
-## 🛠️ Solução de Problemas Comuns
-
-### 🔴 Erro: "Leitor não encontrado" ou "Bridge desconectada"
-1.  Verifique se o leitor USB está bem conectado.
-2.  Reinicie o comando no Terminal 3.
-3.  Verifique no Gerenciador de Dispositivos se o driver "Futronic" está instalado corretamente.
-
-### ⚪ Tela Branca no Frontend
-1.  Verifique se o Backend (Terminal 1) está rodando.
-2.  Abra o Console do Desenvolvedor (F12) para ver erros específicos.
-
-### 💾 Banco de Dados
-Por padrão, o sistema usa **SQLite** (`database.sqlite`).
-Para resetar o banco, basta apagar o arquivo `database.sqlite` e reiniciar o backend.
+## 🛠️ Reconhecimento Facial (Nova Funcionalidade)
+O sistema agora utiliza a webcam para identificação em tempo real.
+- **Cadastro**: Realizado na tela de Gerenciamento de Participantes.
+- **Identificação**: Automática nos totens de acesso e saída.
+- **Vantagem**: Elimina a necessidade de hardware proprietário em muitos casos.
 
 ---
 
-## 👤 Login Padrão
-Se o banco estiver vazio, crie um usuário via API ou registre-se na tela inicial (se habilitado).
-*   **Admin Padrão**: (Não configurado por padrão, necessário criar no primeiro uso).
+## 💾 Banco de Dados
+O sistema utiliza **SQLite** por padrão (`database.sqlite`).
+- Para resetar os dados, exclua o arquivo `.sqlite` e reinicie o backend.
+- O sistema criará as tabelas e dados iniciais automaticamente.
 
 ---
 
-**Software de autoria de Kelvin Higino**  
-Para contato, acesse: 🌐 [kelvinti.pages.dev](https://kelvinti.pages.dev)++-
+## 🤝 Autor e Suporte
+Desenvolvido por **Kelvin Higino**.
+🌐 [kelvinti.pages.dev](https://kelvinti.pages.dev)
+
+---
+> [!IMPORTANT]
+> Para o funcionamento da biometria Futronic via `bridge`, certifique-se de que a biblioteca `ftrScanAPI.dll` está no diretório `bridge/` e os drivers oficiais estão instalados.
