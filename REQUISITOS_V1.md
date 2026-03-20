@@ -13,7 +13,7 @@ O **UniEventos** é uma plataforma de gestão de eventos focada em controle de a
 
 ### 📊 Gestão de Eventos
 - **RF01**: Cadastro de eventos (Nome, Local, Data, Hora, Descrição).
-- **RF02**: Ativação de evento único (Apenas um evento pode estar "ativo" para recepção em tempo real).
+- **RF02**: Suporte a múltiplos eventos simultâneos. A identificação e o registro de acesso são vinculados ao ID único (UUID/ID) de cada evento, garantindo a integridade dos dados sem conflitos entre sessões.
 - **RF03**: Finalização de evento (Bloqueio de novas entradas).
 - **RF04**: Exibição de estatísticas básicas (Participantes esperados vs. Participantes presentes).
 
