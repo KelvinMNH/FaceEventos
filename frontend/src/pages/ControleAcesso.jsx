@@ -5,7 +5,7 @@ import MessageModal from '../components/MessageModal';
 import { useAuth } from '../contexts/AuthContext';
 import { FaceScanner } from '../components/FaceScanner';
 
-const API_URL = `http://${window.location.hostname}:3000/api`;
+const API_URL = `${window.location.protocol}//${window.location.hostname}:3000/api`;
 
 const FaceIcon = ({ size = "1em", ...props }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" {...props}>

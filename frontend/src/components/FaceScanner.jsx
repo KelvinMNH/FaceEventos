@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState, useId } from 'react';
 import Webcam from 'react-webcam';
 import * as faceapi from 'face-api.js';
 
-const API_URL = `http://${window.location.hostname}:3000/api`;
+const API_URL = `${window.location.protocol}//${window.location.hostname}:3000/api`;
 const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
 
 // Singleton para carregar modelos uma única vez na sessão

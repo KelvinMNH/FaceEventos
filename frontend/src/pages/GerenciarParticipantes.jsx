@@ -4,11 +4,25 @@ import Navbar from '../components/Navbar';
 import MessageModal from '../components/MessageModal';
 import { FaceScanner } from '../components/FaceScanner';
 
-const API_URL = `http://${window.location.hostname}:3000/api`;
+const API_URL = `${window.location.protocol}//${window.location.hostname}:3000/api`;
 
 const FaceIcon = ({ size = "1em", ...props }) => (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" {...props}>
         <path d="M9 11.75c-.41 0-.75-.34-.75-.75s.34-.75.75-.75.75.34.75.75-.34.75-.75.75zm6 0c-.41 0-.75-.34-.75-.75s.34-.75.75-.75.75.34.75.75-.34.75-.75.75zM12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-2.5c-2.33 0-4.31-1.46-5.11-3.5h10.22c-.8 2.04-2.78 3.5-5.11 3.5z"/>
+    </svg>
+);
+
+const EyeIcon = ({ size = "1.2em", ...props }) => (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+        <circle cx="12" cy="12" r="3"></circle>
+    </svg>
+);
+
+const EyeOffIcon = ({ size = "1.2em", ...props }) => (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+        <line x1="1" y1="1" x2="23" y2="23"></line>
     </svg>
 );
 
@@ -27,6 +41,7 @@ function GerenciarParticipantes() {
     const [isReadOnly, setIsReadOnly] = useState(false);
     const [formData, setFormData] = useState({ nome: '', cpf: '', crm: '', genero: 'M', data_nascimento: '', especialidade: '' });
     const [glowColor, setGlowColor] = useState(null);
+    const [showCpf, setShowCpf] = useState(false);
 
     // Message State
     const [msgModal, setMsgModal] = useState({ isOpen: false, type: '', message: '' });
@@ -75,6 +90,7 @@ function GerenciarParticipantes() {
 
     const openModal = (participante = null, readOnly = false) => {
         setIsReadOnly(readOnly);
+        setShowCpf(false);
         if (participante) {
             setCurrentParticipante(participante);
             setFormData({
@@ -448,12 +464,30 @@ function GerenciarParticipantes() {
                          </div>
                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                              <div>
-                                 <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold', fontSize: '0.9rem' }}>CPF</label>
+                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                                     <label style={{ margin: 0, fontWeight: 'bold', fontSize: '0.9rem' }}>CPF</label>
+                                     {formData.cpf && (
+                                         <button 
+                                             type="button" 
+                                             title={showCpf ? 'Ocultar CPF' : 'Revelar CPF'}
+                                             onClick={(e) => { e.preventDefault(); setShowCpf(!showCpf); }} 
+                                             style={{ background: 'none', border: 'none', color: '#6c757d', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                             tabIndex="-1"
+                                         >
+                                             {showCpf ? <EyeOffIcon /> : <EyeIcon />}
+                                         </button>
+                                     )}
+                                 </div>
                                  <input
                                      type="text"
                                      className="modal-input"
-                                     value={isReadOnly ? formatCPF(formData.cpf) : formData.cpf}
-                                     onChange={e => setFormData({ ...formData, cpf: e.target.value })}
+                                     value={(!showCpf && formData.cpf) ? maskCPF(formData.cpf) : (isReadOnly ? formatCPF(formData.cpf) : formData.cpf)}
+                                     onChange={e => {
+                                         if (showCpf || !formData.cpf) {
+                                            setFormData({ ...formData, cpf: e.target.value });
+                                         }
+                                     }}
+                                     onFocus={() => { if (!isReadOnly) setShowCpf(true); }}
                                      placeholder="000.000.000-00"
                                      disabled={isReadOnly}
                                      style={{ marginBottom: 0 }}
@@ -615,13 +649,15 @@ function GerenciarParticipantes() {
                         alignItems: 'center',
                         border: '1px solid var(--border-color)'
                     }}>
-                        <FaceScanner
-                            onScanSuccess={handleBiometriaCaptured}
-                            checkOnly={false}
-                            isRegistration={true}
-                            token={token}
-                            glowColor={glowColor}
-                        />
+                        {isBioModalOpen && (
+                            <FaceScanner
+                                onScanSuccess={handleBiometriaCaptured}
+                                checkOnly={false}
+                                isRegistration={true}
+                                token={token}
+                                glowColor={glowColor}
+                            />
+                        )}
                         <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '0.8rem' }}>Aproxime o rosto da câmera e clique no botão de captura</p>
                     </div>
 
