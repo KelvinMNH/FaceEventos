@@ -526,11 +526,11 @@ function GerenciarParticipantes() {
                                      width: '45px',
                                      height: '45px',
                                      borderRadius: '10px',
-                                     backgroundColor: (currentParticipante?.template_biometrico && !currentParticipante.template_biometrico.startsWith('manual_')) ? '#e6fffa' : '#fff5f5',
+                                     backgroundColor: currentParticipante?.template_biometrico ? (currentParticipante.template_biometrico.startsWith('manual_') ? '#ebf8ff' : '#e6fffa') : '#fff5f5',
                                      display: 'flex',
                                      alignItems: 'center',
                                      justifyContent: 'center',
-                                     color: (currentParticipante?.template_biometrico && !currentParticipante.template_biometrico.startsWith('manual_')) ? '#38a169' : '#e53e3e'
+                                     color: currentParticipante?.template_biometrico ? (currentParticipante.template_biometrico.startsWith('manual_') ? '#3182ce' : '#38a169') : '#e53e3e'
                                  }}>
                                      <FaceIcon size="1.8rem" />
                                  </div>
@@ -542,30 +542,33 @@ function GerenciarParticipantes() {
                                         <span style={{ 
                                             fontSize: '0.95rem', 
                                             fontWeight: '700',
-                                            color: (currentParticipante?.template_biometrico && !currentParticipante.template_biometrico.startsWith('manual_')) ? '#2d3748' : '#e53e3e'
+                                            color: currentParticipante?.template_biometrico ? '#2d3748' : '#e53e3e'
                                         }}>
-                                            {(currentParticipante?.template_biometrico && !currentParticipante.template_biometrico.startsWith('manual_')) ? 'Biometria Cadastrada' : 'Biometria Pendente'}
+                                            {currentParticipante?.template_biometrico 
+                                                ? (currentParticipante.template_biometrico.startsWith('manual_') ? 'Entrada Manual' : 'Biometria Cadastrada') 
+                                                : 'Biometria Pendente'}
                                         </span>
-                                        {(currentParticipante?.template_biometrico && !currentParticipante.template_biometrico.startsWith('manual_')) && (
+                                        {currentParticipante?.template_biometrico && (
                                             <span style={{ 
                                                 fontSize: '0.75rem', 
-                                                backgroundColor: '#c6f6d5', 
-                                                color: '#22543d', 
+                                                backgroundColor: currentParticipante.template_biometrico.startsWith('manual_') ? '#ebf8ff' : '#c6f6d5', 
+                                                color: currentParticipante.template_biometrico.startsWith('manual_') ? '#2b6cb0' : '#22543d', 
                                                 padding: '2px 8px', 
                                                 borderRadius: '99px',
                                                 fontWeight: 'bold'
                                             }}>
-                                                Ativo
+                                                {currentParticipante.template_biometrico.startsWith('manual_') ? 'Sincronizado' : 'Ativo'}
                                             </span>
                                         )}
                                     </div>
-                                    {(currentParticipante?.template_biometrico && !currentParticipante.template_biometrico.startsWith('manual_')) && currentParticipante.data_biometria && (
+                                    {currentParticipante?.template_biometrico && currentParticipante.data_biometria && (
                                         <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.8rem', color: '#718096' }}>
                                             Última captura: <strong>{formatDate(currentParticipante.data_biometria)}</strong>
                                         </p>
                                     )}
+
                                 </div>
-                                {currentParticipante?.template_biometrico && !currentParticipante.template_biometrico.startsWith('manual_') && (
+                                {currentParticipante?.template_biometrico && (
                                     <button 
                                         type="button" 
                                         onClick={handleLimparBiometria}
