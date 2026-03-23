@@ -113,40 +113,7 @@ function GerenciarParticipantes() {
         setCurrentParticipante(null);
     };
 
-    const handleSave = async (e) => {
-        e.preventDefault();
-        const method = currentParticipante ? 'PUT' : 'POST';
-        const url = currentParticipante ? `${API_URL}/participantes/${currentParticipante.id}` : `${API_URL}/participantes`;
 
-        try {
-            const res = await fetch(url, {
-                method,
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify(formData)
-            });
-            const data = await res.json();
-
-            if (res.ok) {
-                showMsg('success', data.msg);
-                
-                // Atualizar estado sem reload
-                if (currentParticipante) {
-                    setParticipantes(prev => prev.map(p => p.id === currentParticipante.id ? { ...p, ...data.participante } : p));
-                } else if (data.participante) {
-                    setParticipantes(prev => [data.participante, ...prev]);
-                }
-                
-                closeModal();
-            } else {
-                showMsg('error', data.error || 'Erro ao salvar.');
-            }
-        } catch (error) {
-            showMsg('error', 'Erro de conexão ao salvar.');
-        }
-    };
 
     const openBioModal = (participante) => {
         setCurrentParticipante(participante);
@@ -272,9 +239,6 @@ function GerenciarParticipantes() {
             <div className="page-container">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                     <h1 style={{ fontSize: '2rem', color: 'var(--text-primary)', margin: 0 }}>Controle de participantes</h1>
-                    <button onClick={() => openModal()} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        + Adicionar Participante
-                    </button>
                 </div>
 
                 {syncStatus && (
@@ -445,10 +409,10 @@ function GerenciarParticipantes() {
              <div className={`modal-overlay ${isModalOpen ? 'open' : ''}`} onClick={closeModal}>
                  <div className="modal-content" style={{ maxWidth: '550px' }} onClick={e => e.stopPropagation()}>
                      <h2 className="modal-header">
-                         {isReadOnly ? 'Detalhes do Participante' : (currentParticipante ? 'Editar Participante' : 'Novo Participante')}
+                         Detalhes do Participante
                      </h2>
  
-                     <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                          <div>
                              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold', fontSize: '0.9rem' }}>Nome Completo *</label>
                              <input
@@ -623,13 +587,10 @@ function GerenciarParticipantes() {
                         )}
                         <div className="modal-actions" style={{ marginTop: '1.5rem' }}>
                              <button type="button" className="btn-secondary" onClick={closeModal} style={{ flex: 1 }}>
-                                 {isReadOnly ? 'Fechar' : 'Cancelar'}
+                                 Fechar
                              </button>
-                             {!isReadOnly && (
-                                 <button type="submit" className="btn-primary" style={{ flex: 1 }}>Salvar</button>
-                             )}
                          </div>
-                     </form>
+                     </div>
                  </div>
              </div>
 

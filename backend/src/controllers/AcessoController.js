@@ -264,6 +264,7 @@ class AcessoController {
             // Atualiza a biometria
             participante.template_biometrico = template;
             if (foto) participante.foto_biometria = foto;
+            participante.data_biometria = new Date();
             participante.ativo = true;
             await participante.save();
 
@@ -328,7 +329,8 @@ class AcessoController {
                 nome, cpf, crm, genero: genero || 'Outro', data_nascimento,
                 ativo: true, 
                 template_biometrico: template_biometrico || ('manual_' + Date.now()),
-                foto_biometria: foto
+                foto_biometria: foto,
+                data_biometria: new Date()
             });
 
             await RegistroAcesso.create({

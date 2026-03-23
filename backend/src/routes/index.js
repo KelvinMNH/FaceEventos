@@ -27,7 +27,7 @@ router.delete('/eventos/:uuid', AuthController.verifyToken, AuthController.requi
 router.post('/scan', AuthController.verifyToken, AcessoController.scan);
 router.post('/simulate', AuthController.verifyToken, AcessoController.simulate);
 router.post('/manual-entry', AuthController.verifyToken, AcessoController.manualEntry);
-router.post('/cadastrar-entrada', AuthController.verifyToken, AcessoController.cadastrarEntrada);
+// router.post('/cadastrar-entrada', AuthController.verifyToken, AcessoController.cadastrarEntrada); // Desabilitado - participantes agora apenas via integração API Sync
 router.post('/renovar-biometria', AuthController.verifyToken, AcessoController.renovarBiometriaEEntrar);
 router.post('/registrar-saida', AuthController.verifyToken, AcessoController.registrarSaida);
 router.post('/biometria/comparar', AuthController.verifyToken, AcessoController.compare);
@@ -45,9 +45,7 @@ router.post('/participantes/sync', AuthController.verifyToken, AuthController.re
 router.get('/participantes/enriquecimento/status', AuthController.verifyToken, ParticipanteController.enriquecimentoStatus);
 
 // Rotas CRUD de Participantes (Admin Only)
-router.post('/participantes', AuthController.verifyToken, AuthController.requireAdmin, ParticipanteController.criar);
-router.put('/participantes/:id', AuthController.verifyToken, AuthController.requireAdmin, ParticipanteController.atualizar);
-router.delete('/participantes/:id', AuthController.verifyToken, AuthController.requireAdmin, ParticipanteController.excluir);
+// (Criação e edição manual desabilitadas para garantir que dados venham estritamente da Sync API)
 router.post('/participantes/:id/biometria', AuthController.verifyToken, AuthController.requireAdmin, ParticipanteController.atualizarBiometria);
 router.delete('/participantes/:id/biometria', AuthController.verifyToken, AuthController.requireAdmin, ParticipanteController.limparBiometria);
 

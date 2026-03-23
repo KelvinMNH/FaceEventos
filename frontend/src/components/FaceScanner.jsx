@@ -18,7 +18,7 @@ const loadModels = () => {
     return modelsPromise;
 };
 
-export const FaceScanner = ({ onScanSuccess, onFaceDetected, isRegistration = false, token = '', eventId = '', followerBalloon = null, glowColor = null }) => {
+export const FaceScanner = ({ active = true, onScanSuccess, onFaceDetected, isRegistration = false, token = '', eventId = '', followerBalloon = null, glowColor = null }) => {
     const webcamRef = useRef(null);
     const [modelsLoaded, setModelsLoaded] = useState(false);
     const [scanCooldown, setScanCooldown] = useState(false);
@@ -54,7 +54,7 @@ export const FaceScanner = ({ onScanSuccess, onFaceDetected, isRegistration = fa
     // 2. Loop de Detecção em tempo real
     useEffect(() => {
         let interval;
-        if (modelsLoaded && !scanCooldown) {
+        if (modelsLoaded && !scanCooldown && active) {
             interval = setInterval(async () => {
                 if (webcamRef.current && webcamRef.current.video && webcamRef.current.video.readyState === 4) {
                     try {
@@ -102,7 +102,12 @@ export const FaceScanner = ({ onScanSuccess, onFaceDetected, isRegistration = fa
             if (faceBoxTimeoutRef.current) clearTimeout(faceBoxTimeoutRef.current);
             setFaceBox(null);
         };
-    }, [modelsLoaded, scanCooldown, isRegistration, eventId]);
+    }, [modelsLoaded, scanCooldown, isRegistration, eventId, active]);
+
+    // Limpar cache de candidatos ao reativar o scanner (ex: após fechar modal de renovação)
+    useEffect(() => {
+        if (active) candidatesRef.current = [];
+    }, [active]);
 
     // 3. Lógica de Identificação
     const handleIdentification = async (descriptor) => {
@@ -184,7 +189,9 @@ export const FaceScanner = ({ onScanSuccess, onFaceDetected, isRegistration = fa
 
         if (detection) {
             const descriptorString = JSON.stringify(Array.from(detection.descriptor));
-            onScanSuccess(descriptorString); // Retorna o template (string JSON) para o pai salvar
+            const screenshot = webcamRef.current.getScreenshot();
+            // onScanSuccess(template, width, height, identifiedId, image)
+            onScanSuccess(descriptorString, null, null, null, screenshot); 
             setStatusMsg('Captura realizada!');
         } else {
             setErrorMsg('Nenhum rosto detectado. Tente novamente.');

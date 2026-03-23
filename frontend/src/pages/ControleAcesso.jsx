@@ -38,8 +38,6 @@ function ControleAcesso() {
   const [manualModalOpen, setManualModalOpen] = useState(false);
   const [manualDoc, setManualDoc] = useState('');
   const manualInputRef = useRef(null);
-  const [manualMode, setManualMode] = useState('search'); // 'search' | 'create'
-  const [newParticipant, setNewParticipant] = useState({ nome: '', documento: '', cpf: '', crm: '', data_nascimento: '', genero: 'Outro' });
   const [manualSearchResults, setManualSearchResults] = useState([]); // Novos resultados da busca manual
   const [selectedManualParticipant, setSelectedManualParticipant] = useState(null); // Para confirmação antes de registrar
 
@@ -309,10 +307,15 @@ function ControleAcesso() {
         eventId: uuid
       };
 
-      if (selectedManualParticipant && manualModalOpen) {
+      // SÓ RENOVA se:
+      // 1. O modal manual estiver aberto E houver participante selecionado
+      // 2. A chamada NÃO vier de uma identificação automática (identifiedId nulo)
+      // 3. Houver uma imagem capturada
+      if (selectedManualParticipant && manualModalOpen && !identifiedId && image) {
         url = `${API_URL}/renovar-biometria`;
         bodyData.participanteId = selectedManualParticipant.id;
-        bodyData.template = image;
+        bodyData.template = template;
+        bodyData.foto = image;
         bodyData.eventId = uuid;
       }
 
@@ -363,12 +366,12 @@ function ControleAcesso() {
 
   // Efeito para focar no input quando abrir modal ou mudar modo
   useEffect(() => {
-    if ((manualModalOpen && manualMode === 'search') || (companionModalOpen && !responsavelId)) {
+    if ((manualModalOpen) || (companionModalOpen && !responsavelId)) {
       setTimeout(() => {
         if (manualInputRef.current) manualInputRef.current.focus();
       }, 100);
     }
-  }, [manualModalOpen, manualMode, companionModalOpen, responsavelId]);
+  }, [manualModalOpen, companionModalOpen, responsavelId]);
 
   // Função para buscar participantes para o modal MANUAL (entrada direta)
   const handleManualSearchInput = async (term) => {
@@ -424,17 +427,10 @@ function ControleAcesso() {
     }
   };
 
-  const openCreateMode = () => {
-    setManualMode('create');
-    // Tenta pré-preencher com o que foi digitado se parecer um nome ou documento
-    setNewParticipant({ ...newParticipant, documento: manualDoc, nome: manualDoc });
-    setManualSearchResults([]);
-  };
+
 
   const handleManualEntryClick = () => {
     setManualDoc('');
-    setManualMode('search');
-    setNewParticipant({ nome: '', cpf: '', crm: '', data_nascimento: '', genero: 'Outro' });
     setManualModalOpen(true);
   };
 
@@ -443,48 +439,10 @@ function ControleAcesso() {
   const submitManualEntry = async () => {
     if (manualSearchResults.length > 0) {
       selectManualParticipant(manualSearchResults[0]);
-    } else {
-      openCreateMode();
     }
   };
 
-  const submitCreateEntry = async () => {
-    if (!newParticipant.nome || !newParticipant.cpf || !newParticipant.data_nascimento) {
-      showMessage("Aviso", "Preencha Nome, CPF e Data de Nascimento", "info");
-      return;
-    }
 
-    try {
-      const res = await fetch(`${API_URL}/cadastrar-entrada`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ 
-          ...newParticipant,
-          eventoId: uuid 
-        })
-      });
-      const data = await res.json();
-
-      if (data.success) {
-        setManualModalOpen(false);
-        setManualMode('search');
-        setNewParticipant({ nome: '', cpf: '', crm: '', data_nascimento: '', genero: 'Outro' });
-        showMessage("Sucesso", "Participante cadastrado com sucesso!", "success");
-        const fakeLog = {
-          status_validacao: 'sucesso',
-          Participante: data.participante
-        };
-        showModal(fakeLog);
-      } else {
-        showMessage("Erro", data.msg || "Erro ao cadastrar", "error");
-      }
-    } catch (e) {
-      showMessage("Erro", "Erro ao conectar", "error");
-    }
-  };
 
 
 
@@ -767,6 +725,7 @@ function ControleAcesso() {
           zIndex: 1
         }}>
           <FaceScanner 
+            active={!manualModalOpen && !companionModalOpen && !finishModalOpen}
             onScanSuccess={handleBiometricAttempt} 
             onFaceDetected={setIsFaceDetected}
             isRegistration={false} 
@@ -1526,11 +1485,9 @@ function ControleAcesso() {
       </div>
 
       {/* Modal Manual */}
-      <div className={`modal-overlay ${manualModalOpen ? 'open' : ''}`} onClick={() => { setManualModalOpen(false); setManualMode('search'); setSelectedManualParticipant(null); }}>
+      <div className={`modal-overlay ${manualModalOpen ? 'open' : ''}`} onClick={() => { setManualModalOpen(false); setSelectedManualParticipant(null); }}>
         <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '650px', width: '95%' }}>
-          {manualMode === 'search' ? (
-            selectedManualParticipant ? (
-              // TELA DE CONFIRMAÇÃO
+          {selectedManualParticipant ? (
               <>
                 <div className="modal-header" style={{ color: 'var(--text-primary)' }}>Confirmar Entrada</div>
                 <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
@@ -1560,7 +1517,7 @@ function ControleAcesso() {
 
                   <div style={{ marginTop: '1.5rem', padding: '1rem', backgroundColor: '#e7f5ff', border: '1px solid #74c0fc', borderRadius: '8px', color: '#1864ab' }}>
                     <FaceScanner 
-                      onScanSuccess={(template) => handleBiometricAttempt(template)} 
+                      onScanSuccess={handleBiometricAttempt} 
                       isRegistration={true} 
                       token={token}
                     />
@@ -1651,72 +1608,10 @@ function ControleAcesso() {
                 )}
 
                 <div className="modal-actions">
-                  <button className="btn-secondary" onClick={() => { setManualModalOpen(false); setManualMode('search'); setSelectedManualParticipant(null); }}>Cancelar</button>
-                  <button className="btn-primary" onClick={openCreateMode}>Cadastrar Nova Pessoa</button>
+                  <button className="btn-secondary" onClick={() => { setManualModalOpen(false); setSelectedManualParticipant(null); }}>Cancelar</button>
                 </div>
               </>
-            )
-          ) : (
-            <>
-              <div className="modal-header">Cadastrar Novo Participante</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                <input
-                  type="text"
-                  className="modal-input"
-                  placeholder="Nome Completo *"
-                  value={newParticipant.nome}
-                  onChange={e => setNewParticipant({ ...newParticipant, nome: e.target.value })}
-                />
-                <input
-                  type="text"
-                  className="modal-input"
-                  placeholder="CPF *"
-                  value={newParticipant.cpf}
-                  onChange={e => setNewParticipant({ ...newParticipant, cpf: e.target.value })}
-                />
-                <input
-                  type="text"
-                  className="modal-input"
-                  placeholder="CRM (opcional)"
-                  value={newParticipant.crm}
-                  onChange={e => setNewParticipant({ ...newParticipant, crm: e.target.value })}
-                />
-                <input
-                  type="date"
-                  className="modal-input"
-                  placeholder="Data de Nascimento *"
-                  value={newParticipant.data_nascimento}
-                  onChange={e => setNewParticipant({ ...newParticipant, data_nascimento: e.target.value })}
-                />
-                  <select
-                    className="modal-input"
-                    value={newParticipant.genero}
-                    onChange={e => setNewParticipant({ ...newParticipant, genero: e.target.value })}
-                  >
-                    <option value="M">Masculino</option>
-                    <option value="F">Feminino</option>
-                    <option value="Outro">Outro</option>
-                  </select>
-
-                  <div style={{ marginTop: '0.5rem', borderRadius: '8px', overflow: 'hidden', border: '1px solid #ddd' }}>
-                    <FaceScanner 
-                      onScanSuccess={(template) => setNewParticipant({ ...newParticipant, template_biometrico: template })} 
-                      isRegistration={true} 
-                      token={token}
-                    />
-                  </div>
-                  {newParticipant.template_biometrico && (
-                    <div style={{ fontSize: '0.8rem', color: 'var(--success-color)', textAlign: 'center', fontWeight: 'bold' }}>
-                      ✓ Rosto Capturado
-                    </div>
-                  )}
-              </div>
-              <div className="modal-actions">
-                <button className="btn-secondary" onClick={() => { setManualMode('search'); setNewParticipant({ nome: '', cpf: '', crm: '', data_nascimento: '', genero: 'Outro' }); }}>Voltar</button>
-                <button className="btn-primary" onClick={submitCreateEntry}>Cadastrar e Registrar Entrada</button>
-              </div>
-            </>
-          )}
+            )}
         </div>
       </div>
 
