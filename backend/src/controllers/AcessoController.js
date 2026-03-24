@@ -112,41 +112,7 @@ class AcessoController {
     }
 
     async simulate(req, res) {
-        try {
-            const { eventoId } = req.body;
-            const evento = eventoId 
-                ? await Evento.findOne({ where: { uuid: eventoId } })
-                : await Evento.findOne({ where: { status: 'ativo' } });
-            
-            if (!evento || evento.status !== 'ativo') {
-                return res.json({ success: false, msg: "Este evento não está ativo para simulações." });
-            }
-
-            const isSuccess = Math.random() > 0.1;
-            let participante = null;
-
-            if (isSuccess) {
-                const count = await Participante.count({ where: { ativo: true } });
-                if (count > 0) {
-                    const randomOffset = Math.floor(Math.random() * count);
-                    participante = await Participante.findOne({ where: { ativo: true }, offset: randomOffset });
-                }
-            }
-
-            const status = participante ? 'sucesso' : 'nao_encontrado';
-            await RegistroAcesso.create({
-                tipo_acesso: 'entrada',
-                status_validacao: status,
-                device_id: 'sim_btn_web',
-                EventoId: evento.id,
-                ParticipanteId: participante ? participante.id : null
-            });
-
-            res.json({ success: true, status });
-        } catch (e) {
-            console.error("Erro na simulação:", e);
-            res.status(500).json({ error: "Erro na simulação", details: e.message });
-        }
+        res.status(410).json({ success: false, message: "Funcionalidade de simulação desativada." });
     }
 
     async manualEntry(req, res) {

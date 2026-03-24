@@ -29,7 +29,7 @@ function ControleAcesso() {
   const [distribuicaoHorario, setDistribuicaoHorario] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
 
-  const [simulating, setSimulating] = useState(false);
+
   const audioRef = useRef(new Audio('https://assets.mixkit.co/sfx/preview/mixkit-software-interface-start-2574.mp3')); // Som de exemplo
   const modalTimeoutRef = useRef(null);
   const alertCooldownsRef = useRef(new Map());
@@ -276,25 +276,7 @@ function ControleAcesso() {
     return () => clearInterval(interval);
   }, [lastLogId, navigate, evento, token, uuid]);
 
-  // Simulação Loop
-  useEffect(() => {
-    let simInterval;
-    if (simulating) {
-      simInterval = setInterval(async () => {
-        try {
-          await fetch(`${API_URL}/simulate`, {
-            method: 'POST',
-            headers: { 
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}` 
-            },
-            body: JSON.stringify({ eventoId: uuid })
-          });
-        } catch (e) { console.error("Erro simulação", e); }
-      }, 7000); // A cada 7 segundos gera um log
-    }
-    return () => clearInterval(simInterval);
-  }, [simulating, token, uuid]);
+
 
   // Facial recognition handle
 
@@ -1987,24 +1969,7 @@ function ControleAcesso() {
         type={messageModal.type}
       />
 
-      {/* Botão de Simulação Flutuante */}
-      <div style={{ position: 'fixed', bottom: '1rem', right: '1rem', opacity: 0.1, zIndex: 1000 }}>
-        <button
-          onClick={() => setSimulating(!simulating)}
-          style={{
-            padding: '0.5rem 1rem',
-            backgroundColor: simulating ? '#e1e4e8' : '#333',
-            color: simulating ? '#333' : 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            fontWeight: 'bold',
-            fontSize: '0.8rem'
-          }}
-        >
-          {simulating ? 'Parar Simulação' : 'Simular Entrada'}
-        </button>
-      </div>
+
     </>
   );
 }
