@@ -26,7 +26,6 @@ function TotemAcesso() {
     const [selectedParticipant, setSelectedParticipant] = useState(null);
     const [statusMessage, setStatusMessage] = useState('');
     const [scannedUser, setScannedUser] = useState(null); // Para exibir a foto no sucesso
-    const [qualityMsg, setQualityMsg] = useState(''); // Novo: feedback de pressão do dedo
     const [progress, setProgress] = useState(100);
     const [biometricResult, setBiometricResult] = useState(null); // { user, type: 'success' | 'already_in' | 'error', message? }
     const [balloonData, setBalloonData] = useState(null); // { name: string }
@@ -53,8 +52,6 @@ function TotemAcesso() {
 
     const searchInputRef = useRef(null);
 
-    const [scannedImage, setScannedImage] = useState(null);
-    const wsRef = useRef(null);
 
     // Atualizar hora
     useEffect(() => {
@@ -85,8 +82,6 @@ function TotemAcesso() {
         }
         return () => clearInterval(timer);
     }, [biometricResult, view, balloonData]);
-
-    // WebSocket removido - Reconhecimento facial via câmera direta no navegador
 
     const handleBiometricScan = async (template, width, height, identifiedId, photo) => {
         if (isVerifyingRef.current) return;

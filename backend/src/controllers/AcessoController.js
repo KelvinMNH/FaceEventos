@@ -1,6 +1,5 @@
 const { Evento, Participante, Acompanhante, RegistroAcesso } = require('../models');
 const { Op } = require('sequelize');
-const { Jimp, distance, diff } = require('jimp');
 const fs = require('fs');
 const path = require('path');
 
@@ -8,41 +7,6 @@ const DEBUG_LOG = path.join(__dirname, '../../biometria_debug.log');
 function logDebug(msg) {
     const timestamp = new Date().toISOString();
     fs.appendFileSync(DEBUG_LOG, `[${timestamp}] ${msg}\n`);
-}
-
-// Helper para converter RAW grayscale em Jimp Image (Estritamente 320x480)
-async function createJimpFromRaw(base64) {
-    try {
-        const buffer = Buffer.from(base64, 'base64');
-        const width = 320;
-        const height = 480;
-
-        // Estreito: Permitir apenas 320x480 (153600 bytes)
-        if (buffer.length !== 153600) {
-            throw new Error(`Resolução inválida: ${buffer.length} bytes recebidos, esperado 153600 (320x480)`);
-        }
-
-        const image = new Jimp({ width, height });
-
-        for (let i = 0; i < width * height; i++) {
-            const val = buffer[i];
-            const idx = i * 4;
-            image.bitmap.data[idx] = val;
-            image.bitmap.data[idx + 1] = val;
-            image.bitmap.data[idx + 2] = val;
-            image.bitmap.data[idx + 3] = 255;
-        }
-
-        // --- PRE-PROCESSAMENTO PARA ESTABILIZAR PHASH ---
-        image.normalize();
-        image.contrast(0.3);
-        image.blur(1); 
-        
-        return image;
-    } catch (err) {
-        console.error(`[AcessoController] Erro na biometria:`, err.message);
-        throw err;
-    }
 }
 
 class AcessoController {
@@ -466,8 +430,7 @@ class AcessoController {
     }
 
     async compare(req, res) {
-        // Agora o backend apenas recebe o resultado da comparação feita pelo bridge/frontend
-        res.json({ success: true, message: "Compare delegated to bridge" });
+        res.status(410).json({ success: false, message: "Funcionalidade de biometria digital desativada. Use Reconhecimento Facial." });
     }
 }
 
