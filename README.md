@@ -4,14 +4,14 @@ Sistema profissional de gestão de eventos e controle de acesso com **Reconhecim
 
 ---
 
-## 🚀 Tecnologias
+## Tecnologias
 - **Backend**: Node.js, Express, Sequelize (SQLite/Oracle)
 - **Frontend**: React, Vite, face-api.js, react-webcam
 - **Bridge**: Serviço local em Node.js para integração com hardware Futronic (Opcional)
 
 ---
 
-## 🏗️ Arquitetura do Sistema
+## Arquitetura do Sistema
 
 O sistema opera em uma arquitetura de **Microserviços Locais**, dividida em três componentes principais:
 
@@ -21,7 +21,7 @@ O sistema opera em uma arquitetura de **Microserviços Locais**, dividida em tr�
 
 ---
 
-## 🔄 Fluxo e Resiliência
+## Fluxo e Resiliência
 
 ### Reconhecimento Facial
 - **Fluxo**: Webcam -> Browser (face-api.js) -> Backend (Sync/Match).
@@ -32,7 +32,7 @@ O sistema opera em uma arquitetura de **Microserviços Locais**, dividida em tr�
 - **Resiliência**: O sistema detecta se o leitor USB for desconectado e recupera a conexão automaticamente em segundos sem interromper a interface.
 ---
 
-## 📦 Instalação e Execução
+## Instalação e Execução
 
 ### 1. Pré-requisitos
 - **Node.js**: v18 ou superior.
@@ -57,7 +57,7 @@ iniciar-servidores.bat
 
 ---
 
-## 🛠️ Reconhecimento Facial (Nova Funcionalidade)
+## Reconhecimento Facial (Nova Funcionalidade)
 O sistema agora utiliza a webcam para identificação em tempo real.
 - **Cadastro**: Realizado na tela de Gerenciamento de Participantes.
 - **Identificação**: Automática nos totens de acesso e saída.
@@ -65,20 +65,20 @@ O sistema agora utiliza a webcam para identificação em tempo real.
 
 ---
 
-## 💾 Banco de Dados
+## Banco de Dados
 O sistema utiliza **SQLite** por padrão (`database.sqlite`).
 - Para resetar os dados, exclua o arquivo `.sqlite` e reinicie o backend.
 - O sistema criará as tabelas e dados iniciais automaticamente.
 
 ---
 
-## 🤝 Autor e Suporte
+## Autor e Suporte
 Desenvolvido por **Kelvin Higino**.
-🌐 [kelvinti.pages.dev](https://kelvinti.pages.dev)
+[kelvinti.pages.dev](https://kelvinti.pages.dev)
 
 ---
 
-## 📖 Documentação Adicional
+## Documentação Adicional
 - [Requisitos e Regras de Negócio](file:///c:/Users/kelvin.higino/Documents/UniEventos/REQUISITOS.md)
 - [Documentação da API](file:///c:/Users/kelvin.higino/Documents/UniEventos/API.md)
 - [Guia de Homologação](file:///c:/Users/kelvin.higino/Documents/UniEventos/HOMOLOGACAO.md)

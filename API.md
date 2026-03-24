@@ -114,4 +114,4 @@ A URL base padrão local é `http://localhost:3000/api`.
 ---
 
 **Software de autoria de Kelvin Higino**  
-Para contato, acesse: 🌐 [kelvinti.pages.dev](https://kelvinti.pages.dev)
+Para contato, acesse: [kelvinti.pages.dev](https://kelvinti.pages.dev)
