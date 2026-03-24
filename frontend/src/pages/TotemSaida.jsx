@@ -27,8 +27,6 @@ function TotemSaida() {
     const [searchResults, setSearchResults] = useState([]);
     const [selectedParticipant, setSelectedParticipant] = useState(null);
     const [statusMessage, setStatusMessage] = useState('');
-    const [scannerStatus, setScannerStatus] = useState('disconnected'); // 'connected' | 'disconnected'
-    const [qualityMsg, setQualityMsg] = useState(''); // Novo: feedback de qualidade
     const [progress, setProgress] = useState(100);
     const [glowColor, setGlowColor] = useState(null);
 

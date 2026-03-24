@@ -316,7 +316,7 @@ function ControleAcesso() {
         bodyData.participanteId = selectedManualParticipant.id;
         bodyData.template = template;
         bodyData.foto = image;
-        bodyData.eventId = uuid;
+        bodyData.eventoId = uuid;
       }
 
       const res = await fetch(url, {

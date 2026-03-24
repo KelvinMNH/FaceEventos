@@ -59,7 +59,7 @@ A URL base padrão local é `http://localhost:3000/api`.
 ##  3. Acesso e Catraca (Biometria)
 
 ### `POST /scan`
-*   **Descrição:** Recebe a biometria em Base64 e tenta fazer o *Match* com a base de dados em memória.
+*   **Descrição:** Registra a tentativa de acesso facial. Recebe o `identified_id` (se reconhecido pelo frontend) ou `force_match_id`.
 *   **Acesso:** Protegido (Requer JWT)
 *   **Body (JSON):**
     ```json
@@ -72,7 +72,7 @@ A URL base padrão local é `http://localhost:3000/api`.
 *   **Acesso:** Protegido (Requer JWT)
 
 ### `POST /manual-entry`
-*   **Descrição:** Força a entrada de um participante de forma manual (bypass de biometria). Muito usado quando o dedo da pessoa falha sistematicamente na leitura.
+*   **Descrição:** Força a entrada de um participante de forma manual (bypass de biometria). Muito usado quando o reconhecimento facial falha sistematicamente ou o participante não possui biometria cadastrada.
 *   **Acesso:** Protegido (Requer JWT)
 
 ### `POST /registrar-saida`
@@ -84,7 +84,7 @@ A URL base padrão local é `http://localhost:3000/api`.
 *   **Acesso:** Protegido (Requer JWT)
 
 ### `POST /simulate` (Dev Only)
-*   **Descrição:** Rota utilizada para testes de desenvolvimento para simular um acesso sem a necessidade física do leitor biométrico.
+*   **Descrição:** Rota utilizada para testes de desenvolvimento para simular um acesso sem a necessidade física de biometria ou câmera.
 
 ---
 
