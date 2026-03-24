@@ -5,10 +5,31 @@ Sistema profissional de gestão de eventos e controle de acesso com **Reconhecim
 ---
 
 ## 🚀 Tecnologias
-- **Backend**: Node.js, Express, Sequelize (SQLite/PostgreSQL/Oracle)
+- **Backend**: Node.js, Express, Sequelize (SQLite/Oracle)
 - **Frontend**: React, Vite, face-api.js, react-webcam
 - **Bridge**: Serviço local em Node.js para integração com hardware Futronic (Opcional)
 
+---
+
+## 🏗️ Arquitetura do Sistema
+
+O sistema opera em uma arquitetura de **Microserviços Locais**, dividida em três componentes principais:
+
+1.  **Backend (`/backend`)**: API RESTful, gestão de participantes e integração com banco de dados.
+2.  **Frontend (`/frontend`)**: Interface SPA para operadores, totens de acesso e relatórios.
+3.  **Biometric Bridge (`/bridge`)**: (Opcional) Driver para hardware Futronic FS80H via WebSocket.
+
+---
+
+## 🔄 Fluxo e Resiliência
+
+### Reconhecimento Facial
+- **Fluxo**: Webcam -> Browser (face-api.js) -> Backend (Sync/Match).
+- **Vantagem**: Funciona em qualquer dispositivo com câmera e HTTPS.
+
+### Biometria Digital (Opcional)
+- **Fluxo**: Hardware -> Bridge (WebSocket) -> Frontend -> Backend (Fuzzy Match).
+- **Resiliência**: O sistema detecta se o leitor USB for desconectado e recupera a conexão automaticamente em segundos sem interromper a interface.
 ---
 
 ## 📦 Instalação e Execução
@@ -54,6 +75,13 @@ O sistema utiliza **SQLite** por padrão (`database.sqlite`).
 ## 🤝 Autor e Suporte
 Desenvolvido por **Kelvin Higino**.
 🌐 [kelvinti.pages.dev](https://kelvinti.pages.dev)
+
+---
+
+## 📖 Documentação Adicional
+- [Requisitos e Regras de Negócio](file:///c:/Users/kelvin.higino/Documents/UniEventos/REQUISITOS.md)
+- [Documentação da API](file:///c:/Users/kelvin.higino/Documents/UniEventos/API.md)
+- [Guia de Homologação](file:///c:/Users/kelvin.higino/Documents/UniEventos/HOMOLOGACAO.md)
 
 ---
 > [!IMPORTANT]

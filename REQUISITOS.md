@@ -14,7 +14,7 @@ Este documento detalha as funcionalidades e regras de negócio do sistema UniEve
 
 ## 2. Gestão de Participantes e Acompanhantes
 
-- **RF06 - Gestão e Detalhes de Participantes**: Interface completa para visualização de dados detalhados (CPF, CRM, Nome, Especialidade, Empresa) e busca multi-critério. Permite a gestão individual de cada perfil cadastrado na base.
+- **RF06 - Consulta de Participantes**: Interface para visualização de dados detalhados (CPF, CRM, Nome, Especialidade, Empresa). A gestão dos dados cadastrais é realizada via sincronização com a API corporativa (Read-Only no UniEventos).
 - **RF07 - Saúde da Base (Enriquecimento)**: O sistema monitora a qualidade dos dados (Gênero, Data de Nascimento, Especialidade) e exibe um percentual de "Saúde da Base" no Dashboard.
 - **RF08 - Gestão de Acompanhantes**: Registro de convidados vinculados a um participante responsável.
 - **RF09 - Limite de Acompanhantes**: O sistema valida o limite máximo definido nas configurações do evento (campo max_acompanhantes).
@@ -30,10 +30,9 @@ Este documento detalha as funcionalidades e regras de negócio do sistema UniEve
 
 ## 4. Controle de Acesso e Check-out
 
-- **RF16 - Entrada Manual e Localização por Nome**: O sistema permite o registro de acesso sem a necessidade de biometria facial, através da busca manual por Nome, CPF ou CRM, servindo como alternativa padrão para participantes sem cadastro biométrico ou restrições técnicas.
-- **RF17 - Registro de Novo Participante na Portaria**: Possibilidade de realizar o cadastro rápido de um participante diretamente na tela de controle de acesso para liberação imediata.
-- **RF18 - Check-out (Saída)**: Registro de saída via Totem ou Painel de Controle para controle de ocupação.
-- **RF19 - Check-out em Cascata**: Ao registrar a saída de um responsável, o sistema realiza o checkout automático de todos os seus acompanhantes vinculados.
+- **RF16 - Entrada Manual e Localização por Nome**: O sistema permite o registro de acesso sem a necessidade de biometria facial, através da busca manual por Nome, CPF ou CRM.
+- **RF17 - Check-out (Saída)**: Registro de saída via Totem ou Painel de Controle para controle de ocupação.
+- **RF18 - Check-out em Cascata**: Ao registrar a saída de um responsável, o sistema realiza o checkout automático de todos os seus acompanhantes vinculados.
 
 ## 5. Dashboards e Relatórios
 
