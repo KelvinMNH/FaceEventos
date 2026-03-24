@@ -335,30 +335,7 @@ function TotemAcesso() {
         }, 4000);
     };
 
-    // Simulação de Biometria (Mantida para testes)
-    const simulateBiometricScan = async (success = true) => {
-        if (view !== 'welcome') return; // Só aceita biometria na tela inicial
 
-        if (success) {
-            // Simular sucesso pegando um aleatório
-            try {
-                const res = await fetch(`${API_URL}/participantes`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                const parts = await res.json();
-                if (parts && parts.length > 0) {
-                    const p = parts[Math.floor(Math.random() * parts.length)];
-                    setSelectedParticipant(p);
-                    // Auto-confirma
-                    handleConfirmCheckin();
-                }
-            } catch (e) { }
-        } else {
-            setStatusMessage("Biometria não reconhecida");
-            setView('error');
-            setTimeout(() => setView('welcome'), 3000);
-        }
-    };
 
     const formatDate = (date) => date.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
     const formatTime = (date) => date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
@@ -705,10 +682,7 @@ function TotemAcesso() {
                 )}
             </div>
 
-            {/* Hidden Simulation Buttons (for debug/demo) */}
-            <div style={{ position: 'absolute', bottom: '1rem', right: '1rem', opacity: 0.1 }}>
-                <button onClick={() => simulateBiometricScan(true)}>Simular Entrada</button>
-            </div>
+
 
             <style>{`
                 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }

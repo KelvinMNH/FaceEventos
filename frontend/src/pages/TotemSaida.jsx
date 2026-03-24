@@ -222,65 +222,7 @@ function TotemSaida() {
         }, 3000);
     };
 
-    // Simulação de Checkout Inteligente
-    const simulateBiometricScan = async (success = true) => {
-        if (view !== 'welcome') return;
 
-        if (success) {
-            try {
-                // 1. Buscar todos os logs para identificar quem está "dentro" do evento
-                const logsRes = await fetch(`${API_URL}/logs`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                const allLogs = await logsRes.json();
-
-                if (!evento) return;
-
-                // 2. Filtrar apenas logs do evento ativo
-                const eventoLogs = allLogs.filter(l => l.Evento && l.Evento.uuid === uuid);
-
-                // 3. Mapear o último estado de cada participante
-                const statusMap = {};
-                eventoLogs.forEach(log => {
-                    if (log.ParticipanteId && !statusMap[log.ParticipanteId]) {
-                        // Como os logs vêm ordenados por data decrescente (mais recente primeiro),
-                        // o primeiro log que encontrarmos de cada participante é o estado atual dele.
-                        statusMap[log.ParticipanteId] = log.tipo_acesso;
-                    }
-                });
-
-                // 4. Pegar IDs de quem está com estado 'entrada' (ou seja, entrou e ainda não saiu)
-                const inPids = Object.keys(statusMap).filter(pid => statusMap[pid] === 'entrada');
-
-                if (inPids.length > 0) {
-                    const randomPid = inPids[Math.floor(Math.random() * inPids.length)];
-
-                    // Buscar dados do participante selecionado
-                    const partRes = await fetch(`${API_URL}/participantes/busca?q=${randomPid}`, {
-                        headers: { 'Authorization': `Bearer ${token}` }
-                    });
-                    const partsFound = await partRes.json();
-
-                    if (partsFound && partsFound.length > 0) {
-                        const p = partsFound.find(x => x.id === parseInt(randomPid)) || partsFound[0];
-                        setSelectedParticipant(p);
-                        handleConfirmCheckout();
-                    }
-                } else {
-                    console.log("Nenhum participante com entrada pendente para simular checkout.");
-                    setStatusMessage("Ninguém entrou ainda para simular saída.");
-                    setView('error');
-                    setTimeout(() => setView('welcome'), 3000);
-                }
-            } catch (e) {
-                console.error("Erro na simulação de checkout:", e);
-            }
-        } else {
-            setStatusMessage("Biometria não reconhecida");
-            setView('error');
-            setTimeout(() => setView('welcome'), 3000);
-        }
-    };
 
     const formatDate = (date) => date.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
     const formatTime = (date) => date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
@@ -618,10 +560,7 @@ function TotemSaida() {
                 )}
             </div>
 
-            {/* Hidden Simulation Buttons (for debug/demo) */}
-            <div style={{ position: 'absolute', bottom: '1rem', right: '1rem', opacity: 0.1 }}>
-                <button onClick={() => simulateBiometricScan(true)}>Simular Checkout</button>
-            </div>
+
 
             <style>{`
                 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
