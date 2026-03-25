@@ -189,17 +189,20 @@ function TotemAcesso() {
                 const p = finalData.participante || { nome: "Participante" };
                 setBalloonData({ name: p.nome });
                 setBiometricResult({ user: p, type: 'already_in' }); // Mantemos no estado mas ocultamos o card no render
-                setGlowColor('#ffc107'); // Amarelo
+                setGlowColor('#FFE596'); // Amarelo Unimed (Aviso)
+                setTimeout(() => setGlowColor(null), 5000);
                 return;
             }
             if (finalData.autorizado || finalData.success) {
                 setBiometricResult({ user: finalData.participante || { nome: "Participante" }, type: 'success' });
-                setGlowColor('#198754'); // Verde
+                setGlowColor('#00995D'); // Verde Unimed (Sucesso)
+                setTimeout(() => setGlowColor(null), 5000);
                 return;
             }
 
             // Se chegou aqui no welcome e não reconheceu
-            setGlowColor('#dc3545'); // Vermelho
+            setGlowColor('#dc3545'); // Vermelho (Erro)
+            setTimeout(() => setGlowColor(null), 3000);
             setBiometricResult({ 
                 user: { nome: "Visitante" }, 
                 type: 'error', 
@@ -352,29 +355,41 @@ function TotemAcesso() {
     return (
         <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: '#f8f9fa', overflowY: 'auto', overflowX: 'hidden' }}>
             {/* Topbar */}
-            <div style={{ backgroundColor: '#198754', color: 'white', padding: '1rem 2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}>
-                {/* Lado Esquerdo: Logo */}
-                <div style={{ flex: '1', display: 'flex', alignItems: 'center' }}>
-                    <img src="/logo.jpg" alt="Logo" style={{ height: '60px', borderRadius: '4px', backgroundColor: 'white', padding: '2px' }} />
+            <div style={{ 
+                backgroundColor: '#00995D', 
+                color: 'white', 
+                padding: '1rem 2.5rem', 
+                display: 'grid', 
+                gridTemplateColumns: '1fr 1fr 1fr', 
+                alignItems: 'center', 
+                boxShadow: '0 2px 15px rgba(0,0,0,0.2)',
+                zIndex: 10
+            }}>
+                {/* Lado Esquerdo: Marca e Evento */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+                    <img src="/logo.png" alt="Logo" style={{ height: '60px' }} />
+                    <div style={{ textAlign: 'left', lineHeight: '1.2' }}>
+                        <div style={{ fontSize: '1.4rem', fontWeight: 'bold', color: '#fff' }}>{evento ? evento.nome : 'Carregando...'}</div>
+                        {evento && (
+                            <div style={{ fontSize: '0.9rem', opacity: 0.9, display: 'flex', gap: '1rem', marginTop: '4px' }}>
+                                <span>📅 {new Date(evento.data_inicio).toLocaleDateString('pt-BR')}</span>
+                                <span>📍 {evento.local}</span>
+                            </div>
+                        )}
+                    </div>
                 </div>
 
-                {/* Centro: Título e Informações do Evento */}
-                <div style={{ flex: '2', textAlign: 'center' }}>
-                    <h1 style={{ margin: 0, fontSize: '2rem', fontWeight: 'bold' }}>Totem de Check-in</h1>
-                    <div style={{ fontSize: '1.3rem', fontWeight: 'bold' }}>{evento ? evento.nome : 'Carregando...'}</div>
-                    {evento && (
-                        <div style={{ fontSize: '0.9rem', opacity: 0.9, display: 'flex', gap: '1.5rem', marginTop: '0.3rem', justifyContent: 'center' }}>
-                            <span>📅 {new Date(evento.data_inicio).toLocaleDateString('pt-BR')}</span>
-                            <span>🕐 {evento.hora_inicio}</span>
-                            <span>📍 {evento.local}</span>
-                        </div>
-                    )}
+                {/* Centro: Título do Totem (Centralização Absoluta via Grid) */}
+                <div style={{ textAlign: 'center' }}>
+                    <h1 style={{ margin: 0, fontSize: '2.8rem', fontWeight: '900', whiteSpace: 'nowrap', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                        Check-in
+                    </h1>
                 </div>
 
                 {/* Lado Direito: Relógio */}
-                <div style={{ flex: '1', textAlign: 'right' }}>
-                    <div style={{ fontSize: '4.5rem', fontWeight: 'bold', fontFamily: 'monospace', lineHeight: 1 }}>{formatTime(horaAtual)}</div>
-                    <div style={{ fontSize: '1.6rem', marginTop: '5px' }}>{formatDate(horaAtual)}</div>
+                <div style={{ textAlign: 'right', lineHeight: '1' }}>
+                    <div style={{ fontSize: '5rem', fontWeight: 'bold', fontFamily: 'monospace' }}>{formatTime(horaAtual)}</div>
+                    <div style={{ fontSize: '1.5rem', marginTop: '2px', opacity: 0.9 }}>{formatDate(horaAtual)}</div>
                 </div>
             </div>
 
@@ -382,69 +397,74 @@ function TotemAcesso() {
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '1rem', minHeight: 'min-content' }}>
 
                 {view === 'welcome' && (
-                    <div style={{ textAlign: 'center', animation: 'fadeIn 0.5s' }}>
+                    <div style={{ textAlign: 'center', animation: 'fadeIn 0.5s', position: 'relative' }}>
                         <h2 style={{ fontSize: 'clamp(1.8rem, 4vh, 2.5rem)', color: '#333', marginBottom: 'clamp(1rem, 3vh, 3rem)' }}>Seja Bem-vindo(a)!</h2>
 
-                        {/* Círculo do Totem agora com estilo idêntico ao Access Panel */}
-                        <div
-                            style={{
-                                width: 'min(450px, 60vh)',
-                                height: 'min(450px, 60vh)',
-                                borderRadius: '30px',
-                                overflow: 'hidden',
-                                backgroundColor: '#ffffff',
-                                margin: '0 auto clamp(1rem, 3vh, 3rem)',
-                                position: 'relative',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                boxShadow: '0 20px 40px rgba(0,0,0,0.15)',
-                                border: '1px solid #eee'
-                            }}
-                        >
-                            <FaceScanner
-                                onScanSuccess={handleBiometricScan}
-                                isRegistration={false}
-                                token={token}
-                                eventId={uuid}
-                                followerBalloon={balloonData}
-                                glowColor={glowColor}
-                            />
-
-                            {/* Card Flutuante Biométrico (Sucesso ou Erro - Já Identificado usa BALÃO) */}
-                            {biometricResult && biometricResult.type !== 'already_in' && (
-                                <div style={{
-                                    position: 'absolute',
-                                    bottom: '20px',
-                                    left: '50%',
-                                    transform: 'translateX(-50%)',
-                                    width: '85%',
-                                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                                    padding: '1.2rem',
-                                    borderRadius: '15px',
-                                    boxShadow: '0 10px 25px rgba(0,0,0,0.2)',
-                                    textAlign: 'center',
-                                    animation: 'slideUp 0.3s ease-out',
-                                    zIndex: 100,
-                                    border: '2px solid #198754',
-                                    backdropFilter: 'blur(5px)'
-                                }}>
-                                    {/* Barra de Progresso */}
-                                    <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '4px', backgroundColor: '#eee', borderRadius: '15px 15px 0 0', overflow: 'hidden' }}>
-                                        <div style={{ width: `${progress}%`, height: '100%', backgroundColor: '#198754', transition: 'width 0.05s linear' }} />
-                                    </div>
-
-                                    <div style={{ color: biometricResult.type === 'error' ? '#dc3545' : '#198754', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '0.3rem', fontWeight: 'bold' }}>
-                                        {biometricResult.type === 'success' ? 'Sucesso' : (biometricResult.type === 'error' ? 'Aviso' : 'Informativo')}
-                                    </div>
-                                    <div style={{ fontWeight: 'bold', fontSize: '1.1rem', color: '#333' }}>
-                                        {biometricResult.type === 'error' ? 'Não Identificado' : biometricResult.user.nome}
-                                    </div>
-                                    <div style={{ color: biometricResult.type === 'error' ? '#dc3545' : '#198754', fontSize: '1rem', marginTop: '0.2rem', fontWeight: '500' }}>
-                                        {biometricResult.type === 'success' ? 'Entrada Confirmada! ✅' : 
-                                         (biometricResult.type === 'error' ? (biometricResult.message || 'Rosto não reconhecido') : (biometricResult.user.nome + ' já registrado! ✅'))}
-                                    </div>
-                                </div>
-                            )}
+                        {/* Círculo do Totem com Borda em Movimento */}
+                        <div className="moving-border-wrapper moving-border-green" style={{
+                            width: 'min(462px, 62vh)',
+                            height: 'min(462px, 62vh)',
+                            borderRadius: '35px',
+                            margin: '0 auto clamp(1.5rem, 4vh, 4rem)'
+                        }}>
+                            <div
+                                style={{
+                                    width: '100%',
+                                    height: '100%',
+                                    borderRadius: '30px',
+                                    overflow: 'hidden',
+                                    backgroundColor: '#ffffff',
+                                    position: 'relative',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    border: '1px solid rgba(255,255,255,0.1)'
+                                }}
+                            >
+                                <FaceScanner
+                                    onScanSuccess={handleBiometricScan}
+                                    isRegistration={false}
+                                    token={token}
+                                    eventId={uuid}
+                                    followerBalloon={balloonData}
+                                    glowColor={glowColor}
+                                />
+                            </div>
                         </div>
+
+                        {/* Card Flutuante Biométrico (Sucesso ou Erro - Já Identificado usa BALÃO) */}
+                        {biometricResult && biometricResult.type !== 'already_in' && (
+                            <div style={{
+                                position: 'absolute',
+                                bottom: '20px',
+                                left: '50%',
+                                transform: 'translateX(-50%)',
+                                width: '85%',
+                                backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                                padding: '1.2rem',
+                                borderRadius: '15px',
+                                boxShadow: '0 10px 25px rgba(0,0,0,0.2)',
+                                textAlign: 'center',
+                                animation: 'slideUp 0.3s ease-out',
+                                zIndex: 100,
+                                border: '2px solid #00995D',
+                                backdropFilter: 'blur(5px)'
+                            }}>
+                                {/* Barra de Progresso */}
+                                <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '4px', backgroundColor: '#eee', borderRadius: '15px 15px 0 0', overflow: 'hidden' }}>
+                                    <div style={{ width: `${progress}%`, height: '100%', backgroundColor: '#00995D', transition: 'width 0.05s linear' }} />
+                                </div>
+
+                                <div style={{ color: biometricResult.type === 'error' ? '#dc3545' : '#00995D', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '0.3rem', fontWeight: 'bold' }}>
+                                    {biometricResult.type === 'success' ? 'Sucesso' : (biometricResult.type === 'error' ? 'Aviso' : 'Informativo')}
+                                </div>
+                                <div style={{ fontWeight: 'bold', fontSize: '1.1rem', color: '#333' }}>
+                                    {biometricResult.type === 'error' ? 'Não Identificado' : biometricResult.user.nome}
+                                </div>
+                                <div style={{ color: biometricResult.type === 'error' ? '#dc3545' : '#00995D', fontSize: '1rem', marginTop: '0.2rem', fontWeight: '500' }}>
+                                    {biometricResult.type === 'success' ? 'Entrada Confirmada! ✅' : 
+                                     (biometricResult.type === 'error' ? (biometricResult.message || 'Rosto não reconhecido') : (biometricResult.user.nome + ' já registrado! ✅'))}
+                                </div>
+                            </div>
+                        )}
 
                         <p style={{ fontSize: 'clamp(1rem, 2.5vh, 1.2rem)', color: '#666', marginBottom: 'clamp(1rem, 4vh, 3rem)', fontWeight: 'bold' }}>
                             Aproxime seu rosto da câmera para entrar
@@ -454,7 +474,7 @@ function TotemAcesso() {
                             onClick={() => setView('search')}
                             style={{
                                 padding: '1.2rem 3rem', fontSize: '1.3rem', backgroundColor: '#00995D', color: 'white',
-                                border: 'none', borderRadius: '50px', cursor: 'pointer', boxShadow: '0 4px 15px rgba(25,135,84,0.3)',
+                                border: 'none', borderRadius: '50px', cursor: 'pointer', boxShadow: '0 4px 15px rgba(0,153,93,0.3)',
                                 transition: 'transform 0.2s', fontWeight: 'bold'
                             }}
                         >
@@ -469,7 +489,7 @@ function TotemAcesso() {
                             onClick={() => { setView('welcome'); setSearchTerm(''); setSearchResults([]); }}
                             style={{
                                 padding: '1rem 2.5rem',
-                                backgroundColor: '#e9ecef',
+                                backgroundColor: 'var(--basic-gray-100)',
                                 border: 'none',
                                 borderRadius: '10px',
                                 fontSize: '1.4rem',
@@ -478,7 +498,7 @@ function TotemAcesso() {
                                 display: 'flex',
                                 alignItems: 'center',
                                 gap: '0.5rem',
-                                color: '#495057',
+                                color: 'var(--basic-gray-700)',
                                 fontWeight: 'bold',
                                 boxShadow: '0 4px 6px rgba(0,0,0,0.05)'
                             }}
@@ -520,12 +540,12 @@ function TotemAcesso() {
                                             <div style={{ color: '#666', fontSize: '0.9rem', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                                                 <span>CPF: {maskCPF(p.cpf)}</span>
                                                 {p.crm && <span style={{ color: '#2c3e50', fontWeight: '500' }}>CRM: {p.crm}</span>}
-                                                {p.especialidade && <span style={{ color: '#0d6efd', fontSize: '0.85rem', fontStyle: 'italic' }}>{p.especialidade}</span>}
+                                                {p.especialidade && <span style={{ color: '#004E4C', fontSize: '0.85rem', fontStyle: 'italic' }}>{p.especialidade}</span>}
                                             </div>
                                         </div>
                                          <div style={{ display: 'flex', alignItems: 'center' }}>
                                              {p.template_biometrico && !p.template_biometrico.startsWith('manual_') ? (
-                                                 <span title="Face Cadastrada" style={{ color: '#4CAF50', display: 'flex' }}><FaceIcon size="2rem" /></span>
+                                                 <span title="Face Cadastrada" style={{ color: '#00995D', display: 'flex' }}><FaceIcon size="2rem" /></span>
                                              ) : (
                                                  <span title="Sem Biometria" style={{ color: '#666', opacity: 0.3, filter: 'grayscale(100%)', display: 'flex' }}><FaceIcon size="2rem" /></span>
                                              )}
@@ -544,7 +564,7 @@ function TotemAcesso() {
                         <div style={{ fontSize: 'clamp(2rem, 4vh, 3rem)', marginBottom: '0.5rem' }}>👤</div>
                         <h2 style={{ fontSize: 'clamp(1.5rem, 3vh, 1.8rem)', marginBottom: '0.5rem' }}>Confirmar Identidade</h2>
                         
-                        <div style={{ fontSize: 'clamp(1.4rem, 2.5vh, 1.8rem)', fontWeight: 'bold', color: '#198754', marginBottom: '0.5rem' }}>
+                        <div style={{ fontSize: 'clamp(1.4rem, 2.5vh, 1.8rem)', fontWeight: 'bold', color: '#00995D', marginBottom: '0.5rem' }}>
                             {selectedParticipant.nome}
                         </div>
                         <div style={{ fontSize: '1.2rem', color: '#555', marginBottom: 'clamp(1rem, 2vh, 1.5rem)' }}>
@@ -556,14 +576,14 @@ function TotemAcesso() {
                             padding: '1rem', 
                             backgroundColor: '#f8f9fa', 
                             borderRadius: '16px', 
-                            border: '1px solid #dee2e6',
+                            border: '1px solid var(--basic-gray-100)',
                             marginBottom: '1.5rem',
                             display: 'flex',
                             flexDirection: 'column',
                             alignItems: 'center',
                             width: '100%'
                         }}>
-                            <div style={{ width: '100%', maxWidth: '400px', borderRadius: '12px', overflow: 'hidden', border: '3px solid #198754' }}>
+                            <div style={{ width: '100%', maxWidth: '400px', borderRadius: '12px', overflow: 'hidden', border: '3px solid #00995D' }}>
                                 <FaceScanner
                                     onScanSuccess={handleBiometricScan}
                                     isRegistration={true}
@@ -590,7 +610,7 @@ function TotemAcesso() {
                                     setCapturedTemplates([]);
                                 }}
                                 style={{
-                                    padding: '1rem 2rem', fontSize: '1.1rem', backgroundColor: '#e9ecef', color: '#495057',
+                                    padding: '1rem 2rem', fontSize: '1.1rem', backgroundColor: '#e9ecef', color: 'var(--basic-gray-700)',
                                     border: 'none', borderRadius: '12px', cursor: 'pointer', fontWeight: 'bold'
                                 }}
                             >
@@ -599,7 +619,7 @@ function TotemAcesso() {
                             <button
                                 onClick={() => handleConfirmCheckin()}
                                 style={{
-                                    padding: '1rem 2rem', fontSize: '1.1rem', backgroundColor: '#6c757d', color: 'white',
+                                    padding: '1rem 2rem', fontSize: '1.1rem', backgroundColor: 'var(--basic-gray-500)', color: 'white',
                                     border: 'none', borderRadius: '12px', cursor: 'pointer', fontWeight: '500'
                                 }}
                             >
@@ -617,7 +637,7 @@ function TotemAcesso() {
                         maxWidth: '800px',
                         padding: '3rem 2rem',
                         borderRadius: '30px',
-                        backgroundColor: 'rgba(25, 135, 84, 0.5)', 
+                        backgroundColor: 'rgba(0, 153, 93, 0.5)', 
                         color: 'white',
                         boxShadow: '0 20px 50px rgba(0,0,0,0.3)',
                         border: '4px solid white',

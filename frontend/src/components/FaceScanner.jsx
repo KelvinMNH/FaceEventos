@@ -256,12 +256,12 @@ export const FaceScanner = ({ active = true, onScanSuccess, onFaceDetected, isRe
                         rx="112" 
                         ry="152" 
                         fill="none" 
-                        stroke={faceDetected ? (glowColor || '#ffc107') : 'rgba(255,255,255,0.4)'} 
+                        stroke={faceDetected ? (glowColor || '#ffffff') : 'rgba(255,255,255,0.4)'} 
                         strokeWidth="3" 
                         strokeDasharray={faceDetected ? 'none' : '10,5'}
                         style={{ 
                             transition: 'all 0.3s ease', 
-                            filter: faceDetected ? `drop-shadow(0 0 10px ${glowColor || '#ffc107'})` : 'none' 
+                            filter: faceDetected ? `drop-shadow(0 0 10px ${glowColor || '#ffffff'})` : 'none' 
                         }}
                     />
 
@@ -278,7 +278,7 @@ export const FaceScanner = ({ active = true, onScanSuccess, onFaceDetected, isRe
                                 <defs>
                                     <linearGradient id="balloonGradient" x1="0%" y1="0%" x2="0%" y2="100%">
                                         <stop offset="0%" style={{ stopColor: '#ffec3d', stopOpacity: 1 }} />
-                                        <stop offset="100%" style={{ stopColor: '#ffc107', stopOpacity: 1 }} />
+                                        <stop offset="100%" style={{ stopColor: '#FFE596', stopOpacity: 1 }} />
                                     </linearGradient>
                                     <filter id="balloonShadow" x="-100%" y="-100%" width="300%" height="300%">
                                         <feDropShadow dx="0" dy="4" stdDeviation="6" floodOpacity="0.3" />

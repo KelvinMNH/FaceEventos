@@ -569,9 +569,9 @@ function ControleAcesso() {
         name: p.nome || 'Visitante',
         message: 'Já entrou nesse evento.'
       });
-      setGlowColor('#ffc107'); // Amarelo para duplicidade
+      setGlowColor('#FFE596'); // Amarelo Unimed para duplicidade
     } else if (data.status_validacao === 'sucesso') {
-      setGlowColor('#198754'); // Verde para entrada
+      setGlowColor('#00995D'); // Verde Unimed para entrada
     } else {
       setGlowColor('#dc3545'); // Vermelho para erro
     }
@@ -682,7 +682,7 @@ function ControleAcesso() {
     const isSuccess = modalData?.status_validacao === 'sucesso';
     const isAlert = modalData?.status_validacao === 'alerta';
     const participante = modalData?.Participante || modalData?.Acompanhante || {};
-    const cardColor = isSuccess ? '#198754' : (isAlert ? '#ffc107' : '#dc3545');
+    const cardColor = isSuccess ? '#00995D' : (isAlert ? '#FFE596' : '#dc3545');
 
     return (
       <div className="access-panel-container" style={{ 
@@ -740,7 +740,7 @@ function ControleAcesso() {
             transform: 'translateX(-50%)',
             width: '400px',
             height: '400px',
-            backgroundColor: 'rgba(25, 135, 84, 0.5)',
+            backgroundColor: 'rgba(0, 153, 93, 0.5)',
             borderRadius: '15px',
             zIndex: 10,
             display: 'flex',
@@ -880,7 +880,7 @@ function ControleAcesso() {
         <button
           onClick={handleFinishClick}
           style={{
-            backgroundColor: '#fd7e14',
+            backgroundColor: '#F47920',
             border: 'none',
             color: 'white',
             padding: '0.75rem 1.5rem',
@@ -892,12 +892,12 @@ function ControleAcesso() {
             boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
           }}
           onMouseOver={(e) => {
-            e.currentTarget.style.backgroundColor = '#e66d10';
+            e.currentTarget.style.backgroundColor = '#004E4C';
             e.currentTarget.style.transform = 'translateY(-1px)';
             e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,0,0,0.15)';
           }}
           onMouseOut={(e) => {
-            e.currentTarget.style.backgroundColor = '#fd7e14';
+            e.currentTarget.style.backgroundColor = '#F47920';
             e.currentTarget.style.transform = 'translateY(0)';
             e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
           }}
@@ -970,11 +970,11 @@ function ControleAcesso() {
                     <div style={{ display: 'flex', width: '100%', height: '6px', borderRadius: '3px', overflow: 'hidden', backgroundColor: '#eee', position: 'relative', marginTop: '0.5rem' }}>
                       <div style={{ width: `${percentParticipants}%`, backgroundColor: '#00995D', height: '100%', transition: 'width 0.5s' }} title={`Participantes: ${percentParticipants}%`}></div>
                       <div style={{ width: '2px', backgroundColor: '#fff', zIndex: 1 }}></div>
-                      <div style={{ width: `${percentCompanions}%`, backgroundColor: '#b1d249', height: '100%', flex: 1, transition: 'width 0.5s' }} title={`Acompanhantes: ${percentCompanions}%`}></div>
+                      <div style={{ width: `${percentCompanions}%`, backgroundColor: '#B1D34B', height: '100%', flex: 1, transition: 'width 0.5s' }} title={`Acompanhantes: ${percentCompanions}%`}></div>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: 'var(--text-secondary)', marginTop: '0.3rem' }}>
                       <span style={{ color: '#00995D', fontWeight: 'bold' }}>👤 {percentParticipants}%</span>
-                      <span style={{ color: '#b1d249', fontWeight: 'bold' }}>👥 {percentCompanions}%</span>
+                      <span style={{ color: '#B1D34B', fontWeight: 'bold' }}>👥 {percentCompanions}%</span>
                     </div>
                   </>
                 );
@@ -1010,16 +1010,16 @@ function ControleAcesso() {
 
               {/* Barra de Gênero */}
               <div style={{ display: 'flex', width: '100%', height: '6px', borderRadius: '3px', overflow: 'hidden', backgroundColor: '#eee', position: 'relative' }}>
-                <div style={{ width: `${stats.percentMale !== undefined && stats.percentMale !== 0 ? stats.percentMale : 50}%`, backgroundColor: '#74c0fc', height: '100%', transition: 'width 0.5s' }} title={`Homens: ${stats.percentMale}%`}></div>
+                <div style={{ width: `${stats.percentMale !== undefined && stats.percentMale !== 0 ? stats.percentMale : 50}%`, backgroundColor: '#A4D8DE', height: '100%', transition: 'width 0.5s' }} title={`Homens: ${stats.percentMale}%`}></div>
 
                 {/* Separador Central */}
                 <div style={{ width: '2px', backgroundColor: '#fff', zIndex: 1 }}></div>
 
-                <div style={{ width: `${stats.percentFemale !== undefined && stats.percentFemale !== 0 ? stats.percentFemale : 50}%`, backgroundColor: '#faa2c1', height: '100%', flex: 1, transition: 'width 0.5s' }} title={`Mulheres: ${stats.percentFemale}%`}></div>
+                <div style={{ width: `${stats.percentFemale !== undefined && stats.percentFemale !== 0 ? stats.percentFemale : 50}%`, backgroundColor: '#D2A494', height: '100%', flex: 1, transition: 'width 0.5s' }} title={`Mulheres: ${stats.percentFemale}%`}></div>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.3rem' }}>
-                <span style={{ color: '#74c0fc', fontWeight: 'bold', fontSize: '1.2rem' }}>♂ {stats.percentMale ?? 0}%</span>
-                <span style={{ color: '#faa2c1', fontWeight: 'bold', fontSize: '1.2rem' }}>♀ {stats.percentFemale ?? 0}%</span>
+                <span style={{ color: '#A4D8DE', fontWeight: 'bold', fontSize: '1.2rem' }}>♂ {stats.percentMale ?? 0}%</span>
+                <span style={{ color: '#D2A494', fontWeight: 'bold', fontSize: '1.2rem' }}>♀ {stats.percentFemale ?? 0}%</span>
               </div>
             </div>
             <div className="card">
@@ -1104,7 +1104,7 @@ function ControleAcesso() {
               <button
                 onClick={() => window.open(`/totem/${evento?.uuid}`, '_blank')}
                 style={{
-                  backgroundColor: '#b1d249',
+                  backgroundColor: 'var(--accent-color)',
                   border: 'none',
                   color: 'white',
                   padding: '1rem',
@@ -1121,11 +1121,11 @@ function ControleAcesso() {
                   gridColumn: '1'
                 }}
                 onMouseOver={(e) => {
-                  e.currentTarget.style.backgroundColor = '#9ebc41';
+                  e.currentTarget.style.backgroundColor = '#004E4C';
                   e.currentTarget.style.transform = 'translateY(-1px)';
                 }}
                 onMouseOut={(e) => {
-                  e.currentTarget.style.backgroundColor = '#b1d249';
+                  e.currentTarget.style.backgroundColor = 'var(--accent-color)';
                   e.currentTarget.style.transform = 'translateY(0)';
                 }}
               >
@@ -1136,7 +1136,7 @@ function ControleAcesso() {
                 <button
                   onClick={() => window.open(`/totem-checkout/${evento?.uuid}`, '_blank')}
                   style={{
-                    backgroundColor: '#0d6efd',
+                  backgroundColor: 'var(--support-dark-blue)',
                     border: 'none',
                     color: 'white',
                     padding: '1rem',
@@ -1153,11 +1153,11 @@ function ControleAcesso() {
                     gridColumn: '2'
                   }}
                   onMouseOver={(e) => {
-                    e.currentTarget.style.backgroundColor = '#0b5ed7';
+                    e.currentTarget.style.backgroundColor = '#004E4C';
                     e.currentTarget.style.transform = 'translateY(-1px)';
                   }}
                   onMouseOut={(e) => {
-                    e.currentTarget.style.backgroundColor = '#0d6efd';
+                    e.currentTarget.style.backgroundColor = 'var(--support-dark-blue)';
                     e.currentTarget.style.transform = 'translateY(0)';
                   }}
                 >
@@ -1167,8 +1167,13 @@ function ControleAcesso() {
                 <div style={{ gridColumn: '2' }}></div> // Spacer se checkout desligado
               )}
 
-              {/* Spacer para manter a grade 3x2 alinhada (Coluna 3 da linha 1) */}
-              <div style={{ gridColumn: '3' }}></div>
+              {/* Linha Divisória */}
+              <div style={{ 
+                gridColumn: '1 / -1', 
+                borderBottom: '1px solid var(--basic-gray-100)', 
+                margin: '0.5rem 0 0.2rem 0',
+                opacity: 0.8
+              }}></div>
 
               {/* Linha 2: Ações Manuais */}
               <button
@@ -1188,18 +1193,21 @@ function ControleAcesso() {
                   gap: '0.5rem',
                   transition: 'all 0.2s ease',
                   boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-                  gridRow: '2',
+                  opacity: 0.9,
+                  gridRow: '3',
                   gridColumn: '1'
                 }}
                 onMouseOver={(e) => {
-                  e.currentTarget.style.backgroundColor = '#007a4a';
+                  e.currentTarget.style.backgroundColor = '#004E4C';
                   e.currentTarget.style.transform = 'translateY(-1px)';
                   e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,0,0,0.15)';
+                  e.currentTarget.style.opacity = '1';
                 }}
                 onMouseOut={(e) => {
                   e.currentTarget.style.backgroundColor = 'var(--accent-color)';
                   e.currentTarget.style.transform = 'translateY(0)';
                   e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+                  e.currentTarget.style.opacity = '0.9';
                 }}
               >
                 <span>+</span> Registrar Participante
@@ -1209,7 +1217,7 @@ function ControleAcesso() {
                 <button
                   onClick={() => setCheckoutModalOpen(true)}
                   style={{
-                    backgroundColor: '#0d6efd',
+                    backgroundColor: 'var(--support-dark-blue)',
                     border: 'none',
                     color: 'white',
                     padding: '1rem',
@@ -1223,24 +1231,27 @@ function ControleAcesso() {
                     gap: '0.5rem',
                     transition: 'all 0.2s ease',
                     boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-                    gridRow: '2',
+                    opacity: 0.9,
+                    gridRow: '3',
                     gridColumn: '2'
                   }}
                   onMouseOver={(e) => {
-                    e.currentTarget.style.backgroundColor = '#0b5ed7';
+                    e.currentTarget.style.backgroundColor = '#004E4C';
                     e.currentTarget.style.transform = 'translateY(-1px)';
                     e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,0,0,0.15)';
+                    e.currentTarget.style.opacity = '1';
                   }}
                   onMouseOut={(e) => {
-                    e.currentTarget.style.backgroundColor = '#0d6efd';
+                    e.currentTarget.style.backgroundColor = 'var(--support-dark-blue)';
                     e.currentTarget.style.transform = 'translateY(0)';
                     e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+                    e.currentTarget.style.opacity = '0.9';
                   }}
                 >
                   <span>-</span> Registrar Saída
                 </button>
               ) : (
-                 <div style={{ gridRow: '2', gridColumn: '2' }}></div> // Spacer se checkout desligado
+                 <div style={{ gridRow: '3', gridColumn: '2' }}></div>
               )}
 
               <button
@@ -1267,17 +1278,18 @@ function ControleAcesso() {
                   alignItems: 'center',
                   justifyContent: 'center',
                   gap: '0.5rem',
-                  opacity: (evento && !evento.permitir_acompanhantes) ? 0.5 : 1,
+                  opacity: (evento && !evento.permitir_acompanhantes) ? 0.4 : 0.9,
                   transition: 'all 0.2s ease',
                   boxShadow: (evento && !evento.permitir_acompanhantes) ? 'none' : '0 2px 4px rgba(0,0,0,0.1)',
-                  gridRow: '2',
+                  gridRow: '3',
                   gridColumn: '3'
                 }}
                 onMouseOver={(e) => {
                   if (evento && evento.permitir_acompanhantes) {
-                    e.currentTarget.style.backgroundColor = '#007a4a';
+                    e.currentTarget.style.backgroundColor = '#004E4C';
                     e.currentTarget.style.transform = 'translateY(-1px)';
                     e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,0,0,0.15)';
+                    e.currentTarget.style.opacity = '1';
                   }
                 }}
                 onMouseOut={(e) => {
@@ -1285,6 +1297,7 @@ function ControleAcesso() {
                     e.currentTarget.style.backgroundColor = 'var(--accent-color)';
                     e.currentTarget.style.transform = 'translateY(0)';
                     e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+                    e.currentTarget.style.opacity = '0.9';
                   }
                 }}
               >
@@ -1404,12 +1417,12 @@ function ControleAcesso() {
                     if (isAcompanhante) {
                       const index = companionIndexMap.get(log.AcompanhanteId) || '?';
                       badgeText = `Acompanhante ${index}`;
-                      badgeBg = '#e9ecef';
-                      badgeColor = '#495057';
+                      badgeBg = '#ECE3D9';
+                      badgeColor = '#004E4C';
                     } else {
                       badgeText = 'Participante';
-                      badgeBg = '#e7f5ff';
-                      badgeColor = '#1c7ed6';
+                      badgeBg = '#A4D8DE';
+                      badgeColor = '#004E4C';
                     }
 
                     return (
@@ -1477,8 +1490,8 @@ function ControleAcesso() {
                     width: '80px',
                     height: '80px',
                     borderRadius: '50%',
-                    backgroundColor: '#e7f5ff',
-                    color: '#1c7ed6',
+                    backgroundColor: '#A4D8DE',
+                    color: '#004E4C',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -1494,10 +1507,10 @@ function ControleAcesso() {
                   </p>
                   <div style={{ margin: '0.3rem 0', color: '#666', fontSize: '0.9rem', display: 'flex', flexDirection: 'column', gap: '2px' }}>
                     {selectedManualParticipant.crm && <span>CRM: <strong>{selectedManualParticipant.crm}</strong></span>}
-                    {selectedManualParticipant.especialidade && <span style={{ color: '#0d6efd', fontStyle: 'italic' }}>{selectedManualParticipant.especialidade}</span>}
+                    {selectedManualParticipant.especialidade && <span style={{ color: '#004E4C', fontStyle: 'italic' }}>{selectedManualParticipant.especialidade}</span>}
                   </div>
 
-                  <div style={{ marginTop: '1.5rem', padding: '1rem', backgroundColor: '#e7f5ff', border: '1px solid #74c0fc', borderRadius: '8px', color: '#1864ab' }}>
+                  <div style={{ marginTop: '1.5rem', padding: '1rem', backgroundColor: '#CDE3BB', border: '1px solid #B1D34B', borderRadius: '8px', color: '#004E4C' }}>
                     <FaceScanner 
                       onScanSuccess={handleBiometricAttempt} 
                       isRegistration={true} 
@@ -1572,7 +1585,7 @@ function ControleAcesso() {
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                           {p.template_biometrico && !p.template_biometrico.startsWith('manual_') ? (
-                            <span title="Face Cadastrada" style={{ color: '#4CAF50', display: 'flex' }}><FaceIcon size="1.8rem" /></span>
+                            <span title="Face Cadastrada" style={{ color: '#00995D', display: 'flex' }}><FaceIcon size="1.8rem" /></span>
                           ) : (
                             <span title="Sem Biometria" style={{ color: '#666', opacity: 0.3, filter: 'grayscale(100%)', display: 'flex' }}><FaceIcon size="1.8rem" /></span>
                           )}
@@ -1718,21 +1731,21 @@ function ControleAcesso() {
           ) : (
             <div style={{ marginBottom: '1.5rem', textAlign: 'center' }}>
               <div style={{
-                background: '#e6fffa',
-                border: '1px solid #b2f5ea',
+                background: '#CDE3BB',
+                border: '1px solid #B1D34B',
                 padding: '1rem',
                 borderRadius: '8px',
                 marginBottom: '1.5rem'
               }}>
-                <p style={{ margin: '0 0 0.2rem 0', fontWeight: 'bold', color: '#2c7a7b' }}>{selectedResponsible?.nome}</p>
-                <div style={{ color: '#319795', fontSize: '0.8rem', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                <p style={{ margin: '0 0 0.2rem 0', fontWeight: 'bold', color: '#004E4C' }}>{selectedResponsible?.nome}</p>
+                <div style={{ color: '#00995D', fontSize: '0.8rem', display: 'flex', flexDirection: 'column', gap: '2px' }}>
                   <span>CPF: {maskCPF(selectedResponsible?.cpf)}</span>
                   {selectedResponsible?.crm && <span>CRM: {selectedResponsible?.crm}</span>}
                   {selectedResponsible?.especialidade && <span style={{ fontStyle: 'italic' }}>{selectedResponsible?.especialidade}</span>}
                 </div>
                 <button
                   onClick={() => { setResponsavelId(null); setSelectedResponsible(null); }}
-                  style={{ background: 'none', border: 'none', color: '#2c7a7b', textDecoration: 'underline', cursor: 'pointer', fontSize: '0.85rem', marginTop: '0.5rem' }}
+                  style={{ background: 'none', border: 'none', color: '#004E4C', textDecoration: 'underline', cursor: 'pointer', fontSize: '0.85rem', marginTop: '0.5rem' }}
                 >
                   Alterar
                 </button>
@@ -1768,7 +1781,7 @@ function ControleAcesso() {
       {/* Modal Registrar Saída (Checkout) */}
       <div className={`modal-overlay ${checkoutModalOpen ? 'open' : ''}`} onClick={() => setCheckoutModalOpen(false)}>
         <div className="modal-content" onClick={e => e.stopPropagation()} style={{ width: '600px', maxWidth: '95%' }}>
-          <h2 className="modal-header" style={{ color: '#0d6efd' }}>Registrar Saída (Checkout)</h2>
+          <h2 className="modal-header" style={{ color: 'var(--support-dark-blue)' }}>Registrar Saída (Checkout)</h2>
           
           <div style={{ marginBottom: '1rem' }}>
             <input
@@ -1827,7 +1840,7 @@ function ControleAcesso() {
                   </div>
                   <button 
                     style={{
-                      backgroundColor: '#0d6efd',
+                      backgroundColor: 'var(--support-dark-blue)',
                       color: 'white',
                       border: 'none',
                       padding: '0.4rem 0.8rem',
@@ -1924,7 +1937,7 @@ function ControleAcesso() {
                           cx={x} 
                           cy={jitter} 
                           r="4" 
-                          fill={isSaida ? '#339af0' : 'var(--accent-color)'} 
+                          fill={isSaida ? 'var(--support-dark-blue)' : 'var(--accent-color)'} 
                           fillOpacity="0.5"
                         >
                           <title>{log.Participante?.nome || 'Acompanhante'} - {isSaida ? 'SAÍDA' : 'ENTRADA'} - {new Date(log.createdAt).toLocaleTimeString()}</title>
@@ -1946,7 +1959,7 @@ function ControleAcesso() {
                 <span>Entradas</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: '#339af0' }}></div>
+                <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: 'var(--support-dark-blue)' }}></div>
                 <span>Saídas</span>
               </div>
             </div>

@@ -445,8 +445,8 @@ function RelatorioEventoContent() {
                             fontSize: '0.9rem',
                             padding: '0.2rem 0.6rem',
                             borderRadius: '20px',
-                            backgroundColor: eventoDetalhes.status === 'finalizado' ? '#e7f5ff' : '#fff3bf',
-                            color: eventoDetalhes.status === 'finalizado' ? '#0d6efd' : '#f08c00',
+                            backgroundColor: eventoDetalhes.status === 'finalizado' ? '#A4D8DE' : '#fff3bf',
+                            color: eventoDetalhes.status === 'finalizado' ? '#004E4C' : '#f08c00',
                             border: '1px solid currentColor',
                             fontWeight: 'normal'
                         }}>
@@ -486,7 +486,7 @@ function RelatorioEventoContent() {
                     }}
                     style={{
                         marginLeft: 'auto',
-                        backgroundColor: '#198754',
+                        backgroundColor: '#00995D',
                         color: 'white',
                         border: 'none',
                         padding: '0.6rem 1.2rem',
@@ -543,7 +543,7 @@ function RelatorioEventoContent() {
                     }}
                     style={{
                         marginLeft: '0.5rem',
-                        backgroundColor: '#fd7e14',
+                        backgroundColor: 'var(--support-dark-blue)',
                         color: 'white',
                         border: 'none',
                         padding: '0.6rem 1.2rem',
@@ -611,7 +611,7 @@ function RelatorioEventoContent() {
 
                     <div style={{ textAlign: 'center', padding: '1rem', backgroundColor: '#f8f9fa', borderRadius: '8px' }}>
                         <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>Total de Acompanhantes</div>
-                        <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#b1d249' }}>
+                        <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#B1D34B' }}>
                             {stats.totalAcompanhantes}
                         </div>
                     </div>
@@ -626,8 +626,8 @@ function RelatorioEventoContent() {
                     <div style={{ textAlign: 'center', padding: '1rem', backgroundColor: '#f8f9fa', borderRadius: '8px' }}>
                         <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>Gênero</div>
                         <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', fontSize: '1.5rem', fontWeight: 'bold' }}>
-                            <span style={{ color: '#74c0fc' }}>♂ {stats.genero.M}</span>
-                            <span style={{ color: '#faa2c1' }}>♀ {stats.genero.F}</span>
+                            <span style={{ color: '#A4D8DE' }}>♂ {stats.genero.M}</span>
+                            <span style={{ color: '#D2A494' }}>♀ {stats.genero.F}</span>
                         </div>
                     </div>
 
@@ -813,7 +813,7 @@ function RelatorioEventoContent() {
                                                     cx={x}
                                                     cy={jitter}
                                                     r="4"
-                                                    fill={isSaida ? '#339af0' : 'var(--accent-color)'}
+                                                    fill={isSaida ? 'var(--support-dark-blue)' : 'var(--accent-color)'}
                                                     fillOpacity="0.5"
                                                 >
                                                     <title>{(log.Participante?.nome || log.Acompanhante?.nome || 'Acompanhante')} - {isSaida ? 'SAÍDA' : 'ENTRADA'} - {new Date(log.createdAt).toLocaleTimeString()}</title>
@@ -835,7 +835,7 @@ function RelatorioEventoContent() {
                                 <span>Entradas</span>
                             </div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: '#339af0' }}></div>
+                                <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: 'var(--support-dark-blue)' }}></div>
                                 <span>Saídas</span>
                             </div>
                         </div>
