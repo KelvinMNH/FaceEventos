@@ -93,7 +93,7 @@ async function syncDB() {
                 perfil: 'admin'
             },
             {
-                nome: 'Operador Padrão',
+                nome: 'Operador',
                 username: 'operador',
                 password: 'operador123', // Será hashado pelo hook
                 perfil: 'operador'
