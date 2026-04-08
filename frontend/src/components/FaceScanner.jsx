@@ -1,8 +1,7 @@
 import React, { useEffect, useRef, useState, useId } from 'react';
 import Webcam from 'react-webcam';
 import * as faceapi from 'face-api.js';
-
-const API_URL = `${window.location.protocol}//${window.location.hostname}:3000/api`;
+import apiService from '../services/api';
 const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
 
 // Singleton para carregar modelos uma única vez na sessão
@@ -119,9 +118,7 @@ export const FaceScanner = ({ active = true, onScanSuccess, onFaceDetected, isRe
             setStatusMsg('Buscando...');
             // Buscar candidatos se não houver em cache
             if (candidatesRef.current.length === 0) {
-                const res = await fetch(`${API_URL}/biometria/candidatos`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
+                const res = await apiService.get('/biometria/candidatos', token);
                 if (res.ok) {
                     candidatesRef.current = await res.json();
                 }

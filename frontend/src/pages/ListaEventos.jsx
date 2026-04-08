@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import { apiService } from '../services/api';
 import Navbar from '../components/Navbar';
 import MessageModal from '../components/MessageModal';
-import { useAuth } from '../contexts/AuthContext';
 
 function ListaEventos() {
     const navigate = useNavigate();
@@ -55,11 +56,8 @@ function ListaEventos() {
     const checkSyncStatus = () => {
         setTimeout(async () => {
             try {
-                const res = await fetch('http://localhost:3000/api/participantes/sync/status', {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                if (res.ok) {
-                    const data = await res.json();
+                const { ok, data } = await apiService.get('/participantes/sync/status');
+                if (ok) {
                     if (data && data.status !== 'nenhum_registro' && data.data_sync) {
                         const syncDate = new Date(data.data_sync);
                         const now = new Date();
@@ -69,7 +67,6 @@ function ListaEventos() {
                         }
                     }
                 }
-
             } catch (err) {
                 console.error("Erro ao checar status do sync:", err);
             }
@@ -78,11 +75,8 @@ function ListaEventos() {
 
     const fetchEventos = async () => {
         try {
-            const res = await fetch('http://localhost:3000/api/eventos', {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            if (res.status === 401 || res.status === 403) return;
-            const data = await res.json();
+            const { ok, status, data } = await apiService.get('/eventos');
+            if (status === 401 || status === 403) return;
             setEventos(Array.isArray(data) ? data : []);
         } catch (err) {
             console.error(err);
@@ -93,11 +87,8 @@ function ListaEventos() {
 
     const handleSelectEvent = async (uuid) => {
         try {
-            const res = await fetch(`http://localhost:3000/api/eventos/${uuid}/ativar`, {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            if (res.ok) {
+            const { ok } = await apiService.post(`/eventos/${uuid}/ativar`);
+            if (ok) {
                 navigate(`/event/${uuid}/access`);
             }
         } catch (err) {
@@ -121,22 +112,14 @@ function ListaEventos() {
         setCreating(true);
 
         try {
-            const res = await fetch('http://localhost:3000/api/eventos', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify(formData)
-            });
+            const { ok, data } = await apiService.post('/eventos', formData);
 
-            if (res.ok) {
+            if (ok) {
                 setIsModalOpen(false);
                 setFormData({ nome: '', data: '', hora: '', local: '', imagem: '', permitir_acompanhantes: false, max_acompanhantes: 0, habilitar_checkout: false });
                 fetchEventos();
-                const dataEv = await res.json();
-                if (dataEv.evento && dataEv.evento.uuid) {
-                    navigate(`/event/${dataEv.evento.uuid}/access`);
+                if (data.evento && data.evento.uuid) {
+                    navigate(`/event/${data.evento.uuid}/access`);
                 } else {
                     navigate('/');
                 }

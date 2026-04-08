@@ -3,8 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import Navbar from '../components/Navbar';
 import MessageModal from '../components/MessageModal';
 import { FaceScanner } from '../components/FaceScanner';
-
-const API_URL = `${window.location.protocol}//${window.location.hostname}:3000/api`;
+import apiService from '../services/api';
 
 const FaceIcon = ({ size = "1em", ...props }) => (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" {...props}>
@@ -51,29 +50,21 @@ function GerenciarParticipantes() {
             if (!token) return;
             setLoading(true);
             try {
-                const res = await fetch(`${API_URL}/participantes`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                const data = await res.json();
-                if (res.ok) {
+                const { data, ok } = await apiService.get('/participantes', token);
+                if (ok) {
                     setParticipantes(data);
                 } else {
                     console.error('Erro ao carregar participantes:', data.error);
                 }
 
-                const resSync = await fetch(`${API_URL}/participantes/sync/status`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                const dataSync = await resSync.json();
-                if (resSync.ok && dataSync.status !== 'nenhum_registro') {
+                const { data: dataSync, ok: okSync } = await apiService.get('/participantes/sync/status', token);
+                if (okSync && dataSync.status !== 'nenhum_registro') {
                     setSyncStatus(dataSync);
                 }
 
-                const resEnriq = await fetch(`${API_URL}/participantes/enriquecimento/status`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                if (resEnriq.ok) {
-                    setEnriqStatus(await resEnriq.json());
+                const { data: dataEnriq, ok: okEnriq } = await apiService.get('/participantes/enriquecimento/status', token);
+                if (okEnriq) {
+                    setEnriqStatus(dataEnriq);
                 }
             } catch (error) {
                 console.error('Erro de conexão ao carregar dados:', error);
@@ -130,18 +121,8 @@ function GerenciarParticipantes() {
         if (!currentParticipante) return;
 
         try {
-            const res = await fetch(`${API_URL}/participantes/${currentParticipante.id}/biometria`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({ template })
-            });
-
-            const data = await res.json();
-
-            if (res.ok) {
+            const { data, ok } = await apiService.post(`/participantes/${currentParticipante.id}/biometria`, { template }, token);
+            if (ok) {
                 setGlowColor('#00995D'); // Verde sucesso Unimed
                 showMsg('success', data.msg);
                 
@@ -171,10 +152,7 @@ function GerenciarParticipantes() {
         if (!window.confirm(`Tem certeza que deseja apagar a biometria de ${currentParticipante.nome}?`)) return;
 
         try {
-            const res = await fetch(`${API_URL}/participantes/${currentParticipante.id}/biometria`, {
-                method: 'DELETE',
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            const res = await apiService.delete(`/participantes/${currentParticipante.id}/biometria`, token);
 
             if (res.ok) {
                 showMsg('success', 'Biometria removida com sucesso');

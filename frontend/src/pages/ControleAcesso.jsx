@@ -4,8 +4,7 @@ import Navbar from '../components/Navbar';
 import MessageModal from '../components/MessageModal';
 import { useAuth } from '../contexts/AuthContext';
 import { FaceScanner } from '../components/FaceScanner';
-
-const API_URL = `${window.location.protocol}//${window.location.hostname}:3000/api`;
+import apiService from '../services/api';
 
 const FaceIcon = ({ size = "1em", ...props }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" {...props}>
@@ -65,15 +64,12 @@ function ControleAcesso() {
     setMessageModal({ open: true, title, message, type, onOk });
   };
 
+  // Buscar detalhes do evento específico
   useEffect(() => {
-    // Buscar detalhes do evento específico
     const fetchEvento = async () => {
       if (!token || !uuid) return;
       try {
-        const res = await fetch(`${API_URL}/eventos/${uuid}`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        const data = await res.json();
+        const { data } = await apiService.get(`/eventos/${uuid}`, token);
         if (data && data.id) setEvento(data);
         else {
           showMessage("Erro", "Evento não encontrado.", "error", () => navigate('/'));
@@ -84,197 +80,158 @@ function ControleAcesso() {
       }
     };
     fetchEvento();
+  }, [navigate, token, uuid]);
 
-    const fetchLogs = async () => {
-      // Só buscar logs se houver evento ativo
-      if (!evento || !token) return;
+  const fetchLogs = React.useCallback(async () => {
+    // Só buscar logs se houver evento ativo
+    if (!evento || !token) return;
 
-      try {
-        const resLogs = await fetch(`${API_URL}/logs?eventoUuid=${uuid}`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        const allLogs = await resLogs.json();
+    try {
+      const { data: allLogs } = await apiService.get(`/logs?eventoUuid=${uuid}`, token);
 
-        // Filtrar logs deste evento
-        const filteredLogs = allLogs.filter(log => {
-          return log && log.status_validacao === 'sucesso' && (log.Participante || log.Acompanhante);
-        });
+      // Filtrar logs deste evento
+      const filteredLogs = allLogs.filter(log => {
+        return log && log.status_validacao === 'sucesso' && (log.Participante || log.Acompanhante);
+      });
 
-        setLogs(filteredLogs);
+      setLogs(filteredLogs);
 
-        const presentesMap = new Map();
-        const firstLogMap = new Map(); // Map<ParticipanteId, FirstLog>
+      const presentesMap = new Map();
+      const firstLogMap = new Map(); // Map<ParticipanteId, FirstLog>
 
-        // Ordenar logs por data ASC para encontrar a primeira entrada
-        const sortedLogs = [...filteredLogs].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+      // Ordenar logs por data ASC para encontrar a primeira entrada
+      const sortedLogs = [...filteredLogs].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
 
-        sortedLogs.forEach(log => {
-          if (log.status_validacao === 'sucesso' && log.Participante) {
-            const pid = log.Participante.id;
-            if (!presentesMap.has(pid)) {
-              presentesMap.set(pid, log.Participante);
-              firstLogMap.set(pid, log); // Guarda o log da primeira entrada
-            }
-          }
-        });
-
-        const latest = filteredLogs[0]; // Assuming filteredLogs is already sorted by createdAt DESC
-        if (filteredLogs && filteredLogs.length > 0) {
-          if (lastLogId === 0) {
-            setLastLogId(filteredLogs[0].id);
-          } else {
-            const newLogs = filteredLogs.filter(l => l.id > lastLogId);
-            if (newLogs.length > 0) {
-                setLastLogId(filteredLogs[0].id);
-                // Prioridade: se houver algum SUCESSO na lista, mostre o mais recente deles.
-                // Caso contrário, mostre o mais recente (newLogs[0] pois filteredLogs é DESC)
-                const successLog = [...newLogs].sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt))
-                                            .find(l => l.status_validacao === 'sucesso');
-                
-                const logToShow = successLog || newLogs[0];
-                if (['sucesso', 'nao_encontrado', 'alerta'].includes(logToShow.status_validacao)) {
-                    showModal(logToShow);
-                }
-            }
+      sortedLogs.forEach(log => {
+        if (log.status_validacao === 'sucesso' && log.Participante) {
+          const pid = log.Participante.id;
+          if (!presentesMap.has(pid)) {
+            presentesMap.set(pid, log.Participante);
+            firstLogMap.set(pid, log); // Guarda o log da primeira entrada
           }
         }
-        const participantes = Array.from(presentesMap.values());
+      });
 
-        // Contar Entradas Manuais (baseado na primeira entrada)
-        let manualCount = 0;
-        firstLogMap.forEach(log => {
-          // Se o device_id NÃO for 'futronic_web', consideramos manual (inclui 'manual_entry_web', 'new_entry_web', etc)
-          if (log.device_id && !log.device_id.includes('web')) {
-            manualCount++;
-          }
-        });
-
-        // Acompanhantes
-        const totalAcompanhantes = filteredLogs.filter(l => l.status_validacao === 'sucesso' && l.AcompanhanteId).length;
-
-        let totalM = 0, totalF = 0;
-        let idades = [];
-
-        // Faixas: 18-25, 26-35, 36-50, 50+
-        let faixas = { '18-25': 0, '26-35': 0, '36-50': 0, '50+': 0 };
-
-        participantes.forEach(p => {
-          if (p.genero === 'M') totalM++;
-          if (p.genero === 'F') totalF++;
-
-          if (p.data_nascimento) {
-            const nasc = new Date(p.data_nascimento);
-            const hoje = new Date();
-            let idade = hoje.getFullYear() - nasc.getFullYear();
-            const m = hoje.getMonth() - nasc.getMonth();
-            if (m < 0 || (m === 0 && hoje.getDate() < nasc.getDate())) {
-              idade--;
-            }
-            idades.push(idade);
-
-            if (idade <= 25) faixas['18-25']++;
-            else if (idade <= 35) faixas['26-35']++;
-            else if (idade <= 50) faixas['36-50']++;
-            else faixas['50+']++;
-          }
-        });
-
-        // Determinar predominantes
-        const generoPredominante = totalM > totalF ? 'Masculino' : (totalF > totalM ? 'Feminino' : 'Equilibrado');
-        const percentMale = participantes.length > 0 ? Math.round((totalM / participantes.length) * 100) : 0;
-        const percentFemale = participantes.length > 0 ? Math.round((totalF / participantes.length) * 100) : 0;
-
-        // Percentual predominante antigo
-        const generoPercent = participantes.length > 0 ? Math.round((Math.max(totalM, totalF) / participantes.length) * 100) : 0;
-
-        let faixaPredominante = '-';
-        let maxFaixa = -1;
-        for (const [faixa, qtd] of Object.entries(faixas)) {
-          if (qtd > maxFaixa) {
-            maxFaixa = qtd;
-            faixaPredominante = faixa + ' anos';
+      if (filteredLogs && filteredLogs.length > 0) {
+        if (lastLogId === 0) {
+          setLastLogId(filteredLogs[0].id);
+        } else {
+          const newLogs = filteredLogs.filter(l => l.id > lastLogId);
+          if (newLogs.length > 0) {
+              setLastLogId(filteredLogs[0].id);
+              const successLog = [...newLogs].sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt))
+                                          .find(l => l.status_validacao === 'sucesso');
+              
+              const logToShow = successLog || newLogs[0];
+              if (['sucesso', 'nao_encontrado', 'alerta'].includes(logToShow.status_validacao)) {
+                  showModal(logToShow);
+              }
           }
         }
-        if (participantes.length === 0) faixaPredominante = '-';
-
-        // Contagem de Saídas (Check-out)
-        const totalSaidas = filteredLogs.filter(l => l.status_validacao === 'sucesso' && l.tipo_acesso === 'saida').length;
-
-        // Distribuição Horária (para gráfico SVG)
-        const agora = new Date();
-        
-        // Base padrão: últimas 8 horas
-        let startTime = agora.getTime() - (7 * 3600000);
-
-        if (evento && evento.hora_inicio) {
-          try {
-            const [h, m] = evento.hora_inicio.split(':').map(Number);
-            const eventStartBase = new Date(agora);
-            eventStartBase.setHours(h, m, 0, 0);
-            
-            const graphStartLimit = eventStartBase.getTime() - 3600000; // 1h antes
-            
-            // Se o 'agora' ainda não passou de 8h do início do gráfico, fixamos o início.
-            // Se já passou de 8h, deixamos o sliding window (startTime padrão) agir.
-            if (agora.getTime() > graphStartLimit && (agora.getTime() - graphStartLimit) < (8 * 3600000)) {
-              startTime = graphStartLimit;
-            } else if (agora.getTime() < graphStartLimit) {
-                // Caso o evento ainda não tenha começado, já mostramos a janela a partir de -1h
-                startTime = graphStartLimit;
-            }
-          } catch(e) { 
-            console.error("Erro calcular hora inicio", e); 
-          }
-        }
-
-        // Calcular distribuição horária (agrupando se a janela for > 12h)
-        const durationH = (agora.getTime() - startTime) / 3600000;
-        let stepH = 1;
-        if (durationH > 12) stepH = Math.ceil(durationH / 10);
-
-        const distArray = [];
-        const numSlots = Math.ceil(durationH / stepH);
-
-        for (let i = 0; i < numSlots; i++) {
-          const t = new Date(startTime + (i * stepH * 3600000));
-          const label = t.getHours().toString().padStart(2, '0') + 'h';
-          distArray.push({ label, count: 0 });
-        }
-
-        filteredLogs.filter(l => l.tipo_acesso === 'entrada').forEach(log => {
-          const logTime = new Date(log.createdAt).getTime();
-          const slotIdx = Math.floor((logTime - startTime) / (stepH * 3600000));
-          if (slotIdx >= 0 && slotIdx < numSlots) {
-            distArray[slotIdx].count++;
-          }
-        });
-        setDistribuicaoHorario(distArray);
-
-        setStats({
-          faixaPredominante,
-          generoPredominante,
-          generoPercent,
-          percentMale,
-          percentFemale,
-          mediaIdade: idades.length ? Math.round(idades.reduce((a, b) => a + b, 0) / idades.length) : 0,
-          manualCount,
-          totalAcompanhantes,
-          totalParticipantesUnicos: participantes.length,
-          totalSaidas,
-          ocupacaoAtual: (participantes.length + totalAcompanhantes) - totalSaidas,
-          distribuicaoHorario: distArray // Use the new distArray here
-        });
-      } catch (err) {
-        console.error("Erro ao buscar logs:", err);
       }
-    };
+      const participantes = Array.from(presentesMap.values());
 
-    // Polling a cada 2 segundos
-    const interval = setInterval(fetchLogs, 2000);
-    fetchLogs(); // Primeira chamada
+      // Estatísticas
+      let manualCount = 0;
+      firstLogMap.forEach(log => {
+        if (log.device_id && !log.device_id.includes('web')) {
+          manualCount++;
+        }
+      });
 
+      const totalAcompanhantes = filteredLogs.filter(l => l.status_validacao === 'sucesso' && l.AcompanhanteId).length;
+      let totalM = 0, totalF = 0;
+      let idades = [];
+      let faixas = { '18-25': 0, '26-35': 0, '36-50': 0, '50+': 0 };
+
+      participantes.forEach(p => {
+        if (p.genero === 'M') totalM++;
+        if (p.genero === 'F') totalF++;
+        if (p.data_nascimento) {
+          const nasc = new Date(p.data_nascimento);
+          const hoje = new Date();
+          let idade = hoje.getFullYear() - nasc.getFullYear();
+          const m = hoje.getMonth() - nasc.getMonth();
+          if (m < 0 || (m === 0 && hoje.getDate() < nasc.getDate())) { idade--; }
+          idades.push(idade);
+          if (idade <= 25) faixas['18-25']++;
+          else if (idade <= 35) faixas['26-35']++;
+          else if (idade <= 50) faixas['36-50']++;
+          else faixas['50+']++;
+        }
+      });
+
+      const generoPredominante = totalM > totalF ? 'Masculino' : (totalF > totalM ? 'Feminino' : 'Equilibrado');
+      const percentMale = participantes.length > 0 ? Math.round((totalM / participantes.length) * 100) : 0;
+      const percentFemale = participantes.length > 0 ? Math.round((totalF / participantes.length) * 100) : 0;
+      let faixaPredominante = '-';
+      let maxFaixa = -1;
+      for (const [faixa, qtd] of Object.entries(faixas)) {
+        if (qtd > maxFaixa) { maxFaixa = qtd; faixaPredominante = faixa + ' anos'; }
+      }
+      if (participantes.length === 0) faixaPredominante = '-';
+
+      const totalSaidas = filteredLogs.filter(l => l.status_validacao === 'sucesso' && l.tipo_acesso === 'saida').length;
+      const agora = new Date();
+      let startTime = agora.getTime() - (7 * 3600000);
+
+      if (evento && evento.hora_inicio) {
+        try {
+          const [h, m] = evento.hora_inicio.split(':').map(Number);
+          const eventStartBase = new Date(agora);
+          eventStartBase.setHours(h, m, 0, 0);
+          const graphStartLimit = eventStartBase.getTime() - 3600000;
+          if (agora.getTime() > graphStartLimit && (agora.getTime() - graphStartLimit) < (8 * 3600000)) {
+            startTime = graphStartLimit;
+          } else if (agora.getTime() < graphStartLimit) {
+              startTime = graphStartLimit;
+          }
+        } catch(e) {}
+      }
+
+      const durationH = (agora.getTime() - startTime) / 3600000;
+      let stepH = 1;
+      if (durationH > 12) stepH = Math.ceil(durationH / 10);
+      const distArray = [];
+      const numSlots = Math.ceil(durationH / stepH);
+
+      for (let i = 0; i < numSlots; i++) {
+        const t = new Date(startTime + (i * stepH * 3600000));
+        distArray.push({ label: t.getHours().toString().padStart(2, '0') + 'h', count: 0 });
+      }
+
+      filteredLogs.filter(l => l.tipo_acesso === 'entrada').forEach(log => {
+        const logTime = new Date(log.createdAt).getTime();
+        const slotIdx = Math.floor((logTime - startTime) / (stepH * 3600000));
+        if (slotIdx >= 0 && slotIdx < numSlots) { distArray[slotIdx].count++; }
+      });
+      setDistribuicaoHorario(distArray);
+
+      setStats({
+        faixaPredominante,
+        generoPredominante,
+        percentMale,
+        percentFemale,
+        mediaIdade: idades.length ? Math.round(idades.reduce((a, b) => a + b, 0) / idades.length) : 0,
+        manualCount,
+        totalAcompanhantes,
+        totalParticipantesUnicos: participantes.length,
+        totalSaidas,
+        ocupacaoAtual: (participantes.length + totalAcompanhantes) - totalSaidas,
+        distribuicaoHorario: distArray
+      });
+    } catch (err) {
+      console.error("Erro ao buscar logs:", err);
+    }
+  }, [evento, token, uuid, lastLogId]);
+
+
+  useEffect(() => {
+    if (!evento || !token) return;
+    const interval = setInterval(fetchLogs, 2500);
+    fetchLogs();
     return () => clearInterval(interval);
-  }, [lastLogId, navigate, evento, token, uuid]);
+  }, [evento, token, fetchLogs]);
 
 
 
@@ -282,7 +239,7 @@ function ControleAcesso() {
 
   const handleBiometricAttempt = async (template, width, height, identifiedId, image) => {
     try {
-      let url = `${API_URL}/scan`;
+      let url = '/scan';
       let bodyData = {
         identified_id: identifiedId,
         device_id: 'face_admin',
@@ -294,22 +251,14 @@ function ControleAcesso() {
       // 2. A chamada NÃO vier de uma identificação automática (identifiedId nulo)
       // 3. Houver uma imagem capturada
       if (selectedManualParticipant && manualModalOpen && !identifiedId && image) {
-        url = `${API_URL}/renovar-biometria`;
+        url = '/renovar-biometria';
         bodyData.participanteId = selectedManualParticipant.id;
         bodyData.template = template;
         bodyData.foto = image;
         bodyData.eventId = uuid;
       }
 
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(bodyData)
-      });
-      const data = await res.json();
+      const { data } = await apiService.post(url, bodyData, token);
 
       if (data.autorizado) {
         if (selectedManualParticipant && manualModalOpen) {
@@ -363,10 +312,7 @@ function ControleAcesso() {
       return;
     }
     try {
-      const res = await fetch(`${API_URL}/participantes/busca?q=${term}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const data = await res.json();
+      const { data } = await apiService.get(`/participantes/busca?q=${term}`, token);
       setManualSearchResults(data || []);
     } catch (e) {
       console.error(e);
@@ -374,38 +320,35 @@ function ControleAcesso() {
   };
 
   const selectManualParticipant = async (p) => {
-    // Registra entrada direto com o ID selecionado
+    // 1. Fecha o modal IMEDIATAMENTE e limpa estados de busca para feedback instantâneo
+    setManualModalOpen(false);
+    setSelectedManualParticipant(null);
+    setManualSearchResults([]);
+    setManualDoc('');
+
     try {
-      const res = await fetch(`${API_URL}/manual-entry`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ 
-          participanteId: p.id,
-          eventoId: uuid 
-        })
+      // 2. Chama a API em background
+      const { data } = await apiService.post('/manual-entry', { 
+        participanteId: p.id,
+        eventoId: uuid 
       });
-      const data = await res.json();
 
       if (data.success) {
-        setManualModalOpen(false);
-        setManualDoc('');
-        setManualSearchResults([]);
-        setSelectedManualParticipant(null);
         if (data.status === 'sucesso') {
           const fakeLog = {
             status_validacao: 'sucesso',
             Participante: data.participante
           };
+          // 3. Mostra o card de sucesso
           showModal(fakeLog);
+          // 4. Força atualização imediata da lista de logs (SEM ESPERAR 1s de polling)
+          fetchLogs();
         }
       } else {
-        showMessage("Erro", data.msg || "Erro ao registrar entrada", "error");
+        showMessage("Aviso", data.msg || "Erro ao registrar entrada", "info");
       }
     } catch (e) {
-      showMessage("Erro", "Erro de comunicação com servidor", "error");
+      showMessage("Erro", "Erro de conexão com o servidor", "error");
     }
   };
 
@@ -448,19 +391,11 @@ function ControleAcesso() {
     setSubmittingCompanion(true);
 
     try {
-      const res = await fetch(`${API_URL}/registrar-acompanhante`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ 
-          nome: companionName, 
-          responsavel_id: responsavelId,
-          eventoId: uuid
-        })
+      const { data } = await apiService.post('/registrar-acompanhante', { 
+        nome: companionName, 
+        responsavel_id: responsavelId,
+        eventoId: uuid
       });
-      const data = await res.json();
 
       if (data.success) {
         // Capturar nomes antes de resetar o estado
@@ -474,6 +409,8 @@ function ControleAcesso() {
         resetCompanionModal();
         showMessage("Sucesso", "Acompanhante registrado com sucesso!", "success");
         showModal(cProps);
+        // Forçar atualização imediata
+        fetchLogs();
       } else {
         console.error("Erro retornado pelo backend:", data);
         showMessage("Erro", data.msg || data.error || "Erro ao registrar acompanhante", "error");
@@ -497,10 +434,7 @@ function ControleAcesso() {
     if (!evento) return;
 
     try {
-      const res = await fetch(`${API_URL}/eventos/${uuid}/finalizar`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const res = await apiService.post(`/eventos/${uuid}/finalizar`, {}, token);
       if (res.ok) {
         // Pequeno delay para visualização
         showMessage("Sucesso", "Evento finalizado com sucesso!", "success", () => navigate('/'));
@@ -571,7 +505,7 @@ function ControleAcesso() {
       });
       setGlowColor('#FFE596'); // Amarelo Unimed para duplicidade
     } else if (data.status_validacao === 'sucesso') {
-      setGlowColor('#00995D'); // Verde Unimed para entrada
+      setGlowColor(data.tipo_acesso === 'saida' ? '#004E4C' : '#00995D'); // Azul para saída, Verde para entrada
     } else {
       setGlowColor('#dc3545'); // Vermelho para erro
     }
@@ -589,18 +523,10 @@ function ControleAcesso() {
     setIsProcessingCheckout(true);
 
     try {
-      const res = await fetch(`${API_URL}/registrar-saida`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          participanteId,
-          eventoId: uuid
-        })
+      const { data } = await apiService.post('/registrar-saida', {
+        participanteId,
+        eventoId: uuid
       });
-      const data = await res.json();
 
       if (data.success) {
         setCheckoutModalOpen(false);
@@ -613,6 +539,8 @@ function ControleAcesso() {
           Participante: data.participante
         };
         showModal(fakeLog);
+        // Forçar atualização imediata
+        fetchLogs();
       } else {
         showMessage("Erro", data.msg || "Erro ao registrar saída", "error");
       }
@@ -681,8 +609,12 @@ function ControleAcesso() {
   const renderAccessPanel = () => {
     const isSuccess = modalData?.status_validacao === 'sucesso';
     const isAlert = modalData?.status_validacao === 'alerta';
+    const isCheckout = modalData?.tipo_acesso === 'saida';
     const participante = modalData?.Participante || modalData?.Acompanhante || {};
-    const cardColor = isSuccess ? '#00995D' : (isAlert ? '#FFE596' : '#dc3545');
+    
+    // Cores: Verde para entrada, Azul Escuro para saída, Amarelo para alerta, Vermelho para erro
+    let cardColor = isSuccess ? '#00995D' : (isAlert ? '#FFE596' : '#dc3545');
+    if (isCheckout && isSuccess) cardColor = '#004E4C'; 
 
     return (
       <div className="access-panel-container" style={{ 
@@ -740,7 +672,7 @@ function ControleAcesso() {
             transform: 'translateX(-50%)',
             width: '400px',
             height: '400px',
-            backgroundColor: 'rgba(0, 153, 93, 0.5)',
+            backgroundColor: isCheckout ? 'rgba(0, 78, 76, 0.8)' : 'rgba(0, 153, 93, 0.5)',
             borderRadius: '15px',
             zIndex: 10,
             display: 'flex',
@@ -771,7 +703,7 @@ function ControleAcesso() {
             </div>
             
             <h2 style={{ fontSize: '1.8rem', margin: '0 0 0.5rem 0', fontWeight: 'bold' }}>
-                {participante.genero === 'F' ? 'Bem-vinda' : (participante.genero === 'M' ? 'Bem-vindo' : 'Bem-vindo(a)')},
+                {isCheckout ? 'Até logo,' : (participante.genero === 'F' ? 'Bem-vinda,' : (participante.genero === 'M' ? 'Bem-vindo,' : 'Bem-vindo(a),'))}
             </h2>
             <h1 style={{ fontSize: '2rem', margin: '0 0 0.5rem 0', lineHeight: '1.1' }}>
                 {participante.nome || 'Visitante'}
@@ -782,7 +714,7 @@ function ControleAcesso() {
                 </div>
             )}
             <div style={{ fontSize: '1.2rem', fontWeight: '500', backgroundColor: 'rgba(0,0,0,0.2)', padding: '0.5rem 1rem', borderRadius: '50px' }}>
-                Tenha um bom evento!
+                {isCheckout ? 'Volte sempre!' : 'Tenha um bom evento!'}
             </div>
           </div>
         )}
@@ -844,7 +776,7 @@ function ControleAcesso() {
                   {participante.crm && <span>CRM: <strong>{participante.crm}</strong></span>}
                 </div>
                 <div style={{ color: cardColor, fontSize: '0.9rem', fontWeight: '600' }}>
-                  {isSuccess ? 'Entrada Confirmada! ✓' : (isAlert ? 'Já registrado! ✓' : (modalData.mensagem || 'Falha'))}
+                  {isSuccess ? (isCheckout ? 'Saída Confirmada! ✓' : 'Entrada Confirmada! ✓') : (isAlert ? 'Já registrado! ✓' : (modalData.mensagem || 'Falha'))}
                 </div>
               </div>
             </div>
@@ -1611,7 +1543,7 @@ function ControleAcesso() {
       </div>
 
       {/* Modal Finalizar */}
-      < div className={`modal-overlay ${finishModalOpen ? 'open' : ''}`} onClick={() => setFinishModalOpen(false)}>
+      <div className={`modal-overlay ${finishModalOpen ? 'open' : ''}`} onClick={() => setFinishModalOpen(false)}>
         <div className="modal-content" onClick={e => e.stopPropagation()} style={{ textAlign: 'center' }}>
           <div className="modal-header" style={{ color: 'var(--error-color)' }}>Finalizar Evento?</div>
           <p style={{ marginBottom: '1rem', color: 'var(--text-secondary)' }}>
@@ -1655,10 +1587,10 @@ function ControleAcesso() {
             </button>
           </div>
         </div>
-      </div >
+      </div>
 
       {/* Modal Novo Acompanhante */}
-      < div className={`modal-overlay ${companionModalOpen ? 'open' : ''}`} onClick={resetCompanionModal} >
+      <div className={`modal-overlay ${companionModalOpen ? 'open' : ''}`} onClick={resetCompanionModal} >
         <div className="modal-content" onClick={e => e.stopPropagation()} style={{ width: '500px', maxWidth: '95%' }}>
           <h2 className="modal-header">Adicionar Acompanhante</h2>
 
@@ -1776,7 +1708,7 @@ function ControleAcesso() {
             )}
           </div>
         </div>
-      </div >
+      </div>
 
       {/* Modal Registrar Saída (Checkout) */}
       <div className={`modal-overlay ${checkoutModalOpen ? 'open' : ''}`} onClick={() => setCheckoutModalOpen(false)}>

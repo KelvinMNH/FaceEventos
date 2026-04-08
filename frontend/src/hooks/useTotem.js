@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import apiService from '../services/api';
 
 /**
  * Hook para gerenciar o relógio em tempo real
@@ -20,17 +21,14 @@ export function useClock() {
 /**
  * Hook para buscar dados do evento ativo
  */
-export function useActiveEvent(apiUrl, token, uuid, onSetView) {
+export function useActiveEvent(token, uuid, onSetView) {
     const [evento, setEvento] = useState(null);
 
     useEffect(() => {
         const fetchEvento = async () => {
             if (!token || !uuid) return;
             try {
-                const res = await fetch(`${apiUrl}/eventos/${uuid}`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                const data = await res.json();
+                const { data } = await apiService.get(`/eventos/${uuid}`, token);
                 if (data) setEvento(data);
                 else if (onSetView) onSetView('error');
             } catch (e) {
@@ -39,7 +37,7 @@ export function useActiveEvent(apiUrl, token, uuid, onSetView) {
             }
         };
         fetchEvento();
-    }, [apiUrl, token, uuid, onSetView]);
+    }, [token, uuid, onSetView]);
 
     return { evento };
 }

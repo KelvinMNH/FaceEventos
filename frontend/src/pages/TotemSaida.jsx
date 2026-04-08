@@ -6,8 +6,7 @@ import { useClock, useActiveEvent, useBiometricProgress } from '../hooks/useTote
 import { TotemLayout } from '../components/totem/TotemLayout';
 import { SearchView, SuccessView, ErrorView } from '../components/totem/TotemViews';
 import { FaceScanner } from '../components/FaceScanner';
-
-const API_URL = `${window.location.protocol}//${window.location.hostname}:3000/api`;
+import apiService from '../services/api';
 
 const FaceIcon = ({ size = "1em", ...props }) => (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" {...props}>
@@ -35,7 +34,7 @@ function TotemSaida() {
 
     // Hooks
     const { horaAtual, formatDate, formatTime } = useClock();
-    const { evento } = useActiveEvent(API_URL, token, uuid, setView);
+    const { evento } = useActiveEvent(token, uuid, setView);
     const progress = useBiometricProgress(selectedParticipant, view, () => {
         setSelectedParticipant(null);
         setGlowColor(null);
@@ -84,10 +83,7 @@ function TotemSaida() {
             alertCooldownsRef.current.set(key, now);
 
              try {
-                const res = await fetch(`${API_URL}/participantes/busca?q=${identifiedId}`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                const parts = await res.json();
+                const { data: parts } = await apiService.get(`/participantes/busca?q=${identifiedId}`, token);
                 const p = parts.find(x => String(x.id) === String(identifiedId));
                 if (p) {
                     setSelectedParticipant(p);
@@ -109,10 +105,7 @@ function TotemSaida() {
             return;
         }
         try {
-            const res = await fetch(`${API_URL}/participantes/busca?q=${term}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            const data = await res.json();
+            const { data } = await apiService.get(`/participantes/busca?q=${term}`, token);
             setSearchResults(data || []);
         } catch (e) {
             console.error(e);
@@ -129,18 +122,10 @@ function TotemSaida() {
         isVerifyingRef.current = true;
 
         try {
-            const res = await fetch(`${API_URL}/registrar-saida`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({ 
-                    participanteId: parseInt(selectedParticipant.id),
-                    eventoId: uuid
-                })
-            });
-            const data = await res.json();
+            const { data } = await apiService.post('/registrar-saida', { 
+                participanteId: parseInt(selectedParticipant.id),
+                eventoId: uuid
+            }, token);
 
             if (data.success) {
                 setStatusMessage(`Até logo, ${selectedParticipant.nome}!`);

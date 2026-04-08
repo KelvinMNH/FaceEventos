@@ -41,6 +41,8 @@ class ErrorBoundary extends React.Component {
     }
 }
 
+import { apiService } from '../services/api';
+
 function RelatorioEventoContent() {
     const { uuid } = useParams();
     const navigate = useNavigate();
@@ -79,18 +81,12 @@ function RelatorioEventoContent() {
             confirmText: 'Excluir',
             onConfirm: async () => {
                 try {
-                    const res = await fetch(`http://localhost:3000/api/eventos/${uuid}`, {
-                        method: 'DELETE',
-                        headers: {
-                            'Authorization': `Bearer ${token}`
-                        }
-                    });
+                    const { ok, data } = await apiService.delete(`/eventos/${uuid}`);
 
-                    if (res.ok) {
+                    if (ok) {
                         showMessage("Sucesso", "Evento excluído com sucesso.", "success");
                         setTimeout(() => navigate('/'), 1500);
                     } else {
-                        const data = await res.json();
                         showMessage("Erro", `Erro ao excluir: ${data.error || 'Erro desconhecido'}`, "error");
                     }
                 } catch (error) {
@@ -106,24 +102,16 @@ function RelatorioEventoContent() {
             if (!token) return;
             try {
                 // 1. Buscar Detalhes do Evento
-                const resEvento = await fetch(`http://localhost:3000/api/eventos/${uuid}`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                let eventoInfo = null;
-                if (resEvento.ok) {
-                    eventoInfo = await resEvento.json();
+                const { ok: okEvento, data: eventoInfo } = await apiService.get(`/eventos/${uuid}`);
+                if (okEvento) {
                     setEventoDetalhes(eventoInfo);
                     setEventoNome(eventoInfo.nome);
                 }
 
                 // 2. Buscar Logs filtrados por evento
-                const resLogs = await fetch(`http://localhost:3000/api/logs?eventoUuid=${uuid}`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
+                const { ok: okLogs, data: allLogs, status: statusLogs } = await apiService.get(`/logs?eventoUuid=${uuid}`);
 
-                if (!resLogs.ok) throw new Error(`Status API Logs: ${resLogs.status}`);
-
-                const allLogs = await resLogs.json();
+                if (!okLogs) throw new Error(`Status API Logs: ${statusLogs}`);
 
                 if (!Array.isArray(allLogs)) {
                     throw new Error("Resposta da API não é uma lista (array)");

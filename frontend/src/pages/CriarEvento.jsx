@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { apiService } from '../services/api';
 import Navbar from '../components/Navbar';
-import { useAuth } from '../contexts/AuthContext';
 
 function CriarEvento() {
     const navigate = useNavigate();
-    const { token } = useAuth();
     const [formData, setFormData] = useState({
         nome: '',
         data: '',
@@ -23,22 +22,14 @@ function CriarEvento() {
         setLoading(true);
 
         try {
-            const res = await fetch('http://localhost:3000/api/eventos', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify(formData)
-            });
+            const { ok, data } = await apiService.post('/eventos', formData);
 
-            if (res.ok) {
+            if (ok) {
                 // Redireciona para a lista de eventos (home) em vez de ir direto para o acesso
                 navigate('/');
             } else {
-                const errorData = await res.json().catch(() => ({}));
-                console.error('Erro do servidor:', errorData);
-                alert(`Erro ao criar evento: ${errorData.details || errorData.msg || 'Erro desconhecido'}`);
+                console.error('Erro do servidor:', data);
+                alert(`Erro ao criar evento: ${data.details || data.msg || 'Erro desconhecido'}`);
             }
         } catch (err) {
             console.error(err);

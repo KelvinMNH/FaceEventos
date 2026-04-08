@@ -5,8 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useClock, useActiveEvent, useBiometricProgress } from '../hooks/useTotem';
 import { TotemLayout } from '../components/totem/TotemLayout';
 import { WelcomeView, SearchView, ConfirmView, SuccessView, ErrorView } from '../components/totem/TotemViews';
-
-const API_URL = `${window.location.protocol}//${window.location.hostname}:3000/api`;
+import apiService from '../services/api';
 
 function TotemAcesso() {
     const navigate = useNavigate();
@@ -39,7 +38,7 @@ function TotemAcesso() {
 
     // Hooks
     const { horaAtual, formatDate, formatTime } = useClock();
-    const { evento } = useActiveEvent(API_URL, token, uuid, setView);
+    const { evento } = useActiveEvent(token, uuid, setView);
     const progress = useBiometricProgress(biometricResult, view, () => {
         setBiometricResult(null);
         setBalloonData(null);
@@ -71,20 +70,12 @@ function TotemAcesso() {
                 isVerifyingRef.current = true;
                 setIsVerifying(true);
                 try {
-                    const res = await fetch(`${API_URL}/renovar-biometria`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${token}`
-                        },
-                        body: JSON.stringify({
-                            participanteId: selectedParticipant.id,
-                            template: template,
-                            foto: photo,
-                            eventoId: uuid
-                        })
-                    });
-                    const finalData = await res.json();
+                    const { data: finalData } = await apiService.post('/renovar-biometria', {
+                        participanteId: selectedParticipant.id,
+                        template: template,
+                        foto: photo,
+                        eventoId: uuid
+                    }, token);
                     handleFinalResponse(finalData);
                 } catch (err) {
                     console.error('Erro na renovação facial:', err);
@@ -100,18 +91,10 @@ function TotemAcesso() {
                 isVerifyingRef.current = true;
                 setIsVerifying(true);
                 try {
-                    const res = await fetch(`${API_URL}/scan`, { 
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${token}`
-                        },
-                        body: JSON.stringify({
-                            identified_id: identifiedId,
-                            eventId: uuid
-                        })
-                    });
-                    const finalData = await res.json();
+                    const { data: finalData } = await apiService.post('/scan', {
+                        identified_id: identifiedId,
+                        eventId: uuid
+                    }, token);
                     handleFinalResponse(finalData);
                 } finally {
                     isVerifyingRef.current = false;
@@ -200,10 +183,7 @@ function TotemAcesso() {
             return;
         }
         try {
-            const res = await fetch(`${API_URL}/participantes/busca?q=${term}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            const data = await res.json();
+            const { data } = await apiService.get(`/participantes/busca?q=${term}`, token);
             setSearchResults(data || []);
         } catch (e) {
             console.error(e);
@@ -222,15 +202,7 @@ function TotemAcesso() {
     const handleConfirmCheckin = async () => {
         if (!selectedParticipant) return;
         try {
-            const res = await fetch(`${API_URL}/manual-entry`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({ participanteId: selectedParticipant.id, eventoId: uuid })
-            });
-            const data = await res.json();
+            const { data } = await apiService.post('/manual-entry', { participanteId: selectedParticipant.id, eventoId: uuid }, token);
             if (data.success) {
                 setStatusMessage(`Bem-vindo(a), ${selectedParticipant.nome}!`);
                 setView('success');
