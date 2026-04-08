@@ -27,8 +27,8 @@ async function syncDB() {
     try {
         // Alterado para false para evitar criação de tabelas de backup no SQLite
         // Se precisar alterar schema, use migration ou ative manualmente
-        await sequelize.sync({ alter: false });
-        console.log("✅ Banco de dados sincronizado.");
+        await sequelize.sync({ force: false });
+        console.log("✅ Banco de dados Oracle preservado e sincronizado.");
     } catch (error) {
         console.error("❌ Erro ao sincronizar banco de dados:", error);
     }
