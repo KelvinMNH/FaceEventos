@@ -5,12 +5,18 @@ const Participante = sequelize.define('Participante', {
     nome: { type: DataTypes.STRING(255), allowNull: false },
     cpf: { type: DataTypes.STRING(20), allowNull: false },
     crm: { type: DataTypes.STRING(20) },
-    template_biometrico: { type: DataTypes.TEXT('long') },
+    template_biometrico: { 
+        type: DataTypes.TEXT('long'), 
+        comment: 'Vetor de biometria facial (JSON string). Sensível a conversões de data!' 
+    },
     genero: { type: DataTypes.ENUM('M', 'F', 'O'), defaultValue: 'O' },
     data_nascimento: { type: DataTypes.DATEONLY },
     especialidade: { type: DataTypes.STRING(255) },
     data_biometria: { type: DataTypes.DATE },
-    foto_biometria: { type: DataTypes.TEXT('long') },
+    foto_biometria: { 
+        type: DataTypes.TEXT('long'), 
+        comment: 'Foto capturada durante o cadastro (Base64).' 
+    },
     ativo: { type: DataTypes.BOOLEAN, defaultValue: true }
 }, {
     hooks: {

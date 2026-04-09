@@ -47,24 +47,34 @@ class AcessoController {
             }
 
             // Verificação de duplicidade (Bloqueia re-entrada se já houver qualquer entrada de sucesso)
+            // Verificação de duplicidade (Bloqueia re-entrada se já houver qualquer entrada de sucesso)
             if (participante) {
+                const eid = Number(evento.id);
+                const pid = Number(participante.id);
+                
+                logDebug(`[SCAN] Investigando Participante=${pid} no Evento=${eid}`);
+
+                // Busca por qualquer registro de sucesso preexistente para este participante e evento
                 const entradaExistente = await RegistroAcesso.findOne({
                     where: { 
-                        EventoId: evento.id, 
-                        ParticipanteId: participante.id,
+                        EventoId: eid, 
+                        ParticipanteId: pid,
                         tipo_acesso: 'entrada',
                         status_validacao: 'sucesso'
-                    }
+                    },
+                    order: [['id', 'DESC']],
+                    raw: true
                 });
 
                 if (entradaExistente) {
+                    logDebug(`Duplicidade detectada para Participante ${pid}. Log ID Existente: ${entradaExistente.id}`);
                     // Log tentativa duplicada mas não cria registro de sucesso
                     await RegistroAcesso.create({
                         tipo_acesso: 'entrada',
                         status_validacao: 'falha', // duplicado
                         device_id: device_id || 'unknown',
-                        EventoId: evento.id,
-                        ParticipanteId: participante.id
+                        EventoId: eid,
+                        ParticipanteId: pid
                     });
 
                     return res.json({
@@ -81,12 +91,14 @@ class AcessoController {
             }
 
             const status = participante ? 'sucesso' : 'nao_encontrado';
+            logDebug(`Processando novo registro. Status: ${status} | Participante: ${participante?.id || 'null'}`);
+            
             const acesso = await RegistroAcesso.create({
                 tipo_acesso: 'entrada',
                 status_validacao: status,
                 device_id: device_id || 'unknown',
-                EventoId: evento.id,
-                ParticipanteId: participante ? participante.id : null
+                EventoId: Number(evento.id),
+                ParticipanteId: participante ? Number(participante.id) : null
             });
 
             if (participante) {

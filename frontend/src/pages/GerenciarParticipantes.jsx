@@ -29,6 +29,7 @@ function GerenciarParticipantes() {
     const { token } = useAuth();
     const [participantes, setParticipantes] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
+    const [filterBioOnly, setFilterBioOnly] = useState(false);
     const [loading, setLoading] = useState(true);
     const [syncStatus, setSyncStatus] = useState(null);
     const [enriqStatus, setEnriqStatus] = useState(null);
@@ -181,11 +182,16 @@ function GerenciarParticipantes() {
         }
     };
 
-    const filteredParticipantes = participantes.filter(p =>
-        p.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (p.cpf && p.cpf.includes(searchTerm)) ||
-        (p.crm && p.crm.includes(searchTerm))
-    );
+    const filteredParticipantes = participantes.filter(p => {
+        const matchesSearch = p.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (p.cpf && p.cpf.includes(searchTerm)) ||
+            (p.crm && p.crm.includes(searchTerm));
+        
+        const hasBio = p.template_biometrico && !p.template_biometrico.startsWith('manual_');
+        const matchesBioFilter = !filterBioOnly || hasBio;
+
+        return matchesSearch && matchesBioFilter;
+    });
 
     const formatDate = (dateStr) => {
         if (!dateStr) return '';
@@ -300,7 +306,14 @@ function GerenciarParticipantes() {
                 )}
 
 
-                <div className="card" style={{ marginBottom: '2rem' }}>
+                <div className="card" style={{ 
+                    marginBottom: '2rem', 
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                    gap: '1rem'
+                }}>
                     <input
                         type="text"
                         placeholder="Buscar por nome, CPF ou CRM..."
@@ -309,6 +322,52 @@ function GerenciarParticipantes() {
                         className="modal-input"
                         style={{ width: '100%', maxWidth: '400px', marginBottom: 0, textAlign: 'left' }}
                     />
+
+                    <label style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: '0.8rem', 
+                        cursor: 'pointer',
+                        padding: '0.5rem 1rem',
+                        backgroundColor: filterBioOnly ? 'rgba(0, 153, 93, 0.1)' : 'transparent',
+                        borderRadius: '8px',
+                        border: `1px solid ${filterBioOnly ? 'var(--primary-green)' : 'var(--basic-gray-100)'}`,
+                        transition: 'all 0.2s ease',
+                        userSelect: 'none'
+                    }}>
+                        <div style={{
+                            width: '40px',
+                            height: '20px',
+                            backgroundColor: filterBioOnly ? 'var(--primary-green)' : 'var(--basic-gray-300)',
+                            borderRadius: '20px',
+                            position: 'relative',
+                            transition: 'background-color 0.3s'
+                        }}>
+                            <div style={{
+                                width: '16px',
+                                height: '16px',
+                                backgroundColor: 'white',
+                                borderRadius: '50%',
+                                position: 'absolute',
+                                top: '2px',
+                                left: filterBioOnly ? '22px' : '2px',
+                                transition: 'left 0.3s ease'
+                            }} />
+                        </div>
+                        <input 
+                            type="checkbox" 
+                            checked={filterBioOnly} 
+                            onChange={() => setFilterBioOnly(!filterBioOnly)} 
+                            style={{ display: 'none' }}
+                        />
+                        <span style={{ 
+                            fontSize: '0.9rem', 
+                            fontWeight: 'bold', 
+                            color: filterBioOnly ? 'var(--primary-green)' : 'var(--basic-gray-700)' 
+                        }}>
+                            Apenas com Biometria
+                        </span>
+                    </label>
                 </div>
 
                 <div className="table-container">

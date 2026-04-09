@@ -20,7 +20,7 @@ const loadModels = () => {
 export const FaceScanner = ({ active = true, onScanSuccess, onFaceDetected, isRegistration = false, token = '', eventId = '', followerBalloon = null, glowColor = null }) => {
     const webcamRef = useRef(null);
     const [modelsLoaded, setModelsLoaded] = useState(false);
-    const [scanCooldown, setScanCooldown] = useState(false);
+    const scanCooldownRef = useRef(false);
     const [statusMsg, setStatusMsg] = useState('Carregando modelos...');
     const [errorMsg, setErrorMsg] = useState('');
     const candidatesRef = useRef([]);
@@ -53,13 +53,16 @@ export const FaceScanner = ({ active = true, onScanSuccess, onFaceDetected, isRe
     // 2. Loop de Detecção em tempo real
     useEffect(() => {
         let interval;
-        if (modelsLoaded && !scanCooldown && active) {
+        if (modelsLoaded && active) {
             interval = setInterval(async () => {
                 if (webcamRef.current && webcamRef.current.video && webcamRef.current.video.readyState === 4) {
                     try {
                         const video = webcamRef.current.video;
                         const displaySize = { width: video.clientWidth, height: video.clientHeight };
                         
+                        // Ignorar se estiver em cooldown
+                        if (scanCooldownRef.current) return;
+
                         const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
                             .withFaceLandmarks()
                             .withFaceDescriptor();
@@ -101,7 +104,7 @@ export const FaceScanner = ({ active = true, onScanSuccess, onFaceDetected, isRe
             if (faceBoxTimeoutRef.current) clearTimeout(faceBoxTimeoutRef.current);
             setFaceBox(null);
         };
-    }, [modelsLoaded, scanCooldown, isRegistration, eventId, active]);
+    }, [modelsLoaded, isRegistration, eventId, active, onScanSuccess]);
 
     // Limpar cache de candidatos ao reativar o scanner (ex: após fechar modal de renovação)
     useEffect(() => {
@@ -120,7 +123,10 @@ export const FaceScanner = ({ active = true, onScanSuccess, onFaceDetected, isRe
             if (candidatesRef.current.length === 0) {
                 const res = await apiService.get('/biometria/candidatos', token);
                 if (res.ok) {
-                    candidatesRef.current = await res.json();
+                    candidatesRef.current = res.data || [];
+                    console.log(`[FaceScanner] ${candidatesRef.current.length} candidatos carregados para reconhecimento.`);
+                } else {
+                    console.error('[FaceScanner] Erro ao carregar candidatos:', res.data?.error || res.status);
                 }
             }
 
@@ -153,17 +159,17 @@ export const FaceScanner = ({ active = true, onScanSuccess, onFaceDetected, isRe
                 // Sucesso! Avisa o componente pai
                 const screenshot = webcamRef.current.getScreenshot();
                 onScanSuccess(null, null, null, bestMatch.id, screenshot);
-                setScanCooldown(true);
-                setTimeout(() => setScanCooldown(false), 5000); // Cooldown para evitar logs duplicados
+                scanCooldownRef.current = true;
+                setTimeout(() => { scanCooldownRef.current = false; }, 5000); // Cooldown para evitar logs duplicados
             } else {
                 setStatusMsg('Face não reconhecida');
                 // IMPORTANTE: Avisar o pai mesmo se não reconhecer, para ele poder mostrar o GLOW VERMELHO
                 const screenshot = webcamRef.current.getScreenshot();
                 onScanSuccess(null, null, null, null, screenshot); 
                 
-                setScanCooldown(true); // Evita spam de erro
+                scanCooldownRef.current = true; // Evita spam de erro
                 setTimeout(() => {
-                    setScanCooldown(false);
+                    scanCooldownRef.current = false;
                     setStatusMsg('Câmera Pronta');
                 }, 3000);
             }

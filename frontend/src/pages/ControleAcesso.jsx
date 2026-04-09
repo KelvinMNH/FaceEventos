@@ -112,19 +112,30 @@ function ControleAcesso() {
         }
       });
 
-      if (filteredLogs && filteredLogs.length > 0) {
+      if (allLogs && allLogs.length > 0) {
+        // Encontrar o MAIOR ID atual para não retroceder
+        const currentMaxId = Math.max(...allLogs.map(l => l.id || 0));
+        
         if (lastLogId === 0) {
-          setLastLogId(filteredLogs[0].id);
-        } else {
-          const newLogs = filteredLogs.filter(l => l.id > lastLogId);
+          setLastLogId(currentMaxId);
+        } else if (currentMaxId > lastLogId) {
+          const newLogs = allLogs.filter(l => l.id > lastLogId);
           if (newLogs.length > 0) {
-              setLastLogId(filteredLogs[0].id);
-              const successLog = [...newLogs].sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt))
-                                          .find(l => l.status_validacao === 'sucesso');
+              setLastLogId(currentMaxId);
               
-              const logToShow = successLog || newLogs[0];
-              if (['sucesso', 'nao_encontrado', 'alerta'].includes(logToShow.status_validacao)) {
-                  showModal(logToShow);
+              // Tenta encontrar um SUCESSO nos novos logs
+              const logToShow = [...newLogs]
+                                .sort((a,b) => b.id - a.id)
+                                .find(l => l.status_validacao === 'sucesso' && (l.Participante || l.Acompanhante));
+              
+              if (logToShow) {
+                  // Só dispara modal automático se o log for MUITO recente (últimos 15s)
+                  // Isso evita que modais "fantasmas" apareçam após um refresh ou lag
+                  const logTime = new Date(logToShow.createdAt).getTime();
+                  const now = Date.now();
+                  if (now - logTime < 15000) {
+                      showModal(logToShow);
+                  }
               }
           }
         }
@@ -235,9 +246,24 @@ function ControleAcesso() {
 
 
 
-  // Facial recognition handle
+  // Facial recognition
+  const handleBiometricAttempt = React.useCallback(async (template, width, height, identifiedId, image) => {
+    // 1. Trava de segurança: Se já estivermos mostrando um modal para esta pessoa, ignore novas tentativas
+    if (modalData) {
+        const currentId = modalData.Participante?.id || modalData.ParticipanteId || (modalData.Acompanhante?.id);
+        const targetId = identifiedId || (selectedManualParticipant?.id);
+        
+        if (targetId && String(currentId) === String(targetId)) {
+            return;
+        }
 
-  const handleBiometricAttempt = async (template, width, height, identifiedId, image) => {
+        // Se for um erro/alerta genérico e já tivermos um modal aberto, evite sobrescrever imediatamente
+        const now = Date.now();
+        if (modalTimeoutRef.current && (modalData.status_validacao !== 'sucesso')) {
+             // Deixa o modal atual respirar
+        }
+    }
+
     try {
       let url = '/scan';
       let bodyData = {
@@ -246,10 +272,6 @@ function ControleAcesso() {
         eventId: uuid
       };
 
-      // SÓ RENOVA se:
-      // 1. O modal manual estiver aberto E houver participante selecionado
-      // 2. A chamada NÃO vier de uma identificação automática (identifiedId nulo)
-      // 3. Houver uma imagem capturada
       if (selectedManualParticipant && manualModalOpen && !identifiedId && image) {
         url = '/renovar-biometria';
         bodyData.participanteId = selectedManualParticipant.id;
@@ -293,7 +315,7 @@ function ControleAcesso() {
     } catch (e) {
       console.error("Erro ao enviar biometria", e);
     }
-  };
+  }, [modalData, selectedManualParticipant, manualModalOpen, uuid, token]);
 
   // Efeito para focar no input quando abrir modal ou mudar modo
   useEffect(() => {
@@ -446,7 +468,7 @@ function ControleAcesso() {
     }
   };
 
-  const showModal = (data) => {
+  const showModal = React.useCallback((data) => {
     const p = data.Participante || data.Acompanhante || {};
     const msg = (data.mensagem || "").toLowerCase();
     const isAlert = data.status_validacao === 'alerta' || 
@@ -457,9 +479,6 @@ function ControleAcesso() {
                    msg.includes('ja realizado') ||
                    msg.includes('entrou');
 
-    // 1. Cooldown para "Já Identificado" (Evita spam se a pessoa ficar na frente da câmera)
-    // NOTA: Agora ativamos o cooldown também em caso de SUCESSO, para evitar que um alerta "Já Identificado"
-    // apareça logo em seguida enquanto a pessoa ainda está na frente do sensor.
     const isSuccess = data.status_validacao === 'sucesso';
     const personId = p.id || data.ParticipanteId || data.AcompanhanteId;
     
@@ -468,16 +487,13 @@ function ControleAcesso() {
         const key = String(personId);
         const lastAlert = alertCooldownsRef.current.get(key) || 0;
         
-        // Se for um alerta tentando aparecer em cima de um alerta ou sucesso recente (< 15s)
         if (isAlert && (now - lastAlert < 15000)) { 
-            return; // Silencia o alerta
+            return;
         }
         
-        // Atualiza o timestamp para futuras supressões de alerta
         alertCooldownsRef.current.set(key, now);
     }
 
-    // 2. Se já estivermos mostrando um SUCESSO para o mesmo participante, ignore alertas redundantes
     if (modalData && modalData.status_validacao === 'sucesso') {
       const currentP = modalData.Participante || modalData.Acompanhante || {};
       const isSamePerson = (currentP.id && p.id && String(currentP.id) === String(p.id));
@@ -487,27 +503,24 @@ function ControleAcesso() {
       }
     }
 
-    // Limpar timeout anterior se existir
     if (modalTimeoutRef.current) {
       clearTimeout(modalTimeoutRef.current);
     }
 
     setModalData(data);
-    // Tocar som
     if (audioRef.current) audioRef.current.play().catch(e => console.log(e));
     
-    // Se for alerta de "Já identificado", ativa o balão que segue a cabeça
     if (isAlert) {
       const p = data.Participante || data.Acompanhante || {};
       setBalloonData({
         name: p.nome || 'Visitante',
         message: 'Já entrou nesse evento.'
       });
-      setGlowColor('#FFE596'); // Amarelo Unimed para duplicidade
+      setGlowColor('#FFE596'); 
     } else if (data.status_validacao === 'sucesso') {
-      setGlowColor(data.tipo_acesso === 'saida' ? '#004E4C' : '#00995D'); // Azul para saída, Verde para entrada
+      setGlowColor(data.tipo_acesso === 'saida' ? '#004E4C' : '#00995D'); 
     } else {
-      setGlowColor('#dc3545'); // Vermelho para erro
+      setGlowColor('#dc3545'); 
     }
 
     modalTimeoutRef.current = setTimeout(() => {
@@ -515,8 +528,8 @@ function ControleAcesso() {
       setBalloonData(null);
       setGlowColor(null);
       modalTimeoutRef.current = null;
-    }, 6000); // 6 segundos para dar tempo de ler e sincronizar com a barra de progresso
-  };
+    }, 6000); 
+  }, [modalData]);
 
   const handleConfirmCheckout = async (participanteId) => {
     if (!participanteId || !evento) return;
