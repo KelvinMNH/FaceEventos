@@ -17,7 +17,7 @@ const loadModels = () => {
     return modelsPromise;
 };
 
-export const FaceScanner = ({ active = true, onScanSuccess, onFaceDetected, isRegistration = false, token = '', eventId = '', followerBalloon = null, glowColor = null }) => {
+export const FaceScanner = ({ active = true, onScanSuccess, onFaceDetected, isRegistration = false, token = '', eventId = '', followerBalloon = null, glowColor = null, refreshSignal = 0 }) => {
     const webcamRef = useRef(null);
     const [modelsLoaded, setModelsLoaded] = useState(false);
     const scanCooldownRef = useRef(false);
@@ -108,8 +108,8 @@ export const FaceScanner = ({ active = true, onScanSuccess, onFaceDetected, isRe
 
     // Limpar cache de candidatos ao reativar o scanner (ex: após fechar modal de renovação)
     useEffect(() => {
-        if (active) candidatesRef.current = [];
-    }, [active]);
+        if (active || refreshSignal > 0) candidatesRef.current = [];
+    }, [active, refreshSignal]);
 
     // 3. Lógica de Identificação
     const handleIdentification = async (descriptor) => {

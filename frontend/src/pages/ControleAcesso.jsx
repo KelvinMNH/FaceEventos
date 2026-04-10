@@ -18,6 +18,7 @@ function ControleAcesso() {
   const { token } = useAuth();
   const [logs, setLogs] = useState([]);
   const [evento, setEvento] = useState(null);
+  const [faceScannerRefreshSignal, setFaceScannerRefreshSignal] = useState(0);
   const [modalData, setModalData] = useState(null);
   const [balloonData, setBalloonData] = useState(null);
   const [glowColor, setGlowColor] = useState(null);
@@ -285,6 +286,7 @@ function ControleAcesso() {
       if (data.autorizado) {
         if (selectedManualParticipant && manualModalOpen) {
           setManualModalOpen(false);
+          setFaceScannerRefreshSignal(prev => prev + 1); // Avisa o scanner para recarregar fotos
           setManualDoc('');
           setManualSearchResults([]);
           setSelectedManualParticipant(null);
@@ -344,6 +346,7 @@ function ControleAcesso() {
   const selectManualParticipant = async (p) => {
     // 1. Fecha o modal IMEDIATAMENTE e limpa estados de busca para feedback instantâneo
     setManualModalOpen(false);
+    setFaceScannerRefreshSignal(prev => prev + 1); // Avisa o scanner para recarregar fotos
     setSelectedManualParticipant(null);
     setManualSearchResults([]);
     setManualDoc('');
@@ -660,7 +663,64 @@ function ControleAcesso() {
             eventId={uuid}
             followerBalloon={balloonData}
             glowColor={glowColor}
+            refreshSignal={faceScannerRefreshSignal}
           />
+
+          {/* Full Success Overlay (Injected inside camera area for perfect clipping) */}
+          {isSuccess && (
+            <div style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+              backgroundColor: isCheckout ? 'rgba(0, 78, 76, 0.9)' : 'rgba(0, 153, 93, 0.85)',
+              zIndex: 10,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'white',
+              textAlign: 'center',
+              padding: '20px',
+              animation: 'modalFadeIn 0.3s ease-out',
+              backdropFilter: 'blur(5px)'
+            }}>
+              <div style={{
+                  width: '120px',
+                  height: '120px',
+                  borderRadius: '50%',
+                  border: '4px solid white',
+                  overflow: 'hidden',
+                  marginBottom: '1rem',
+                  backgroundColor: 'rgba(255,255,255,0.2)',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.2)'
+              }}>
+                  {participante.foto_biometria ? (
+                      <img src={participante.foto_biometria} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="Face" />
+                  ) : (
+                      <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '3.5rem', fontWeight: 'bold' }}>
+                          {participante.nome ? participante.nome.charAt(0) : '?'}
+                      </div>
+                  )}
+              </div>
+              
+              <h2 style={{ fontSize: '1.6rem', margin: '0 0 0.2rem 0', fontWeight: 'bold', textShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
+                  {isCheckout ? 'Até logo,' : (participante.genero === 'F' ? 'Bem-vinda,' : (participante.genero === 'M' ? 'Bem-vindo,' : 'Bem-vindo(a),'))}
+              </h2>
+              <h1 style={{ fontSize: '1.9rem', margin: '0 0 0.5rem 0', lineHeight: '1.2', fontWeight: '800' }}>
+                  {participante.nome || 'Visitante'}
+              </h1>
+              {participante.crm && (
+                  <div style={{ fontSize: '1rem', marginBottom: '0.8rem', fontWeight: 'bold', color: 'rgba(255,255,255,0.9)' }}>
+                      CRM: {participante.crm}
+                  </div>
+              )}
+              <div style={{ fontSize: '1.1rem', fontWeight: '600', backgroundColor: 'rgba(255,255,255,0.2)', padding: '0.4rem 1.2rem', borderRadius: '50px' }}>
+                  {isCheckout ? 'Volte sempre!' : 'Tenha um bom evento!'}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Status Text Area - Persistent to keep layout stable */}
@@ -676,61 +736,6 @@ function ControleAcesso() {
           <p className="access-subtitle" style={{ fontSize: '0.9rem' }}>O reconhecimento facial está ativo</p>
         </div>
 
-        {/* Full Success Overlay (400x400) */}
-        {isSuccess && (
-          <div style={{
-            position: 'absolute',
-            top: '40px',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            width: '400px',
-            height: '400px',
-            backgroundColor: isCheckout ? 'rgba(0, 78, 76, 0.8)' : 'rgba(0, 153, 93, 0.5)',
-            borderRadius: '15px',
-            zIndex: 10,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: 'white',
-            textAlign: 'center',
-            padding: '20px',
-            animation: 'modalFadeIn 0.3s ease-out'
-          }}>
-            <div style={{
-                width: '100px',
-                height: '100px',
-                borderRadius: '50%',
-                border: '4px solid white',
-                overflow: 'hidden',
-                marginBottom: '1rem',
-                backgroundColor: 'rgba(255,255,255,0.2)'
-            }}>
-                {participante.foto_biometria ? (
-                    <img src={participante.foto_biometria} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="Face" />
-                ) : (
-                    <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '3rem', fontWeight: 'bold' }}>
-                        {participante.nome ? participante.nome.charAt(0) : '?'}
-                    </div>
-                )}
-            </div>
-            
-            <h2 style={{ fontSize: '1.8rem', margin: '0 0 0.5rem 0', fontWeight: 'bold' }}>
-                {isCheckout ? 'Até logo,' : (participante.genero === 'F' ? 'Bem-vinda,' : (participante.genero === 'M' ? 'Bem-vindo,' : 'Bem-vindo(a),'))}
-            </h2>
-            <h1 style={{ fontSize: '2rem', margin: '0 0 0.5rem 0', lineHeight: '1.1' }}>
-                {participante.nome || 'Visitante'}
-            </h1>
-            {participante.crm && (
-                <div style={{ fontSize: '1.1rem', marginBottom: '1rem', fontWeight: 'bold', color: 'rgba(255,255,255,0.9)' }}>
-                    CRM: {participante.crm}
-                </div>
-            )}
-            <div style={{ fontSize: '1.2rem', fontWeight: '500', backgroundColor: 'rgba(0,0,0,0.2)', padding: '0.5rem 1rem', borderRadius: '50px' }}>
-                {isCheckout ? 'Volte sempre!' : 'Tenha um bom evento!'}
-            </div>
-          </div>
-        )}
 
         {/* Floating Card - Only if identified and NOT shown via balloon and NOT shown via full success overlay */}
         {modalData && !balloonData && !isSuccess && (
@@ -1460,6 +1465,7 @@ function ControleAcesso() {
                       onScanSuccess={handleBiometricAttempt} 
                       isRegistration={true} 
                       token={token}
+                      refreshSignal={faceScannerRefreshSignal}
                     />
                     <div style={{ marginTop: '0.8rem', fontSize: '0.85rem' }}>
                       <strong>Captura Facial para Renovação:</strong><br />
