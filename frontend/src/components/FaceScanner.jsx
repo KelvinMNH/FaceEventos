@@ -28,6 +28,7 @@ export const FaceScanner = ({ active = true, onScanSuccess, onFaceDetected, isRe
     const [faceDetected, setFaceDetected] = useState(false);
     const [faceBox, setFaceBox] = useState(null); // Real-time coordinates
     const faceBoxTimeoutRef = useRef(null);
+    const lastLogTimeRef = useRef(0);
     const maskId = useId();
 
     // Notify parent about face detection
@@ -137,15 +138,27 @@ export const FaceScanner = ({ active = true, onScanSuccess, onFaceDetected, isRe
                 return;
             }
 
+            // Verificação de segurança: vídeo deve estar pronto
+            if (!webcamRef.current?.video || webcamRef.current.video.readyState < 4) return;
+
             // Comparação Euclidiana (Padrão para face-api.js)
             let bestMatch = null;
-            let minDistance = 0.45; // Threshold mais rigoroso para evitar falsos positivos (Padrão sugerido: 0.4 a 0.5)
+            let minDistance = 0.48;
+            const now = Date.now();
+            const shouldLog = now - lastLogTimeRef.current > 1500; // Log apenas a cada 1.5s
+            if (shouldLog) lastLogTimeRef.current = now;
 
             for (const candidate of candidatesRef.current) {
                 try {
                     const savedDescriptor = JSON.parse(candidate.template_biometrico);
                     if (Array.isArray(savedDescriptor)) {
                         const distance = faceapi.euclideanDistance(descriptor, savedDescriptor);
+                        
+                        // Log de debug controlado para análise de precisão
+                        if (shouldLog) {
+                            console.log(`[BioDebug] Candidato: ${candidate.nome || candidate.id} | Distância: ${distance.toFixed(4)} (Threshold: ${minDistance})`);
+                        }
+
                         if (distance < minDistance) {
                             minDistance = distance;
                             bestMatch = candidate;
@@ -156,22 +169,26 @@ export const FaceScanner = ({ active = true, onScanSuccess, onFaceDetected, isRe
 
             if (bestMatch) {
                 setStatusMsg('Identificado!');
-                // Sucesso! Avisa o componente pai
-                const screenshot = webcamRef.current.getScreenshot();
-                onScanSuccess(null, null, null, bestMatch.id, screenshot);
-                scanCooldownRef.current = true;
-                setTimeout(() => { scanCooldownRef.current = false; }, 5000); // Cooldown para evitar logs duplicados
+                // Sucesso! Avisa o componente pai (Garante que o vídeo ainda está pronto)
+                if (webcamRef.current?.video?.readyState === 4) {
+                    const screenshot = webcamRef.current.getScreenshot();
+                    onScanSuccess(null, null, null, bestMatch.id, screenshot);
+                    scanCooldownRef.current = true;
+                    setTimeout(() => { scanCooldownRef.current = false; }, 5000); // Cooldown para evitar logs duplicados
+                }
             } else {
                 setStatusMsg('Face não reconhecida');
                 // IMPORTANTE: Avisar o pai mesmo se não reconhecer, para ele poder mostrar o GLOW VERMELHO
-                const screenshot = webcamRef.current.getScreenshot();
-                onScanSuccess(null, null, null, null, screenshot); 
-                
-                scanCooldownRef.current = true; // Evita spam de erro
-                setTimeout(() => {
-                    scanCooldownRef.current = false;
-                    setStatusMsg('Câmera Pronta');
-                }, 3000);
+                if (webcamRef.current?.video?.readyState === 4) {
+                    const screenshot = webcamRef.current.getScreenshot();
+                    onScanSuccess(null, null, null, null, screenshot); 
+                    
+                    scanCooldownRef.current = true; // Evita spam de erro
+                    setTimeout(() => {
+                        scanCooldownRef.current = false;
+                        setStatusMsg('Câmera Pronta');
+                    }, 3000);
+                }
             }
         } catch (e) {
             console.error('Erro na identificação facial:', e);
