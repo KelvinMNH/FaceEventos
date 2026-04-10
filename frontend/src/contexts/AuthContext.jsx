@@ -4,6 +4,22 @@ import apiService from '../services/api';
 
 const AuthContext = createContext();
 
+/**
+ * Função utilitária para decodificar o payload do JWT sem bibliotecas externas
+ */
+const parseJwt = (token) => {
+    try {
+        const base64Url = token.split('.')[1];
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const jsonPayload = decodeURIComponent(atob(base64).split('').map((c) => {
+            return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+        }).join(''));
+        return JSON.parse(jsonPayload);
+    } catch (e) {
+        return null;
+    }
+};
+
 export const PrivateRoute = ({ children }) => {
   const { user, loading } = useAuth();
   if (loading) return null;
@@ -19,6 +35,7 @@ export const AuthProvider = ({ children }) => {
     const [loading, setLoading] = useState(!!token);
 
     const verifyInProgress = React.useRef(false);
+    const expirationTimerRef = React.useRef(null);
 
     useEffect(() => {
         let isMounted = true;
@@ -90,11 +107,48 @@ export const AuthProvider = ({ children }) => {
         localStorage.removeItem('user');
     };
 
-    // Configura o auto-logoff no serviço de API
+    // Configura o auto-logoff no serviço de API (Interceptor de 401)
     useEffect(() => {
         apiService.setUnauthorizedCallback(logout);
         return () => apiService.setUnauthorizedCallback(null);
     }, []);
+
+    // Configura o Cronômetro Proativo de Expiração
+    useEffect(() => {
+        // Limpa timer anterior se existir
+        if (expirationTimerRef.current) {
+            clearTimeout(expirationTimerRef.current);
+            expirationTimerRef.current = null;
+        }
+
+        if (token) {
+            const decoded = parseJwt(token);
+            if (decoded && decoded.exp) {
+                const expirationTime = decoded.exp * 1000;
+                const timeLeft = expirationTime - Date.now();
+
+                console.log(`[Auth] Sessão expira em ${Math.round(timeLeft / 1000 / 60)} minutos.`);
+
+                if (timeLeft <= 0) {
+                    console.warn("[Auth] Token já expirado. Deslogando...");
+                    logout();
+                } else {
+                    // Agenda o logout para o momento exato da expiração
+                    expirationTimerRef.current = setTimeout(() => {
+                        console.warn("[Auth] Tempo de sessão esgotado (Timer). Redirecionando...");
+                        logout();
+                    }, timeLeft);
+                }
+            } else {
+                // Token inválido ou sem expiração
+                logout();
+            }
+        }
+
+        return () => {
+            if (expirationTimerRef.current) clearTimeout(expirationTimerRef.current);
+        };
+    }, [token]);
 
     const isAdmin = () => user?.perfil === 'admin';
 
