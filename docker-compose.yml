@@ -11,6 +11,8 @@ services:
       - APP_USER_PASSWORD=unieventos123
     volumes:
       - oracle_data:/opt/oracle/oradata
+    networks:
+      - unieventos-net
     healthcheck:
       test: ["CMD-SHELL", "exit | sqlplus -S / as sysdba"]
       interval: 30s
@@ -20,6 +22,7 @@ services:
   backend:
     build:
       context: ./backend
+    container_name: unieventos-backend
     ports:
       - "3000:3000"
     restart: unless-stopped
@@ -33,19 +36,16 @@ services:
       retries: 3
     env_file:
       - .env
-    environment:
-      - NODE_ENV=production
-      - DB_DIALECT=oracle
-      - DB_HOST=oracle-db
-      - DB_PORT=1521
-      - DB_SERVICE_NAME=FREEPDB1
-      - DB_NAME=FREEPDB1
-      - DB_USER=unieventos
-      - DB_PASS=unieventos123
+    volumes:
+      - ./backend/biometria_debug.log:/usr/src/app/biometria_debug.log
+      - ./backend/logs:/usr/src/app/logs
+    networks:
+      - unieventos-net
 
   frontend:
     build:
       context: ./frontend
+    container_name: unieventos-frontend
     ports:
       - "5174:80"
     restart: unless-stopped
@@ -54,8 +54,12 @@ services:
         condition: service_healthy
     env_file:
       - .env
-    environment:
-      - NODE_ENV=production
+    networks:
+      - unieventos-net
+
+networks:
+  unieventos-net:
+    driver: bridge
 
 volumes:
   oracle_data:

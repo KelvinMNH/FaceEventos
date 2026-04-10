@@ -90,6 +90,12 @@ export const AuthProvider = ({ children }) => {
         localStorage.removeItem('user');
     };
 
+    // Configura o auto-logoff no serviço de API
+    useEffect(() => {
+        apiService.setUnauthorizedCallback(logout);
+        return () => apiService.setUnauthorizedCallback(null);
+    }, []);
+
     const isAdmin = () => user?.perfil === 'admin';
 
     return (

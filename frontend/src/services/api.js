@@ -7,7 +7,16 @@
 
 const BASE_URL = import.meta.env.VITE_API_URL || '/api';
 
+let onUnauthorizedCallback = null;
+
 export const apiService = {
+    /**
+     * Permite registrar uma função a ser chamada quando houver erro 401
+     */
+    setUnauthorizedCallback(fn) {
+        onUnauthorizedCallback = fn;
+    },
+
     /**
      * Wrapper genérico para fetch com suporte a Token
      */
@@ -30,6 +39,13 @@ export const apiService = {
 
         try {
             const response = await fetch(url, config);
+            
+            // Detecta expiração de sessão (401)
+            if (response.status === 401 && onUnauthorizedCallback) {
+                console.warn("[API] Sessão expirada detectada. Chamando callback de logout...");
+                onUnauthorizedCallback();
+            }
+
             let data;
             const contentType = response.headers.get('content-type');
             
