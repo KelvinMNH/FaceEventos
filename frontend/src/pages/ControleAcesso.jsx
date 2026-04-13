@@ -705,12 +705,34 @@ function ControleAcesso() {
                   )}
               </div>
               
-              <h2 style={{ fontSize: '1.6rem', margin: '0 0 0.2rem 0', fontWeight: 'bold', textShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
-                  {isCheckout ? 'Até logo,' : (participante.genero === 'F' ? 'Bem-vinda,' : (participante.genero === 'M' ? 'Bem-vindo,' : 'Bem-vindo(a),'))}
-              </h2>
-              <h1 style={{ fontSize: '1.9rem', margin: '0 0 0.5rem 0', lineHeight: '1.2', fontWeight: '800' }}>
-                  {participante.nome || 'Visitante'}
-              </h1>
+              <div style={{
+                maxWidth: '90%',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                <h2 style={{ 
+                  fontSize: '1.4rem', 
+                  margin: '0 0 0.2rem 0', 
+                  fontWeight: 'bold', 
+                  textShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                  whiteSpace: 'nowrap'
+                }}>
+                    {isCheckout ? 'Até logo,' : (participante.genero === 'F' ? 'Bem-vinda,' : (participante.genero === 'M' ? 'Bem-vindo,' : 'Bem-vindo(a),'))}
+                </h2>
+                <h1 style={{ 
+                  fontSize: `${Math.max(1.3, 2.0 - ((participante.nome?.length || 0) * 0.025))}rem`, 
+                  margin: '0 0 0.5rem 0', 
+                  lineHeight: '1.1', 
+                  fontWeight: '800',
+                  overflowWrap: 'break-word',
+                  wordBreak: 'break-word',
+                  width: '100%'
+                }}>
+                    {participante.nome || 'Visitante'}
+                </h1>
+              </div>
               {participante.crm && (
                   <div style={{ fontSize: '1rem', marginBottom: '0.8rem', fontWeight: 'bold', color: 'rgba(255,255,255,0.9)' }}>
                       CRM: {participante.crm}
