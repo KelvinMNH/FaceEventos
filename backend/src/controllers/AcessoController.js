@@ -47,24 +47,34 @@ class AcessoController {
             }
 
             // Verificação de duplicidade (Bloqueia re-entrada se já houver qualquer entrada de sucesso)
+            // Verificação de duplicidade (Bloqueia re-entrada se já houver qualquer entrada de sucesso)
             if (participante) {
+                const eid = Number(evento.id);
+                const pid = Number(participante.id);
+                
+                logDebug(`[SCAN] Investigando Participante=${pid} no Evento=${eid}`);
+
+                // Busca por qualquer registro de sucesso preexistente para este participante e evento
                 const entradaExistente = await RegistroAcesso.findOne({
                     where: { 
-                        EventoId: evento.id, 
-                        ParticipanteId: participante.id,
+                        EventoId: eid, 
+                        ParticipanteId: pid,
                         tipo_acesso: 'entrada',
                         status_validacao: 'sucesso'
-                    }
+                    },
+                    order: [['id', 'DESC']],
+                    raw: true
                 });
 
                 if (entradaExistente) {
+                    logDebug(`Duplicidade detectada para Participante ${pid}. Log ID Existente: ${entradaExistente.id}`);
                     // Log tentativa duplicada mas não cria registro de sucesso
                     await RegistroAcesso.create({
                         tipo_acesso: 'entrada',
                         status_validacao: 'falha', // duplicado
                         device_id: device_id || 'unknown',
-                        EventoId: evento.id,
-                        ParticipanteId: participante.id
+                        EventoId: eid,
+                        ParticipanteId: pid
                     });
 
                     return res.json({
@@ -81,12 +91,14 @@ class AcessoController {
             }
 
             const status = participante ? 'sucesso' : 'nao_encontrado';
+            logDebug(`Processando novo registro. Status: ${status} | Participante: ${participante?.id || 'null'}`);
+            
             const acesso = await RegistroAcesso.create({
                 tipo_acesso: 'entrada',
                 status_validacao: status,
                 device_id: device_id || 'unknown',
-                EventoId: evento.id,
-                ParticipanteId: participante ? participante.id : null
+                EventoId: Number(evento.id),
+                ParticipanteId: participante ? Number(participante.id) : null
             });
 
             if (participante) {
@@ -120,46 +132,54 @@ class AcessoController {
     async manualEntry(req, res) {
         try {
             const { query, participanteId, eventoId } = req.body;
+            
+            // Busca o evento de forma otimizada (apenas IDs e Status necessários)
             const evento = eventoId 
-                ? await Evento.findOne({ where: { uuid: eventoId } })
-                : await Evento.findOne({ where: { status: 'ativo' } });
+                ? await Evento.findOne({ where: { uuid: eventoId }, attributes: ['id', 'status'], raw: true })
+                : await Evento.findOne({ where: { status: 'ativo' }, attributes: ['id', 'status'], raw: true });
             
             if (!evento || evento.status !== 'ativo') {
-                return res.json({ success: false, msg: "Este evento não está ativo para registros manuais." });
+                return res.json({ success: false, msg: "Evento não encontrado ou inativo." });
             }
 
             let participante = null;
 
             if (participanteId) {
-                participante = await Participante.findByPk(participanteId);
+                participante = await Participante.findByPk(participanteId, { raw: true });
             } else if (query) {
+                const lowerQuery = query.toLowerCase();
+                const digitsQuery = query.replace(/\D/g, '');
                 participante = await Participante.findOne({
                     where: {
                         [Op.or]: [
-                            { cpf: { [Op.like]: `%${query}%` } },
-                            { crm: { [Op.like]: `%${query}%` } },
-                            { nome: { [Op.like]: `%${query}%` } }
+                            sequelize.where(sequelize.fn('LOWER', sequelize.col('cpf')), { [Op.like]: `%${digitsQuery || lowerQuery}%` }),
+                            sequelize.where(sequelize.fn('LOWER', sequelize.col('crm')), { [Op.like]: `%${lowerQuery}%` }),
+                            sequelize.where(sequelize.fn('LOWER', sequelize.col('nome')), { [Op.like]: `%${lowerQuery}%` })
                         ]
-                    }
+                    },
+                    raw: true
                 });
             }
 
             if (!participante) return res.json({ success: false, msg: "Participante não encontrado", not_found: true });
 
-            // Verificação de duplicidade Manual (Bloqueia re-entrada se já houver qualquer entrada de sucesso)
+            // Verificação de duplicidade Manual otimizada (apenas id)
             const entradaExistente = await RegistroAcesso.findOne({
                 where: { 
                     EventoId: evento.id, 
                     ParticipanteId: participante.id,
                     tipo_acesso: 'entrada',
                     status_validacao: 'sucesso'
-                }
+                },
+                attributes: ['id'],
+                raw: true
             });
 
             if (entradaExistente) {
                 return res.json({ success: false, msg: "Participante já possui entrada registrada!", already_in: true });
             }
 
+            // Cria o registro e retorna imediatamente o sucesso
             await RegistroAcesso.create({
                 tipo_acesso: 'entrada',
                 status_validacao: 'sucesso',
@@ -168,7 +188,7 @@ class AcessoController {
                 ParticipanteId: participante.id
             });
 
-            res.json({ success: true, status: 'sucesso', participante });
+            return res.json({ success: true, status: 'sucesso', participante });
         } catch (e) {
             console.error("Erro na entrada manual:", e);
             res.status(500).json({ error: "Erro na entrada manual", details: e.message });
@@ -371,7 +391,7 @@ class AcessoController {
             const logs = await RegistroAcesso.findAll({
                 where: whereClause,
                 order: [['createdAt', 'DESC']],
-                limit: eventoUuid ? 50000 : 1000, 
+                limit: eventoUuid ? 2000 : 1000, 
                 include: [
                     { model: Participante, attributes: ['id', 'nome', 'cpf', 'crm', 'genero', 'data_nascimento'] },
                     { model: Acompanhante, attributes: ['id', 'nome', 'ParticipanteId'] },

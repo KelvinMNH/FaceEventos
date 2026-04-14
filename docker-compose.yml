@@ -1,0 +1,65 @@
+services:
+  oracle-db:
+    image: gvenzl/oracle-free:latest
+    container_name: unieventos-oracle
+    restart: unless-stopped
+    ports:
+      - "1521:1521"
+    environment:
+      - ORACLE_PASSWORD=unieventos123
+      - APP_USER=unieventos
+      - APP_USER_PASSWORD=unieventos123
+    volumes:
+      - oracle_data:/opt/oracle/oradata
+    networks:
+      - unieventos-net
+    healthcheck:
+      test: ["CMD-SHELL", "exit | sqlplus -S / as sysdba"]
+      interval: 30s
+      timeout: 10s
+      retries: 15
+
+  backend:
+    build:
+      context: ./backend
+    container_name: unieventos-backend
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+    depends_on:
+      oracle-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    env_file:
+      - .env
+    volumes:
+      - ./backend/biometria_debug.log:/usr/src/app/biometria_debug.log
+      - ./backend/logs:/usr/src/app/logs
+    networks:
+      - unieventos-net
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: unieventos-frontend
+    ports:
+      - "5174:80"
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    env_file:
+      - .env
+    networks:
+      - unieventos-net
+
+networks:
+  unieventos-net:
+    driver: bridge
+
+volumes:
+  oracle_data:

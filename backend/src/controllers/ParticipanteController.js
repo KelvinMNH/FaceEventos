@@ -1,4 +1,4 @@
-const { Participante, Evento, Acompanhante, RegistroAcesso, HistoricoSincronizacao } = require('../models');
+const { Participante, Evento, Acompanhante, RegistroAcesso, HistoricoSincronizacao, sequelize } = require('../models');
 const { Op } = require('sequelize');
 const SyncParticipantesService = require('../services/SyncParticipantesService');
 
@@ -7,15 +7,29 @@ class ParticipanteController {
         try {
             const { q } = req.query;
             if (!q) return res.json([]);
+            const lowerQ = q.toLowerCase();
+            const digitsQ = q.replace(/\D/g, ''); // Normaliza CPF para apenas números
+            const queryWhere = {
+                [Op.or]: [
+                    sequelize.where(sequelize.fn('LOWER', sequelize.col('nome')), {
+                        [Op.like]: `%${lowerQ}%`
+                    }),
+                    sequelize.where(sequelize.fn('LOWER', sequelize.col('cpf')), {
+                        [Op.like]: `%${digitsQ || lowerQ}%`
+                    }),
+                    sequelize.where(sequelize.fn('LOWER', sequelize.col('crm')), {
+                        [Op.like]: `%${lowerQ}%`
+                    })
+                ]
+            };
+
+            // No Oracle, buscar string em campo numérico gera erro de tipo
+            if (!isNaN(q)) {
+                queryWhere[Op.or].push({ id: q });
+            }
+
             const participantes = await Participante.findAll({
-                where: {
-                    [Op.or]: [
-                        { id: q }, // Busca exata por ID (útil para identificação facial)
-                        { nome: { [Op.like]: `%${q}%` } },
-                        { cpf: { [Op.like]: `%${q}%` } },
-                        { crm: { [Op.like]: `%${q}%` } }
-                    ]
-                },
+                where: queryWhere,
                 limit: 10
             });
             res.json(participantes);
@@ -85,19 +99,34 @@ class ParticipanteController {
 
             const { nome, cpf, crm, genero, data_nascimento, especialidade, foto_biometria } = req.body;
 
+            // Sanitização para o Oracle (Evitar strings vazias em campos de data ou opcionais)
+            const cleanCRM = (crm && crm.trim()) ? crm.trim() : null;
+            const cleanDataNasc = (data_nascimento && data_nascimento.trim()) ? data_nascimento.trim() : null;
+            const cleanEspecialidade = (especialidade && especialidade.trim()) ? especialidade.trim() : null;
+            const cleanGenero = (genero && genero.trim()) ? genero.trim() : 'O';
+
             // Check se CPF já existe
             if (cpf) {
                 const existenteCPF = await Participante.findOne({ where: { cpf } });
                 if (existenteCPF) return res.status(400).json({ error: "CPF já cadastrado." });
             }
 
-            if (crm) {
-                const existenteCRM = await Participante.findOne({ where: { crm } });
+            if (cleanCRM) {
+                const existenteCRM = await Participante.findOne({ 
+                    where: sequelize.where(sequelize.fn('LOWER', sequelize.col('crm')), cleanCRM.toLowerCase()) 
+                });
                 if (existenteCRM) return res.status(400).json({ error: "CRM já cadastrado." });
             }
 
             const participante = await Participante.create({
-                nome, cpf, crm, genero, data_nascimento, especialidade, foto_biometria, ativo: true
+                nome, 
+                cpf, 
+                crm: cleanCRM, 
+                genero: cleanGenero, 
+                data_nascimento: cleanDataNasc, 
+                especialidade: cleanEspecialidade, 
+                foto_biometria, 
+                ativo: true
             });
 
             res.json({ success: true, participante, msg: "Participante criado com sucesso." });
@@ -122,16 +151,19 @@ class ParticipanteController {
             }
 
             if (crm && crm !== participante.crm) {
-                const existenteCRM = await Participante.findOne({ where: { crm } });
+                const existenteCRM = await Participante.findOne({ 
+                    where: sequelize.where(sequelize.fn('LOWER', sequelize.col('crm')), crm.trim().toLowerCase()) 
+                });
                 if (existenteCRM) return res.status(400).json({ error: "CRM já cadastrado em outro participante." });
             }
 
-            participante.nome = nome;
-            participante.cpf = cpf;
-            participante.crm = crm;
-            participante.genero = genero;
-            participante.data_nascimento = data_nascimento;
-            participante.especialidade = especialidade;
+            // Sanitização para o Oracle (Lidando com strings vazias)
+            participante.nome = nome || participante.nome;
+            participante.cpf = cpf || participante.cpf;
+            participante.crm = (crm && crm.trim()) ? crm.trim() : null;
+            participante.genero = (genero && genero.trim()) ? genero.trim() : (participante.genero || 'O');
+            participante.data_nascimento = (data_nascimento && data_nascimento.trim()) ? data_nascimento.trim() : null;
+            participante.especialidade = (especialidade && especialidade.trim()) ? especialidade.trim() : null;
             if (foto_biometria) participante.foto_biometria = foto_biometria;
 
 

@@ -1,4 +1,5 @@
-const { Usuario } = require('../models');
+const { Usuario, sequelize } = require('../models');
+const { Op } = require('sequelize');
 const jwt = require('jsonwebtoken');
 const SyncParticipantesService = require('../services/SyncParticipantesService');
 
@@ -10,8 +11,10 @@ class AuthController {
         try {
             const { username, password } = req.body;
 
-            // Busca usuário
-            const user = await Usuario.findOne({ where: { username } });
+            // Busca usuário (Case-insensitive para o Oracle)
+            const user = await Usuario.findOne({ 
+                where: sequelize.where(sequelize.fn('LOWER', sequelize.col('username')), username.toLowerCase()) 
+            });
             if (!user) {
                 return res.status(401).json({ success: false, msg: 'Usuário ou senha inválidos' });
             }

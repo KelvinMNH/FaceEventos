@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import { apiService } from '../services/api';
 import Navbar from '../components/Navbar';
 import MessageModal from '../components/MessageModal';
-import { useAuth } from '../contexts/AuthContext';
 
 function ListaEventos() {
     const navigate = useNavigate();
@@ -55,11 +56,8 @@ function ListaEventos() {
     const checkSyncStatus = () => {
         setTimeout(async () => {
             try {
-                const res = await fetch('http://localhost:3000/api/participantes/sync/status', {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                if (res.ok) {
-                    const data = await res.json();
+                const { ok, data } = await apiService.get('/participantes/sync/status');
+                if (ok) {
                     if (data && data.status !== 'nenhum_registro' && data.data_sync) {
                         const syncDate = new Date(data.data_sync);
                         const now = new Date();
@@ -69,7 +67,6 @@ function ListaEventos() {
                         }
                     }
                 }
-
             } catch (err) {
                 console.error("Erro ao checar status do sync:", err);
             }
@@ -78,11 +75,8 @@ function ListaEventos() {
 
     const fetchEventos = async () => {
         try {
-            const res = await fetch('http://localhost:3000/api/eventos', {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            if (res.status === 401 || res.status === 403) return;
-            const data = await res.json();
+            const { ok, status, data } = await apiService.get('/eventos');
+            if (status === 401 || status === 403) return;
             setEventos(Array.isArray(data) ? data : []);
         } catch (err) {
             console.error(err);
@@ -93,11 +87,8 @@ function ListaEventos() {
 
     const handleSelectEvent = async (uuid) => {
         try {
-            const res = await fetch(`http://localhost:3000/api/eventos/${uuid}/ativar`, {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            if (res.ok) {
+            const { ok } = await apiService.post(`/eventos/${uuid}/ativar`);
+            if (ok) {
                 navigate(`/event/${uuid}/access`);
             }
         } catch (err) {
@@ -121,22 +112,14 @@ function ListaEventos() {
         setCreating(true);
 
         try {
-            const res = await fetch('http://localhost:3000/api/eventos', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify(formData)
-            });
+            const { ok, data } = await apiService.post('/eventos', formData);
 
-            if (res.ok) {
+            if (ok) {
                 setIsModalOpen(false);
                 setFormData({ nome: '', data: '', hora: '', local: '', imagem: '', permitir_acompanhantes: false, max_acompanhantes: 0, habilitar_checkout: false });
                 fetchEventos();
-                const dataEv = await res.json();
-                if (dataEv.evento && dataEv.evento.uuid) {
-                    navigate(`/event/${dataEv.evento.uuid}/access`);
+                if (data.evento && data.evento.uuid) {
+                    navigate(`/event/${data.evento.uuid}/access`);
                 } else {
                     navigate('/');
                 }
@@ -189,7 +172,7 @@ function ListaEventos() {
                                 padding: '1rem 1.5rem',
                                 borderRadius: '8px',
                                 marginBottom: '2rem',
-                                border: '1px solid #e2e8f0',
+                                border: '1px solid var(--basic-gray-100)',
                                 display: 'flex',
                                 justifyContent: 'space-between',
                                 alignItems: 'center',
@@ -198,13 +181,13 @@ function ListaEventos() {
                             }}>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#28a745" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
-                                        <strong style={{ fontSize: '1.05rem', color: '#1a202c' }}>Sincronização de Cooperados Concluída</strong>
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00995D" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                                        <strong style={{ fontSize: '1.05rem', color: 'var(--basic-black)' }}>Sincronização de Cooperados Concluída</strong>
                                     </div>
-                                    <span style={{ color: '#4a5568', fontSize: '0.9rem', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                    <span style={{ color: 'var(--basic-gray-700)', fontSize: '0.9rem', display: 'flex', flexDirection: 'column', gap: '2px' }}>
                                         <span>Os dados do banco da Unimed Maceió foram atualizados com sucesso no sistema.</span>
                                         {syncSummary.data_sync && (
-                                            <span style={{ fontSize: '0.75rem', color: '#718096', opacity: 0.8 }}>
+                                            <span style={{ fontSize: '0.75rem', color: 'var(--basic-gray-500)', opacity: 0.8 }}>
                                                 Última sincronização: {new Date(syncSummary.data_sync).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
                                             </span>
                                         )}
@@ -234,7 +217,7 @@ function ListaEventos() {
                                             style={{
                                                 padding: '0.5rem 1rem',
                                                 backgroundColor: showSyncLog ? '#cbd5e0' : 'var(--accent-color)',
-                                                color: showSyncLog ? '#4a5568' : 'white',
+                                                color: showSyncLog ? 'var(--basic-gray-700)' : 'white',
                                                 border: 'none',
                                                 borderRadius: '6px',
                                                 fontSize: '0.85rem',
@@ -250,8 +233,8 @@ function ListaEventos() {
                                         </button>
                                     )}
 
-                                    <div style={{ height: '30px', width: '1px', backgroundColor: '#e2e8f0', margin: '0 0.5rem' }}></div>
-                                    <button onClick={() => setSyncSummary(null)} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#a0aec0', padding: '0.2rem 0.5rem', transition: 'color 0.2s' }} onMouseOver={(e) => e.target.style.color = '#4a5568'} onMouseOut={(e) => e.target.style.color = '#a0aec0'}>×</button>
+                                    <div style={{ height: '30px', width: '1px', backgroundColor: 'var(--basic-gray-100)', margin: '0 0.5rem' }}></div>
+                                    <button onClick={() => setSyncSummary(null)} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: 'var(--basic-gray-300)', padding: '0.2rem 0.5rem', transition: 'color 0.2s' }} onMouseOver={(e) => e.target.style.color = 'var(--basic-gray-700)'} onMouseOut={(e) => e.target.style.color = 'var(--basic-gray-300)'}>×</button>
                                 </div>
                             </div>
                         )}
@@ -262,11 +245,11 @@ function ListaEventos() {
                                 borderRadius: '8px',
                                 padding: '1.5rem',
                                 marginBottom: '2rem',
-                                border: '1px solid #e2e8f0',
+                                border: '1px solid var(--basic-gray-100)',
                                 animation: 'slideDown 0.3s ease-out',
                                 boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.05)'
                             }}>
-                                <h3 style={{ fontSize: '1.1rem', marginBottom: '1rem', color: '#2d3748', borderBottom: '2px solid #e2e8f0', paddingBottom: '0.5rem' }}>
+                                <h3 style={{ fontSize: '1.1rem', marginBottom: '1rem', color: 'var(--basic-gray-900)', borderBottom: '2px solid var(--basic-gray-100)', paddingBottom: '0.5rem' }}>
                                     📋 Detalhamento das Alterações
                                 </h3>
                                 
@@ -281,13 +264,13 @@ function ListaEventos() {
                                             {JSON.parse(syncSummary.log_detalhado).adicionados.length > 0 ? (
                                                 JSON.parse(syncSummary.log_detalhado).adicionados.map((p, idx) => (
                                                     <div key={idx} style={{ padding: '0.6rem', borderBottom: idx < JSON.parse(syncSummary.log_detalhado).adicionados.length - 1 ? '1px solid #f1f5f9' : 'none' }}>
-                                                        <div style={{ fontWeight: '600', color: '#1a202c' }}>{p.nome}</div>
-                                                        <div style={{ color: '#718096', fontSize: '0.75rem' }}>
+                                                        <div style={{ fontWeight: '600', color: 'var(--basic-black)' }}>{p.nome}</div>
+                                                        <div style={{ color: 'var(--basic-gray-500)', fontSize: '0.75rem' }}>
                                                             CPF: {maskCPF(p.cpf)} {p.crm && `| CRM: ${p.crm}`}
                                                         </div>
                                                     </div>
                                                 ))
-                                            ) : <div style={{ padding: '1rem', color: '#a0aec0', fontStyle: 'italic' }}>Nenhum novo.</div>}
+                                            ) : <div style={{ padding: '1rem', color: 'var(--basic-gray-300)', fontStyle: 'italic' }}>Nenhum novo.</div>}
                                         </div>
                                     </div>
 
@@ -301,13 +284,13 @@ function ListaEventos() {
                                             {JSON.parse(syncSummary.log_detalhado).modificados.length > 0 ? (
                                                 JSON.parse(syncSummary.log_detalhado).modificados.map((p, idx) => (
                                                     <div key={idx} style={{ padding: '0.6rem', borderBottom: idx < JSON.parse(syncSummary.log_detalhado).modificados.length - 1 ? '1px solid #f1f5f9' : 'none' }}>
-                                                        <div style={{ fontWeight: '600', color: '#1a202c' }}>{p.nome}</div>
-                                                        <div style={{ color: '#718096', fontSize: '0.75rem' }}>
+                                                        <div style={{ fontWeight: '600', color: 'var(--basic-black)' }}>{p.nome}</div>
+                                                        <div style={{ color: 'var(--basic-gray-500)', fontSize: '0.75rem' }}>
                                                             CPF: {maskCPF(p.cpf)} {p.crm && `| CRM: ${p.crm}`}
                                                         </div>
                                                     </div>
                                                 ))
-                                            ) : <div style={{ padding: '1rem', color: '#a0aec0', fontStyle: 'italic' }}>Nenhum modificado.</div>}
+                                            ) : <div style={{ padding: '1rem', color: 'var(--basic-gray-300)', fontStyle: 'italic' }}>Nenhum modificado.</div>}
                                         </div>
                                     </div>
 
@@ -321,13 +304,13 @@ function ListaEventos() {
                                             {JSON.parse(syncSummary.log_detalhado).inativados.length > 0 ? (
                                                 JSON.parse(syncSummary.log_detalhado).inativados.map((p, idx) => (
                                                     <div key={idx} style={{ padding: '0.6rem', borderBottom: idx < JSON.parse(syncSummary.log_detalhado).inativados.length - 1 ? '1px solid #f1f5f9' : 'none' }}>
-                                                        <div style={{ fontWeight: '600', color: '#1a202c' }}>{p.nome}</div>
-                                                        <div style={{ color: '#718096', fontSize: '0.75rem' }}>
+                                                        <div style={{ fontWeight: '600', color: 'var(--basic-black)' }}>{p.nome}</div>
+                                                        <div style={{ color: 'var(--basic-gray-500)', fontSize: '0.75rem' }}>
                                                             CPF: {maskCPF(p.cpf)} {p.crm && `| CRM: ${p.crm}`}
                                                         </div>
                                                     </div>
                                                 ))
-                                            ) : <div style={{ padding: '1rem', color: '#a0aec0', fontStyle: 'italic' }}>Nenhum inativado.</div>}
+                                            ) : <div style={{ padding: '1rem', color: 'var(--basic-gray-300)', fontStyle: 'italic' }}>Nenhum inativado.</div>}
                                         </div>
                                     </div>
                                 </div>
@@ -345,10 +328,10 @@ function ListaEventos() {
                                     >
                                         <div style={{ height: '140px', overflow: 'hidden', borderRadius: '6px', marginBottom: '0.5rem' }}>
                                             <img
-                                                src={evento.imagem || '/logo.jpg'}
+                                                src={evento.imagem || '/logo.png'}
                                                 alt={evento.nome}
                                                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                                onError={(e) => { e.target.onerror = null; e.target.src = '/logo.jpg'; }}
+                                                onError={(e) => { e.target.onerror = null; e.target.src = '/logo.png'; }}
                                             />
                                         </div>
                                         <div>
@@ -394,10 +377,10 @@ function ListaEventos() {
                                         <div key={evento.uuid} className="card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                                             <div style={{ height: '140px', overflow: 'hidden', borderRadius: '6px', marginBottom: '0.5rem' }}>
                                                 <img
-                                                    src={evento.imagem || '/logo.jpg'}
+                                                    src={evento.imagem || '/logo.png'}
                                                     alt={evento.nome}
                                                     style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'grayscale(100%)' }}
-                                                    onError={(e) => { e.target.onerror = null; e.target.src = '/logo.jpg'; }}
+                                                    onError={(e) => { e.target.onerror = null; e.target.src = '/logo.png'; }}
                                                 />
                                             </div>
                                             <div>

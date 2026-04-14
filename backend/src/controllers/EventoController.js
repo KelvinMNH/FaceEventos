@@ -86,7 +86,7 @@ class EventoController {
 
             const nomeEvento = evento.nome;
 
-            // Deletar os registros de acesso vinculados primeiro para evitar erro de constraint (SQLite)
+            // Deletar os registros de acesso vinculados primeiro para evitar erro de constraint
             await RegistroAcesso.destroy({ where: { EventoId: evento.id } });
 
             // Deletar o evento

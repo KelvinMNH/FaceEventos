@@ -25,10 +25,10 @@ LogAuditoria.belongsTo(Usuario, { foreignKey: 'usuario_id' });
 
 async function syncDB() {
     try {
-        // Alterado para false para evitar criação de tabelas de backup no SQLite
+        // Alterado para false para garantir a integridade do schema
         // Se precisar alterar schema, use migration ou ative manualmente
-        await sequelize.sync({ alter: false });
-        console.log("✅ Banco de dados sincronizado.");
+        await sequelize.sync({ force: false });
+        console.log("✅ Banco de dados Oracle preservado e sincronizado.");
     } catch (error) {
         console.error("❌ Erro ao sincronizar banco de dados:", error);
     }
@@ -93,7 +93,7 @@ async function syncDB() {
                 perfil: 'admin'
             },
             {
-                nome: 'Operador Padrão',
+                nome: 'Operador',
                 username: 'operador',
                 password: 'operador123', // Será hashado pelo hook
                 perfil: 'operador'

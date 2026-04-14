@@ -3,8 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import Navbar from '../components/Navbar';
 import MessageModal from '../components/MessageModal';
 import { FaceScanner } from '../components/FaceScanner';
-
-const API_URL = `${window.location.protocol}//${window.location.hostname}:3000/api`;
+import apiService from '../services/api';
 
 const FaceIcon = ({ size = "1em", ...props }) => (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" {...props}>
@@ -30,6 +29,7 @@ function GerenciarParticipantes() {
     const { token } = useAuth();
     const [participantes, setParticipantes] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
+    const [filterBioOnly, setFilterBioOnly] = useState(false);
     const [loading, setLoading] = useState(true);
     const [syncStatus, setSyncStatus] = useState(null);
     const [enriqStatus, setEnriqStatus] = useState(null);
@@ -51,29 +51,21 @@ function GerenciarParticipantes() {
             if (!token) return;
             setLoading(true);
             try {
-                const res = await fetch(`${API_URL}/participantes`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                const data = await res.json();
-                if (res.ok) {
+                const { data, ok } = await apiService.get('/participantes', token);
+                if (ok) {
                     setParticipantes(data);
                 } else {
                     console.error('Erro ao carregar participantes:', data.error);
                 }
 
-                const resSync = await fetch(`${API_URL}/participantes/sync/status`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                const dataSync = await resSync.json();
-                if (resSync.ok && dataSync.status !== 'nenhum_registro') {
+                const { data: dataSync, ok: okSync } = await apiService.get('/participantes/sync/status', token);
+                if (okSync && dataSync.status !== 'nenhum_registro') {
                     setSyncStatus(dataSync);
                 }
 
-                const resEnriq = await fetch(`${API_URL}/participantes/enriquecimento/status`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                if (resEnriq.ok) {
-                    setEnriqStatus(await resEnriq.json());
+                const { data: dataEnriq, ok: okEnriq } = await apiService.get('/participantes/enriquecimento/status', token);
+                if (okEnriq) {
+                    setEnriqStatus(dataEnriq);
                 }
             } catch (error) {
                 console.error('Erro de conexão ao carregar dados:', error);
@@ -130,19 +122,9 @@ function GerenciarParticipantes() {
         if (!currentParticipante) return;
 
         try {
-            const res = await fetch(`${API_URL}/participantes/${currentParticipante.id}/biometria`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({ template })
-            });
-
-            const data = await res.json();
-
-            if (res.ok) {
-                setGlowColor('#198754'); // Verde sucesso
+            const { data, ok } = await apiService.post(`/participantes/${currentParticipante.id}/biometria`, { template }, token);
+            if (ok) {
+                setGlowColor('#00995D'); // Verde sucesso Unimed
                 showMsg('success', data.msg);
                 
                 // Atualizar participante na lista local
@@ -171,10 +153,7 @@ function GerenciarParticipantes() {
         if (!window.confirm(`Tem certeza que deseja apagar a biometria de ${currentParticipante.nome}?`)) return;
 
         try {
-            const res = await fetch(`${API_URL}/participantes/${currentParticipante.id}/biometria`, {
-                method: 'DELETE',
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            const res = await apiService.delete(`/participantes/${currentParticipante.id}/biometria`, token);
 
             if (res.ok) {
                 showMsg('success', 'Biometria removida com sucesso');
@@ -203,11 +182,16 @@ function GerenciarParticipantes() {
         }
     };
 
-    const filteredParticipantes = participantes.filter(p =>
-        p.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (p.cpf && p.cpf.includes(searchTerm)) ||
-        (p.crm && p.crm.includes(searchTerm))
-    );
+    const filteredParticipantes = participantes.filter(p => {
+        const matchesSearch = p.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (p.cpf && p.cpf.includes(searchTerm)) ||
+            (p.crm && p.crm.includes(searchTerm));
+        
+        const hasBio = p.template_biometrico && !p.template_biometrico.startsWith('manual_');
+        const matchesBioFilter = !filterBioOnly || hasBio;
+
+        return matchesSearch && matchesBioFilter;
+    });
 
     const formatDate = (dateStr) => {
         if (!dateStr) return '';
@@ -245,40 +229,40 @@ function GerenciarParticipantes() {
                     <div className="card" style={{ 
                         marginBottom: '2rem', 
                         padding: '1.2rem 1.5rem', 
-                        backgroundColor: '#eaf4ff', 
-                        border: '1px solid #b6d4fe',
+                        backgroundColor: '#f8fafc', 
+                        border: '1px solid var(--basic-gray-100)',
                         borderRadius: '12px',
                         display: 'flex',
                         flexDirection: 'column',
                         gap: '1rem',
-                        boxShadow: '0 4px 12px rgba(0, 64, 133, 0.08)'
+                        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)'
                     }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#004085" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.59-10.36l5.25 5.25" /></svg>
-                                    <p style={{ margin: 0, fontWeight: 'bold', color: '#004085', fontSize: '1.05rem' }}>Status da Sincronização Automática</p>
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#004E4C" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.59-10.36l5.25 5.25" /></svg>
+                                    <p style={{ margin: 0, fontWeight: 'bold', color: '#004E4C', fontSize: '1.05rem' }}>Status da Sincronização Automática</p>
                                 </div>
-                                <p style={{ margin: '0.4rem 0 0 0', fontSize: '0.88rem', color: '#4a5568' }}>
+                                <p style={{ margin: '0.4rem 0 0 0', fontSize: '0.88rem', color: 'var(--basic-gray-700)' }}>
                                     Última atualização: <strong>{formatDate(syncStatus.data_sync)}</strong>
                                 </p>
                             </div>
                             <div style={{ display: 'flex', gap: '1rem', fontSize: '0.85rem', textAlign: 'center' }}>
-                                <div style={{ padding: '0.4rem 0.8rem', backgroundColor: '#fff', borderRadius: '8px', minWidth: '80px', border: '1px solid #dee2e6' }}>
-                                    <div style={{ fontWeight: 'bold', color: '#28a745', fontSize: '1.2rem' }}>{syncStatus.qtd_adicionados}</div>
-                                    <div style={{ fontSize: '0.75rem', color: '#6c757d', fontWeight: 'bold' }}>Novos</div>
+                                <div style={{ padding: '0.4rem 0.8rem', backgroundColor: '#fff', borderRadius: '8px', minWidth: '80px', border: '1px solid var(--basic-gray-100)' }}>
+                                    <div style={{ fontWeight: 'bold', color: '#00995D', fontSize: '1.2rem' }}>{syncStatus.qtd_adicionados}</div>
+                                    <div style={{ fontSize: '0.75rem', color: 'var(--basic-gray-500)', fontWeight: 'bold' }}>Novos</div>
                                 </div>
-                                <div style={{ padding: '0.4rem 0.8rem', backgroundColor: '#fff', borderRadius: '8px', minWidth: '80px', border: '1px solid #dee2e6' }}>
-                                    <div style={{ fontWeight: 'bold', color: '#ffc107', fontSize: '1.2rem' }}>{syncStatus.qtd_modificados}</div>
-                                    <div style={{ fontSize: '0.75rem', color: '#6c757d', fontWeight: 'bold' }}>Modificados</div>
+                                <div style={{ padding: '0.4rem 0.8rem', backgroundColor: '#fff', borderRadius: '8px', minWidth: '80px', border: '1px solid var(--basic-gray-100)' }}>
+                                    <div style={{ fontWeight: 'bold', color: '#F47920', fontSize: '1.2rem' }}>{syncStatus.qtd_modificados}</div>
+                                    <div style={{ fontSize: '0.75rem', color: 'var(--basic-gray-500)', fontWeight: 'bold' }}>Modificados</div>
                                 </div>
-                                <div style={{ padding: '0.4rem 0.8rem', backgroundColor: '#fff', borderRadius: '8px', minWidth: '80px', border: '1px solid #dee2e6' }}>
+                                <div style={{ padding: '0.4rem 0.8rem', backgroundColor: '#fff', borderRadius: '8px', minWidth: '80px', border: '1px solid var(--basic-gray-100)' }}>
                                     <div style={{ fontWeight: 'bold', color: '#dc3545', fontSize: '1.2rem' }}>{syncStatus.qtd_removidos}</div>
-                                    <div style={{ fontSize: '0.75rem', color: '#6c757d', fontWeight: 'bold' }}>Inativados</div>
+                                    <div style={{ fontSize: '0.75rem', color: 'var(--basic-gray-500)', fontWeight: 'bold' }}>Inativados</div>
                                 </div>
-                                <div style={{ padding: '0.4rem 0.8rem', backgroundColor: '#fff', borderRadius: '8px', minWidth: '80px', border: '1px solid #dee2e6' }}>
-                                    <div style={{ fontWeight: 'bold', color: '#007bff', fontSize: '1.2rem' }}>{syncStatus.total_participantes}</div>
-                                    <div style={{ fontSize: '0.75rem', color: '#6c757d', fontWeight: 'bold' }}>Total Ativos</div>
+                                <div style={{ padding: '0.4rem 0.8rem', backgroundColor: '#fff', borderRadius: '8px', minWidth: '80px', border: '1px solid var(--basic-gray-100)' }}>
+                                    <div style={{ fontWeight: 'bold', color: '#004E4C', fontSize: '1.2rem' }}>{syncStatus.total_participantes}</div>
+                                    <div style={{ fontSize: '0.75rem', color: 'var(--basic-gray-500)', fontWeight: 'bold' }}>Total Ativos</div>
                                 </div>
                             </div>
                         </div>
@@ -287,32 +271,32 @@ function GerenciarParticipantes() {
                         {enriqStatus && (
                             <div style={{ 
                                 paddingTop: '1rem', 
-                                borderTop: '1px solid #b6d4fe',
+                                borderTop: '1px solid #004E4C',
                                 display: 'flex',
                                 flexDirection: 'column',
                                 gap: '0.5rem'
                             }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#004085', fontSize: '0.88rem' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#004E4C', fontSize: '0.88rem' }}>
                                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
                                         <span style={{ fontWeight: '700' }}>Saúde da Base (Perfis Completos):</span>
-                                        <span style={{ color: enriqStatus.completo ? '#28a745' : '#ca8a04', fontWeight: 'bold' }}>
+                                        <span style={{ color: enriqStatus.completo ? '#00995D' : '#F47920', fontWeight: 'bold' }}>
                                             {enriqStatus.enriquecidos} de {enriqStatus.total} ({enriqStatus.percentual}%)
                                         </span>
                                     </div>
-                                    <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#004085' }}>{enriqStatus.percentual}%</span>
+                                    <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#004E4C' }}>{enriqStatus.percentual}%</span>
                                 </div>
-                                <div style={{ height: '8px', backgroundColor: 'rgba(255,255,255,0.5)', borderRadius: '99px', overflow: 'hidden', border: '1px solid #b6d4fe' }}>
+                                <div style={{ height: '8px', backgroundColor: 'rgba(255,255,255,0.5)', borderRadius: '99px', overflow: 'hidden', border: '1px solid #004E4C' }}>
                                     <div style={{
                                         height: '100%',
                                         width: `${enriqStatus.percentual}%`,
                                         borderRadius: '99px',
-                                        backgroundColor: enriqStatus.completo ? '#38a169' : '#f6ad55',
+                                        backgroundColor: enriqStatus.completo ? '#00995D' : '#F47920',
                                         transition: 'width 0.8s ease'
                                     }} />
                                 </div>
                                 {!enriqStatus.completo && (
-                                    <p style={{ margin: 0, fontSize: '0.75rem', color: '#004085', fontStyle: 'italic', opacity: 0.8 }}>
+                                    <p style={{ margin: 0, fontSize: '0.75rem', color: '#004E4C', fontStyle: 'italic', opacity: 0.8 }}>
                                         * {enriqStatus.pendentes} cooperados aguardando próximo login para complementar dados.
                                     </p>
                                 )}
@@ -322,7 +306,14 @@ function GerenciarParticipantes() {
                 )}
 
 
-                <div className="card" style={{ marginBottom: '2rem' }}>
+                <div className="card" style={{ 
+                    marginBottom: '2rem', 
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                    gap: '1rem'
+                }}>
                     <input
                         type="text"
                         placeholder="Buscar por nome, CPF ou CRM..."
@@ -331,6 +322,52 @@ function GerenciarParticipantes() {
                         className="modal-input"
                         style={{ width: '100%', maxWidth: '400px', marginBottom: 0, textAlign: 'left' }}
                     />
+
+                    <label style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: '0.8rem', 
+                        cursor: 'pointer',
+                        padding: '0.5rem 1rem',
+                        backgroundColor: filterBioOnly ? 'rgba(0, 153, 93, 0.1)' : 'transparent',
+                        borderRadius: '8px',
+                        border: `1px solid ${filterBioOnly ? 'var(--primary-green)' : 'var(--basic-gray-100)'}`,
+                        transition: 'all 0.2s ease',
+                        userSelect: 'none'
+                    }}>
+                        <div style={{
+                            width: '40px',
+                            height: '20px',
+                            backgroundColor: filterBioOnly ? 'var(--primary-green)' : 'var(--basic-gray-300)',
+                            borderRadius: '20px',
+                            position: 'relative',
+                            transition: 'background-color 0.3s'
+                        }}>
+                            <div style={{
+                                width: '16px',
+                                height: '16px',
+                                backgroundColor: 'white',
+                                borderRadius: '50%',
+                                position: 'absolute',
+                                top: '2px',
+                                left: filterBioOnly ? '22px' : '2px',
+                                transition: 'left 0.3s ease'
+                            }} />
+                        </div>
+                        <input 
+                            type="checkbox" 
+                            checked={filterBioOnly} 
+                            onChange={() => setFilterBioOnly(!filterBioOnly)} 
+                            style={{ display: 'none' }}
+                        />
+                        <span style={{ 
+                            fontSize: '0.9rem', 
+                            fontWeight: 'bold', 
+                            color: filterBioOnly ? 'var(--primary-green)' : 'var(--basic-gray-700)' 
+                        }}>
+                            Apenas com Biometria
+                        </span>
+                    </label>
                 </div>
 
                 <div className="table-container">
@@ -359,16 +396,16 @@ function GerenciarParticipantes() {
                                          <td style={{ padding: '1.2rem', fontWeight: 'bold' }}>{p.nome}</td>
                                         <td style={{ padding: '1.2rem', fontFamily: 'monospace' }}>{maskCPF(p.cpf)}</td>
                                         <td style={{ padding: '1.2rem' }}>{p.crm || '-'}</td>
-                                        <td style={{ padding: '1.2rem', fontSize: '0.9rem', color: '#4a5568' }}>{p.especialidade || '-'}</td>
+                                        <td style={{ padding: '1.2rem', fontSize: '0.9rem', color: 'var(--basic-gray-700)' }}>{p.especialidade || '-'}</td>
                                         <td style={{ padding: '1.2rem', textAlign: 'center' }}>
                                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem' }}>
                                                 {p.template_biometrico && !p.template_biometrico.startsWith('manual_') ? (
                                                     <>
-                                                        <span title="Face Cadastrada" style={{ color: '#4CAF50', display: 'flex' }}>
+                                                        <span title="Face Cadastrada" style={{ color: '#00995D', display: 'flex' }}>
                                                             <FaceIcon size="1.8rem" />
                                                         </span>
                                                         {p.data_biometria && (
-                                                            <span style={{ fontSize: '0.65rem', color: '#718096', fontWeight: '500' }}>
+                                                            <span style={{ fontSize: '0.65rem', color: 'var(--basic-gray-500)', fontWeight: '500' }}>
                                                                 {formatDate(p.data_biometria)}
                                                             </span>
                                                         )}
@@ -395,7 +432,7 @@ function GerenciarParticipantes() {
                                 ))}
                                 {filteredParticipantes.length === 0 && (
                                     <tr>
-                                        <td colSpan="5" style={{ textAlign: 'center', padding: '4rem', color: '#a0aec0' }}>
+                                        <td colSpan="5" style={{ textAlign: 'center', padding: '4rem', color: 'var(--basic-gray-300)' }}>
                                             Nenhum participante encontrado.
                                         </td>
                                     </tr>
@@ -435,7 +472,7 @@ function GerenciarParticipantes() {
                                              type="button" 
                                              title={showCpf ? 'Ocultar CPF' : 'Revelar CPF'}
                                              onClick={(e) => { e.preventDefault(); setShowCpf(!showCpf); }} 
-                                             style={{ background: 'none', border: 'none', color: '#6c757d', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                             style={{ background: 'none', border: 'none', color: 'var(--basic-gray-500)', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                                              tabIndex="-1"
                                          >
                                              {showCpf ? <EyeOffIcon /> : <EyeIcon />}
@@ -515,7 +552,7 @@ function GerenciarParticipantes() {
                                 padding: '1rem',
                                 backgroundColor: '#f8f9fa',
                                 borderRadius: '12px',
-                                border: '1px solid #e2e8f0',
+                                border: '1px solid var(--basic-gray-100)',
                                 display: 'flex',
                                 alignItems: 'center',
                                 gap: '1rem'
@@ -524,11 +561,11 @@ function GerenciarParticipantes() {
                                      width: '45px',
                                      height: '45px',
                                      borderRadius: '10px',
-                                     backgroundColor: currentParticipante?.template_biometrico ? (currentParticipante.template_biometrico.startsWith('manual_') ? '#ebf8ff' : '#e6fffa') : '#fff5f5',
+                                     backgroundColor: currentParticipante?.template_biometrico ? (currentParticipante.template_biometrico.startsWith('manual_') ? '#A4D8DE' : '#CDE3BB') : '#F1CDCD',
                                      display: 'flex',
                                      alignItems: 'center',
                                      justifyContent: 'center',
-                                     color: currentParticipante?.template_biometrico ? (currentParticipante.template_biometrico.startsWith('manual_') ? '#3182ce' : '#38a169') : '#e53e3e'
+                                     color: currentParticipante?.template_biometrico ? (currentParticipante.template_biometrico.startsWith('manual_') ? '#004E4C' : '#00995D') : '#e53e3e'
                                  }}>
                                      <FaceIcon size="1.8rem" />
                                  </div>
@@ -540,7 +577,7 @@ function GerenciarParticipantes() {
                                         <span style={{ 
                                             fontSize: '0.95rem', 
                                             fontWeight: '700',
-                                            color: currentParticipante?.template_biometrico ? '#2d3748' : '#e53e3e'
+                                            color: currentParticipante?.template_biometrico ? 'var(--basic-gray-900)' : '#e53e3e'
                                         }}>
                                             {currentParticipante?.template_biometrico 
                                                 ? (currentParticipante.template_biometrico.startsWith('manual_') ? 'Entrada Manual' : 'Biometria Cadastrada') 
@@ -549,8 +586,8 @@ function GerenciarParticipantes() {
                                         {currentParticipante?.template_biometrico && (
                                             <span style={{ 
                                                 fontSize: '0.75rem', 
-                                                backgroundColor: currentParticipante.template_biometrico.startsWith('manual_') ? '#ebf8ff' : '#c6f6d5', 
-                                                color: currentParticipante.template_biometrico.startsWith('manual_') ? '#2b6cb0' : '#22543d', 
+                                                backgroundColor: currentParticipante.template_biometrico.startsWith('manual_') ? '#A4D8DE' : '#CDE3BB', 
+                                                color: currentParticipante.template_biometrico.startsWith('manual_') ? '#004E4C' : '#004E4C', 
                                                 padding: '2px 8px', 
                                                 borderRadius: '99px',
                                                 fontWeight: 'bold'
@@ -560,7 +597,7 @@ function GerenciarParticipantes() {
                                         )}
                                     </div>
                                     {currentParticipante?.template_biometrico && currentParticipante.data_biometria && (
-                                        <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.8rem', color: '#718096' }}>
+                                        <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.8rem', color: 'var(--basic-gray-500)' }}>
                                             Última captura: <strong>{formatDate(currentParticipante.data_biometria)}</strong>
                                         </p>
                                     )}

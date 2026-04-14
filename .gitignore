@@ -39,6 +39,8 @@ frontend/.env.local
 
 # Backend
 backend/node_modules/
+backend/*.log
+*.log
 
 # Tools & Debug
 tools/tmp/

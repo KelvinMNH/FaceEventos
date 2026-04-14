@@ -31,7 +31,7 @@ function Login() {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            background: 'linear-gradient(135deg, #00995D 0%, #007a4a 100%)', // Verde Unimed
+            background: 'linear-gradient(135deg, #00995D 0%, #004E4C 100%)', // Verde Unimed
             padding: '1rem'
         }}>
             <div style={{
@@ -47,17 +47,14 @@ function Login() {
                     <div style={{
                         width: '80px',
                         height: '80px',
-                        background: '#f8f9fa',
-                        borderRadius: '50%',
                         display: 'flex',
                         alignItems: 'center',
-                        justifyContent: 'center',
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
+                        justifyContent: 'center'
                     }}>
                         <img
-                            src="/logo.jpg"
+                            src="/logo.png"
                             alt="Logo"
-                            style={{ maxWidth: '50px', maxHeight: '50px' }}
+                            style={{ maxWidth: '80px', maxHeight: '80px' }}
                         />
                     </div>
                     <div>
@@ -71,7 +68,7 @@ function Login() {
 
                 <form onSubmit={handleSubmit} style={{ textAlign: 'left' }}>
                     <div style={{ marginBottom: '1rem' }}>
-                        <label style={{ display: 'block', marginBottom: '0.5rem', color: '#495057', fontSize: '0.9rem', fontWeight: '600' }}>Usuário</label>
+                        <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--basic-gray-700)', fontSize: '0.9rem', fontWeight: '600' }}>Usuário</label>
                         <input
                             type="text"
                             value={username}
@@ -94,7 +91,7 @@ function Login() {
                     </div>
 
                     <div style={{ marginBottom: '2rem' }}>
-                        <label style={{ display: 'block', marginBottom: '0.5rem', color: '#495057', fontSize: '0.9rem', fontWeight: '600' }}>Senha</label>
+                        <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--basic-gray-700)', fontSize: '0.9rem', fontWeight: '600' }}>Senha</label>
                         <input
                             type="password"
                             value={password}
@@ -135,7 +132,7 @@ function Login() {
                             boxShadow: '0 4px 12px rgba(0, 153, 93, 0.3)'
                         }}
                         onMouseOver={(e) => {
-                            e.currentTarget.style.background = '#007a4a';
+                            e.currentTarget.style.background = '#004E4C';
                             e.currentTarget.style.transform = 'translateY(-1px)';
                         }}
                         onMouseOut={(e) => {

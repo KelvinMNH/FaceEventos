@@ -1,66 +1,91 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
+import { Navigate } from 'react-router-dom';
+import apiService from '../services/api';
 
 const AuthContext = createContext();
 
+/**
+ * Função utilitária para decodificar o payload do JWT sem bibliotecas externas
+ */
+const parseJwt = (token) => {
+    try {
+        const base64Url = token.split('.')[1];
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const jsonPayload = decodeURIComponent(atob(base64).split('').map((c) => {
+            return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+        }).join(''));
+        return JSON.parse(jsonPayload);
+    } catch (e) {
+        return null;
+    }
+};
+
+export const PrivateRoute = ({ children }) => {
+  const { user, loading } = useAuth();
+  if (loading) return null;
+  return user ? children : <Navigate to="/login" />;
+};
+
 export const AuthProvider = ({ children }) => {
-    const [user, setUser] = useState(null);
+    const [user, setUser] = useState(() => {
+        const savedUser = localStorage.getItem('user');
+        return savedUser ? JSON.parse(savedUser) : null;
+    });
     const [token, setToken] = useState(localStorage.getItem('token'));
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(!!token);
+
+    const verifyInProgress = React.useRef(false);
+    const expirationTimerRef = React.useRef(null);
 
     useEffect(() => {
+        let isMounted = true;
+
         const verifySession = async () => {
-            if (!token) {
-                console.log("[Auth] Sem token, parando carregamento");
+            if (!token || verifyInProgress.current) {
+                if (!token) setLoading(false);
+                return;
+            }
+
+            // Se já temos user, não precisamos validar de novo imediatamente
+            if (user) {
                 setLoading(false);
                 return;
             }
 
-            console.log("[Auth] Validando sessão...");
-            setLoading(true); // Garante que está "carregando" durante a validação
-
+            verifyInProgress.current = true;
+            
             try {
-                const res = await fetch('http://localhost:3000/api/me', {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
+                // Pequeno delay para evitar inundação de rede em caso de re-render rápido
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                if (!isMounted) return;
 
-                console.log("[Auth] Resposta /me status:", res.status);
-
-                if (res.ok) {
-                    const data = await res.json();
-                    if (data.success) {
-                        console.log("[Auth] Sessão válida para:", data.user.username);
+                const { ok, data } = await apiService.get('/me');
+                if (ok && data.success) {
+                    if (isMounted) {
                         setUser(data.user);
                         localStorage.setItem('user', JSON.stringify(data.user));
-                    } else {
-                        console.warn("[Auth] /me retornou sucesso=false", data);
-                        logout();
                     }
-                } else {
-                    console.warn("[Auth] Sessão inválida (401/outros), deslogando...");
-                    logout();
+                } else if (ok === false) {
+                    if (isMounted) logout();
                 }
             } catch (error) {
-                console.error("[Auth] Erro ao validar sessão:", error);
-                // Em erro de rede, vamos manter logado por enquanto para evitar deslogar por instabilidade
-                // mas se o erro persistir, o usuário verá erros em outras requisições
+                console.error("[Auth Context] Verificação falhou:", error);
             } finally {
-                setLoading(false);
+                if (isMounted) setLoading(false);
+                verifyInProgress.current = false;
             }
         };
 
         verifySession();
-    }, [token]);
+        return () => { isMounted = false; };
+    }, [token]); // Removido user daqui para evitar loop se setUser mudar a referência // Só re-valida se o token em si mudar (login/logout)
 
     const login = async (username, password) => {
         try {
-            const res = await fetch('http://localhost:3000/api/login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, password })
-            });
-            const data = await res.json();
+            const { ok, data } = await apiService.post('/login', { username, password });
 
-            if (data.success) {
+            if (ok && data.success) {
                 setToken(data.token);
                 setUser(data.user);
                 localStorage.setItem('token', data.token);
@@ -81,6 +106,49 @@ export const AuthProvider = ({ children }) => {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
     };
+
+    // Configura o auto-logoff no serviço de API (Interceptor de 401)
+    useEffect(() => {
+        apiService.setUnauthorizedCallback(logout);
+        return () => apiService.setUnauthorizedCallback(null);
+    }, []);
+
+    // Configura o Cronômetro Proativo de Expiração
+    useEffect(() => {
+        // Limpa timer anterior se existir
+        if (expirationTimerRef.current) {
+            clearTimeout(expirationTimerRef.current);
+            expirationTimerRef.current = null;
+        }
+
+        if (token) {
+            const decoded = parseJwt(token);
+            if (decoded && decoded.exp) {
+                const expirationTime = decoded.exp * 1000;
+                const timeLeft = expirationTime - Date.now();
+
+                console.log(`[Auth] Sessão expira em ${Math.round(timeLeft / 1000 / 60)} minutos.`);
+
+                if (timeLeft <= 0) {
+                    console.warn("[Auth] Token já expirado. Deslogando...");
+                    logout();
+                } else {
+                    // Agenda o logout para o momento exato da expiração
+                    expirationTimerRef.current = setTimeout(() => {
+                        console.warn("[Auth] Tempo de sessão esgotado (Timer). Redirecionando...");
+                        logout();
+                    }, timeLeft);
+                }
+            } else {
+                // Token inválido ou sem expiração
+                logout();
+            }
+        }
+
+        return () => {
+            if (expirationTimerRef.current) clearTimeout(expirationTimerRef.current);
+        };
+    }, [token]);
 
     const isAdmin = () => user?.perfil === 'admin';
 

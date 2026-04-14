@@ -1,6 +1,5 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Login from './pages/Login';
 import ListaEventos from './pages/ListaEventos';
 import CriarEvento from './pages/CriarEvento';
@@ -11,17 +10,12 @@ import TotemSaida from './pages/TotemSaida';
 
 import GerenciarParticipantes from './pages/GerenciarParticipantes';
 
-// Componente para proteger rotas privadas
-const PrivateRoute = ({ children }) => {
-  const { user, loading } = useAuth();
-  if (loading) return <div>Carregando...</div>;
-  return user ? children : <Navigate to="/login" />;
-};
+import { AuthProvider, useAuth, PrivateRoute } from './contexts/AuthContext';
 
 // Componente para proteger rotas administrativas
 const AdminRoute = ({ children }) => {
   const { user, loading, isAdmin } = useAuth();
-  if (loading) return <div>Carregando...</div>;
+  if (loading) return null;
   if (!user) return <Navigate to="/login" />;
   return isAdmin && isAdmin() ? children : <Navigate to="/" />;
 };

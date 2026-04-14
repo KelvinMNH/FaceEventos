@@ -4,8 +4,7 @@ import Navbar from '../components/Navbar';
 import MessageModal from '../components/MessageModal';
 import { useAuth } from '../contexts/AuthContext';
 import { FaceScanner } from '../components/FaceScanner';
-
-const API_URL = `${window.location.protocol}//${window.location.hostname}:3000/api`;
+import apiService from '../services/api';
 
 const FaceIcon = ({ size = "1em", ...props }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" {...props}>
@@ -19,6 +18,7 @@ function ControleAcesso() {
   const { token } = useAuth();
   const [logs, setLogs] = useState([]);
   const [evento, setEvento] = useState(null);
+  const [faceScannerRefreshSignal, setFaceScannerRefreshSignal] = useState(0);
   const [modalData, setModalData] = useState(null);
   const [balloonData, setBalloonData] = useState(null);
   const [glowColor, setGlowColor] = useState(null);
@@ -65,15 +65,12 @@ function ControleAcesso() {
     setMessageModal({ open: true, title, message, type, onOk });
   };
 
+  // Buscar detalhes do evento específico
   useEffect(() => {
-    // Buscar detalhes do evento específico
     const fetchEvento = async () => {
       if (!token || !uuid) return;
       try {
-        const res = await fetch(`${API_URL}/eventos/${uuid}`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        const data = await res.json();
+        const { data } = await apiService.get(`/eventos/${uuid}`, token);
         if (data && data.id) setEvento(data);
         else {
           showMessage("Erro", "Evento não encontrado.", "error", () => navigate('/'));
@@ -84,236 +81,212 @@ function ControleAcesso() {
       }
     };
     fetchEvento();
+  }, [navigate, token, uuid]);
 
-    const fetchLogs = async () => {
-      // Só buscar logs se houver evento ativo
-      if (!evento || !token) return;
+  const fetchLogs = React.useCallback(async () => {
+    // Só buscar logs se houver evento ativo
+    if (!evento || !token) return;
 
-      try {
-        const resLogs = await fetch(`${API_URL}/logs?eventoUuid=${uuid}`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        const allLogs = await resLogs.json();
-
-        // Filtrar logs deste evento
-        const filteredLogs = allLogs.filter(log => {
-          return log && log.status_validacao === 'sucesso' && (log.Participante || log.Acompanhante);
-        });
-
-        setLogs(filteredLogs);
-
-        const presentesMap = new Map();
-        const firstLogMap = new Map(); // Map<ParticipanteId, FirstLog>
-
-        // Ordenar logs por data ASC para encontrar a primeira entrada
-        const sortedLogs = [...filteredLogs].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
-
-        sortedLogs.forEach(log => {
-          if (log.status_validacao === 'sucesso' && log.Participante) {
-            const pid = log.Participante.id;
-            if (!presentesMap.has(pid)) {
-              presentesMap.set(pid, log.Participante);
-              firstLogMap.set(pid, log); // Guarda o log da primeira entrada
-            }
-          }
-        });
-
-        const latest = filteredLogs[0]; // Assuming filteredLogs is already sorted by createdAt DESC
-        if (filteredLogs && filteredLogs.length > 0) {
-          if (lastLogId === 0) {
-            setLastLogId(filteredLogs[0].id);
-          } else {
-            const newLogs = filteredLogs.filter(l => l.id > lastLogId);
-            if (newLogs.length > 0) {
-                setLastLogId(filteredLogs[0].id);
-                // Prioridade: se houver algum SUCESSO na lista, mostre o mais recente deles.
-                // Caso contrário, mostre o mais recente (newLogs[0] pois filteredLogs é DESC)
-                const successLog = [...newLogs].sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt))
-                                            .find(l => l.status_validacao === 'sucesso');
-                
-                const logToShow = successLog || newLogs[0];
-                if (['sucesso', 'nao_encontrado', 'alerta'].includes(logToShow.status_validacao)) {
-                    showModal(logToShow);
-                }
-            }
-          }
-        }
-        const participantes = Array.from(presentesMap.values());
-
-        // Contar Entradas Manuais (baseado na primeira entrada)
-        let manualCount = 0;
-        firstLogMap.forEach(log => {
-          // Se o device_id NÃO for 'futronic_web', consideramos manual (inclui 'manual_entry_web', 'new_entry_web', etc)
-          if (log.device_id && !log.device_id.includes('web')) {
-            manualCount++;
-          }
-        });
-
-        // Acompanhantes
-        const totalAcompanhantes = filteredLogs.filter(l => l.status_validacao === 'sucesso' && l.AcompanhanteId).length;
-
-        let totalM = 0, totalF = 0;
-        let idades = [];
-
-        // Faixas: 18-25, 26-35, 36-50, 50+
-        let faixas = { '18-25': 0, '26-35': 0, '36-50': 0, '50+': 0 };
-
-        participantes.forEach(p => {
-          if (p.genero === 'M') totalM++;
-          if (p.genero === 'F') totalF++;
-
-          if (p.data_nascimento) {
-            const nasc = new Date(p.data_nascimento);
-            const hoje = new Date();
-            let idade = hoje.getFullYear() - nasc.getFullYear();
-            const m = hoje.getMonth() - nasc.getMonth();
-            if (m < 0 || (m === 0 && hoje.getDate() < nasc.getDate())) {
-              idade--;
-            }
-            idades.push(idade);
-
-            if (idade <= 25) faixas['18-25']++;
-            else if (idade <= 35) faixas['26-35']++;
-            else if (idade <= 50) faixas['36-50']++;
-            else faixas['50+']++;
-          }
-        });
-
-        // Determinar predominantes
-        const generoPredominante = totalM > totalF ? 'Masculino' : (totalF > totalM ? 'Feminino' : 'Equilibrado');
-        const percentMale = participantes.length > 0 ? Math.round((totalM / participantes.length) * 100) : 0;
-        const percentFemale = participantes.length > 0 ? Math.round((totalF / participantes.length) * 100) : 0;
-
-        // Percentual predominante antigo
-        const generoPercent = participantes.length > 0 ? Math.round((Math.max(totalM, totalF) / participantes.length) * 100) : 0;
-
-        let faixaPredominante = '-';
-        let maxFaixa = -1;
-        for (const [faixa, qtd] of Object.entries(faixas)) {
-          if (qtd > maxFaixa) {
-            maxFaixa = qtd;
-            faixaPredominante = faixa + ' anos';
-          }
-        }
-        if (participantes.length === 0) faixaPredominante = '-';
-
-        // Contagem de Saídas (Check-out)
-        const totalSaidas = filteredLogs.filter(l => l.status_validacao === 'sucesso' && l.tipo_acesso === 'saida').length;
-
-        // Distribuição Horária (para gráfico SVG)
-        const agora = new Date();
-        
-        // Base padrão: últimas 8 horas
-        let startTime = agora.getTime() - (7 * 3600000);
-
-        if (evento && evento.hora_inicio) {
-          try {
-            const [h, m] = evento.hora_inicio.split(':').map(Number);
-            const eventStartBase = new Date(agora);
-            eventStartBase.setHours(h, m, 0, 0);
-            
-            const graphStartLimit = eventStartBase.getTime() - 3600000; // 1h antes
-            
-            // Se o 'agora' ainda não passou de 8h do início do gráfico, fixamos o início.
-            // Se já passou de 8h, deixamos o sliding window (startTime padrão) agir.
-            if (agora.getTime() > graphStartLimit && (agora.getTime() - graphStartLimit) < (8 * 3600000)) {
-              startTime = graphStartLimit;
-            } else if (agora.getTime() < graphStartLimit) {
-                // Caso o evento ainda não tenha começado, já mostramos a janela a partir de -1h
-                startTime = graphStartLimit;
-            }
-          } catch(e) { 
-            console.error("Erro calcular hora inicio", e); 
-          }
-        }
-
-        // Calcular distribuição horária (agrupando se a janela for > 12h)
-        const durationH = (agora.getTime() - startTime) / 3600000;
-        let stepH = 1;
-        if (durationH > 12) stepH = Math.ceil(durationH / 10);
-
-        const distArray = [];
-        const numSlots = Math.ceil(durationH / stepH);
-
-        for (let i = 0; i < numSlots; i++) {
-          const t = new Date(startTime + (i * stepH * 3600000));
-          const label = t.getHours().toString().padStart(2, '0') + 'h';
-          distArray.push({ label, count: 0 });
-        }
-
-        filteredLogs.filter(l => l.tipo_acesso === 'entrada').forEach(log => {
-          const logTime = new Date(log.createdAt).getTime();
-          const slotIdx = Math.floor((logTime - startTime) / (stepH * 3600000));
-          if (slotIdx >= 0 && slotIdx < numSlots) {
-            distArray[slotIdx].count++;
-          }
-        });
-        setDistribuicaoHorario(distArray);
-
-        setStats({
-          faixaPredominante,
-          generoPredominante,
-          generoPercent,
-          percentMale,
-          percentFemale,
-          mediaIdade: idades.length ? Math.round(idades.reduce((a, b) => a + b, 0) / idades.length) : 0,
-          manualCount,
-          totalAcompanhantes,
-          totalParticipantesUnicos: participantes.length,
-          totalSaidas,
-          ocupacaoAtual: (participantes.length + totalAcompanhantes) - totalSaidas,
-          distribuicaoHorario: distArray // Use the new distArray here
-        });
-      } catch (err) {
-        console.error("Erro ao buscar logs:", err);
-      }
-    };
-
-    // Polling a cada 2 segundos
-    const interval = setInterval(fetchLogs, 2000);
-    fetchLogs(); // Primeira chamada
-
-    return () => clearInterval(interval);
-  }, [lastLogId, navigate, evento, token, uuid]);
-
-
-
-  // Facial recognition handle
-
-  const handleBiometricAttempt = async (template, width, height, identifiedId, image) => {
     try {
-      let url = `${API_URL}/scan`;
+      const { data: allLogs } = await apiService.get(`/logs?eventoUuid=${uuid}`, token);
+
+      // Filtrar logs deste evento
+      const filteredLogs = allLogs.filter(log => {
+        return log && log.status_validacao === 'sucesso' && (log.Participante || log.Acompanhante);
+      });
+
+      setLogs(filteredLogs);
+
+      const presentesMap = new Map();
+      const firstLogMap = new Map(); // Map<ParticipanteId, FirstLog>
+
+      // Ordenar logs por data ASC para encontrar a primeira entrada
+      const sortedLogs = [...filteredLogs].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+
+      sortedLogs.forEach(log => {
+        if (log.status_validacao === 'sucesso' && log.Participante) {
+          const pid = log.Participante.id;
+          if (!presentesMap.has(pid)) {
+            presentesMap.set(pid, log.Participante);
+            firstLogMap.set(pid, log); // Guarda o log da primeira entrada
+          }
+        }
+      });
+
+      if (allLogs && allLogs.length > 0) {
+        // Encontrar o MAIOR ID atual para não retroceder
+        const currentMaxId = Math.max(...allLogs.map(l => l.id || 0));
+        
+        if (lastLogId === 0) {
+          setLastLogId(currentMaxId);
+        } else if (currentMaxId > lastLogId) {
+          const newLogs = allLogs.filter(l => l.id > lastLogId);
+          if (newLogs.length > 0) {
+              setLastLogId(currentMaxId);
+              
+              // Tenta encontrar um SUCESSO nos novos logs
+              const logToShow = [...newLogs]
+                                .sort((a,b) => b.id - a.id)
+                                .find(l => l.status_validacao === 'sucesso' && (l.Participante || l.Acompanhante));
+              
+              if (logToShow) {
+                  // Só dispara modal automático se o log for MUITO recente (últimos 15s)
+                  // Isso evita que modais "fantasmas" apareçam após um refresh ou lag
+                  const logTime = new Date(logToShow.createdAt).getTime();
+                  const now = Date.now();
+                  if (now - logTime < 15000) {
+                      showModal(logToShow);
+                  }
+              }
+          }
+        }
+      }
+      const participantes = Array.from(presentesMap.values());
+
+      // Estatísticas
+      let manualCount = 0;
+      firstLogMap.forEach(log => {
+        if (log.device_id && !log.device_id.includes('web')) {
+          manualCount++;
+        }
+      });
+
+      const totalAcompanhantes = filteredLogs.filter(l => l.status_validacao === 'sucesso' && l.AcompanhanteId).length;
+      let totalM = 0, totalF = 0;
+      let idades = [];
+      let faixas = { '18-25': 0, '26-35': 0, '36-50': 0, '50+': 0 };
+
+      participantes.forEach(p => {
+        if (p.genero === 'M') totalM++;
+        if (p.genero === 'F') totalF++;
+        if (p.data_nascimento) {
+          const nasc = new Date(p.data_nascimento);
+          const hoje = new Date();
+          let idade = hoje.getFullYear() - nasc.getFullYear();
+          const m = hoje.getMonth() - nasc.getMonth();
+          if (m < 0 || (m === 0 && hoje.getDate() < nasc.getDate())) { idade--; }
+          idades.push(idade);
+          if (idade <= 25) faixas['18-25']++;
+          else if (idade <= 35) faixas['26-35']++;
+          else if (idade <= 50) faixas['36-50']++;
+          else faixas['50+']++;
+        }
+      });
+
+      const generoPredominante = totalM > totalF ? 'Masculino' : (totalF > totalM ? 'Feminino' : 'Equilibrado');
+      const percentMale = participantes.length > 0 ? Math.round((totalM / participantes.length) * 100) : 0;
+      const percentFemale = participantes.length > 0 ? Math.round((totalF / participantes.length) * 100) : 0;
+      let faixaPredominante = '-';
+      let maxFaixa = -1;
+      for (const [faixa, qtd] of Object.entries(faixas)) {
+        if (qtd > maxFaixa) { maxFaixa = qtd; faixaPredominante = faixa + ' anos'; }
+      }
+      if (participantes.length === 0) faixaPredominante = '-';
+
+      const totalSaidas = filteredLogs.filter(l => l.status_validacao === 'sucesso' && l.tipo_acesso === 'saida').length;
+      const agora = new Date();
+      let startTime = agora.getTime() - (7 * 3600000);
+
+      if (evento && evento.hora_inicio) {
+        try {
+          const [h, m] = evento.hora_inicio.split(':').map(Number);
+          const eventStartBase = new Date(agora);
+          eventStartBase.setHours(h, m, 0, 0);
+          const graphStartLimit = eventStartBase.getTime() - 3600000;
+          if (agora.getTime() > graphStartLimit && (agora.getTime() - graphStartLimit) < (8 * 3600000)) {
+            startTime = graphStartLimit;
+          } else if (agora.getTime() < graphStartLimit) {
+              startTime = graphStartLimit;
+          }
+        } catch(e) {}
+      }
+
+      const durationH = (agora.getTime() - startTime) / 3600000;
+      let stepH = 1;
+      if (durationH > 12) stepH = Math.ceil(durationH / 10);
+      const distArray = [];
+      const numSlots = Math.ceil(durationH / stepH);
+
+      for (let i = 0; i < numSlots; i++) {
+        const t = new Date(startTime + (i * stepH * 3600000));
+        distArray.push({ label: t.getHours().toString().padStart(2, '0') + 'h', count: 0 });
+      }
+
+      filteredLogs.filter(l => l.tipo_acesso === 'entrada').forEach(log => {
+        const logTime = new Date(log.createdAt).getTime();
+        const slotIdx = Math.floor((logTime - startTime) / (stepH * 3600000));
+        if (slotIdx >= 0 && slotIdx < numSlots) { distArray[slotIdx].count++; }
+      });
+      setDistribuicaoHorario(distArray);
+
+      setStats({
+        faixaPredominante,
+        generoPredominante,
+        percentMale,
+        percentFemale,
+        mediaIdade: idades.length ? Math.round(idades.reduce((a, b) => a + b, 0) / idades.length) : 0,
+        manualCount,
+        totalAcompanhantes,
+        totalParticipantesUnicos: participantes.length,
+        totalSaidas,
+        ocupacaoAtual: (participantes.length + totalAcompanhantes) - totalSaidas,
+        distribuicaoHorario: distArray
+      });
+    } catch (err) {
+      console.error("Erro ao buscar logs:", err);
+    }
+  }, [evento, token, uuid, lastLogId]);
+
+
+  useEffect(() => {
+    if (!evento || !token) return;
+    const interval = setInterval(fetchLogs, 2500);
+    fetchLogs();
+    return () => clearInterval(interval);
+  }, [evento, token, fetchLogs]);
+
+
+
+  // Facial recognition
+  const handleBiometricAttempt = React.useCallback(async (template, width, height, identifiedId, image) => {
+    // 1. Trava de segurança: Se já estivermos mostrando um modal para esta pessoa, ignore novas tentativas
+    if (modalData) {
+        const currentId = modalData.Participante?.id || modalData.ParticipanteId || (modalData.Acompanhante?.id);
+        const targetId = identifiedId || (selectedManualParticipant?.id);
+        
+        if (targetId && String(currentId) === String(targetId)) {
+            return;
+        }
+
+        // Se for um erro/alerta genérico e já tivermos um modal aberto, evite sobrescrever imediatamente
+        const now = Date.now();
+        if (modalTimeoutRef.current && (modalData.status_validacao !== 'sucesso')) {
+             // Deixa o modal atual respirar
+        }
+    }
+
+    try {
+      let url = '/scan';
       let bodyData = {
         identified_id: identifiedId,
         device_id: 'face_admin',
         eventId: uuid
       };
 
-      // SÓ RENOVA se:
-      // 1. O modal manual estiver aberto E houver participante selecionado
-      // 2. A chamada NÃO vier de uma identificação automática (identifiedId nulo)
-      // 3. Houver uma imagem capturada
       if (selectedManualParticipant && manualModalOpen && !identifiedId && image) {
-        url = `${API_URL}/renovar-biometria`;
+        url = '/renovar-biometria';
         bodyData.participanteId = selectedManualParticipant.id;
         bodyData.template = template;
         bodyData.foto = image;
         bodyData.eventoId = uuid;
       }
 
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(bodyData)
-      });
-      const data = await res.json();
+      const { data } = await apiService.post(url, bodyData, token);
 
       if (data.autorizado) {
         if (selectedManualParticipant && manualModalOpen) {
           setManualModalOpen(false);
+          setFaceScannerRefreshSignal(prev => prev + 1); // Avisa o scanner para recarregar fotos
           setManualDoc('');
           setManualSearchResults([]);
           setSelectedManualParticipant(null);
@@ -344,7 +317,7 @@ function ControleAcesso() {
     } catch (e) {
       console.error("Erro ao enviar biometria", e);
     }
-  };
+  }, [modalData, selectedManualParticipant, manualModalOpen, uuid, token]);
 
   // Efeito para focar no input quando abrir modal ou mudar modo
   useEffect(() => {
@@ -363,10 +336,7 @@ function ControleAcesso() {
       return;
     }
     try {
-      const res = await fetch(`${API_URL}/participantes/busca?q=${term}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const data = await res.json();
+      const { data } = await apiService.get(`/participantes/busca?q=${term}`, token);
       setManualSearchResults(data || []);
     } catch (e) {
       console.error(e);
@@ -374,38 +344,36 @@ function ControleAcesso() {
   };
 
   const selectManualParticipant = async (p) => {
-    // Registra entrada direto com o ID selecionado
+    // 1. Fecha o modal IMEDIATAMENTE e limpa estados de busca para feedback instantâneo
+    setManualModalOpen(false);
+    setFaceScannerRefreshSignal(prev => prev + 1); // Avisa o scanner para recarregar fotos
+    setSelectedManualParticipant(null);
+    setManualSearchResults([]);
+    setManualDoc('');
+
     try {
-      const res = await fetch(`${API_URL}/manual-entry`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ 
-          participanteId: p.id,
-          eventoId: uuid 
-        })
+      // 2. Chama a API em background
+      const { data } = await apiService.post('/manual-entry', { 
+        participanteId: p.id,
+        eventoId: uuid 
       });
-      const data = await res.json();
 
       if (data.success) {
-        setManualModalOpen(false);
-        setManualDoc('');
-        setManualSearchResults([]);
-        setSelectedManualParticipant(null);
         if (data.status === 'sucesso') {
           const fakeLog = {
             status_validacao: 'sucesso',
             Participante: data.participante
           };
+          // 3. Mostra o card de sucesso
           showModal(fakeLog);
+          // 4. Força atualização imediata da lista de logs (SEM ESPERAR 1s de polling)
+          fetchLogs();
         }
       } else {
-        showMessage("Erro", data.msg || "Erro ao registrar entrada", "error");
+        showMessage("Aviso", data.msg || "Erro ao registrar entrada", "info");
       }
     } catch (e) {
-      showMessage("Erro", "Erro de comunicação com servidor", "error");
+      showMessage("Erro", "Erro de conexão com o servidor", "error");
     }
   };
 
@@ -448,19 +416,11 @@ function ControleAcesso() {
     setSubmittingCompanion(true);
 
     try {
-      const res = await fetch(`${API_URL}/registrar-acompanhante`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ 
-          nome: companionName, 
-          responsavel_id: responsavelId,
-          eventoId: uuid
-        })
+      const { data } = await apiService.post('/registrar-acompanhante', { 
+        nome: companionName, 
+        responsavel_id: responsavelId,
+        eventoId: uuid
       });
-      const data = await res.json();
 
       if (data.success) {
         // Capturar nomes antes de resetar o estado
@@ -474,6 +434,8 @@ function ControleAcesso() {
         resetCompanionModal();
         showMessage("Sucesso", "Acompanhante registrado com sucesso!", "success");
         showModal(cProps);
+        // Forçar atualização imediata
+        fetchLogs();
       } else {
         console.error("Erro retornado pelo backend:", data);
         showMessage("Erro", data.msg || data.error || "Erro ao registrar acompanhante", "error");
@@ -497,10 +459,7 @@ function ControleAcesso() {
     if (!evento) return;
 
     try {
-      const res = await fetch(`${API_URL}/eventos/${uuid}/finalizar`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const res = await apiService.post(`/eventos/${uuid}/finalizar`, {}, token);
       if (res.ok) {
         // Pequeno delay para visualização
         showMessage("Sucesso", "Evento finalizado com sucesso!", "success", () => navigate('/'));
@@ -512,7 +471,7 @@ function ControleAcesso() {
     }
   };
 
-  const showModal = (data) => {
+  const showModal = React.useCallback((data) => {
     const p = data.Participante || data.Acompanhante || {};
     const msg = (data.mensagem || "").toLowerCase();
     const isAlert = data.status_validacao === 'alerta' || 
@@ -523,9 +482,6 @@ function ControleAcesso() {
                    msg.includes('ja realizado') ||
                    msg.includes('entrou');
 
-    // 1. Cooldown para "Já Identificado" (Evita spam se a pessoa ficar na frente da câmera)
-    // NOTA: Agora ativamos o cooldown também em caso de SUCESSO, para evitar que um alerta "Já Identificado"
-    // apareça logo em seguida enquanto a pessoa ainda está na frente do sensor.
     const isSuccess = data.status_validacao === 'sucesso';
     const personId = p.id || data.ParticipanteId || data.AcompanhanteId;
     
@@ -534,16 +490,13 @@ function ControleAcesso() {
         const key = String(personId);
         const lastAlert = alertCooldownsRef.current.get(key) || 0;
         
-        // Se for um alerta tentando aparecer em cima de um alerta ou sucesso recente (< 15s)
         if (isAlert && (now - lastAlert < 15000)) { 
-            return; // Silencia o alerta
+            return;
         }
         
-        // Atualiza o timestamp para futuras supressões de alerta
         alertCooldownsRef.current.set(key, now);
     }
 
-    // 2. Se já estivermos mostrando um SUCESSO para o mesmo participante, ignore alertas redundantes
     if (modalData && modalData.status_validacao === 'sucesso') {
       const currentP = modalData.Participante || modalData.Acompanhante || {};
       const isSamePerson = (currentP.id && p.id && String(currentP.id) === String(p.id));
@@ -553,27 +506,24 @@ function ControleAcesso() {
       }
     }
 
-    // Limpar timeout anterior se existir
     if (modalTimeoutRef.current) {
       clearTimeout(modalTimeoutRef.current);
     }
 
     setModalData(data);
-    // Tocar som
     if (audioRef.current) audioRef.current.play().catch(e => console.log(e));
     
-    // Se for alerta de "Já identificado", ativa o balão que segue a cabeça
     if (isAlert) {
       const p = data.Participante || data.Acompanhante || {};
       setBalloonData({
         name: p.nome || 'Visitante',
         message: 'Já entrou nesse evento.'
       });
-      setGlowColor('#ffc107'); // Amarelo para duplicidade
+      setGlowColor('#FFE596'); 
     } else if (data.status_validacao === 'sucesso') {
-      setGlowColor('#198754'); // Verde para entrada
+      setGlowColor(data.tipo_acesso === 'saida' ? '#004E4C' : '#00995D'); 
     } else {
-      setGlowColor('#dc3545'); // Vermelho para erro
+      setGlowColor('#dc3545'); 
     }
 
     modalTimeoutRef.current = setTimeout(() => {
@@ -581,26 +531,18 @@ function ControleAcesso() {
       setBalloonData(null);
       setGlowColor(null);
       modalTimeoutRef.current = null;
-    }, 6000); // 6 segundos para dar tempo de ler e sincronizar com a barra de progresso
-  };
+    }, 6000); 
+  }, [modalData]);
 
   const handleConfirmCheckout = async (participanteId) => {
     if (!participanteId || !evento) return;
     setIsProcessingCheckout(true);
 
     try {
-      const res = await fetch(`${API_URL}/registrar-saida`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          participanteId,
-          eventoId: uuid
-        })
+      const { data } = await apiService.post('/registrar-saida', {
+        participanteId,
+        eventoId: uuid
       });
-      const data = await res.json();
 
       if (data.success) {
         setCheckoutModalOpen(false);
@@ -613,6 +555,8 @@ function ControleAcesso() {
           Participante: data.participante
         };
         showModal(fakeLog);
+        // Forçar atualização imediata
+        fetchLogs();
       } else {
         showMessage("Erro", data.msg || "Erro ao registrar saída", "error");
       }
@@ -681,8 +625,12 @@ function ControleAcesso() {
   const renderAccessPanel = () => {
     const isSuccess = modalData?.status_validacao === 'sucesso';
     const isAlert = modalData?.status_validacao === 'alerta';
+    const isCheckout = modalData?.tipo_acesso === 'saida';
     const participante = modalData?.Participante || modalData?.Acompanhante || {};
-    const cardColor = isSuccess ? '#198754' : (isAlert ? '#ffc107' : '#dc3545');
+    
+    // Cores: Verde para entrada, Azul Escuro para saída, Amarelo para alerta, Vermelho para erro
+    let cardColor = isSuccess ? '#00995D' : (isAlert ? '#FFE596' : '#dc3545');
+    if (isCheckout && isSuccess) cardColor = '#004E4C'; 
 
     return (
       <div className="access-panel-container" style={{ 
@@ -715,7 +663,86 @@ function ControleAcesso() {
             eventId={uuid}
             followerBalloon={balloonData}
             glowColor={glowColor}
+            refreshSignal={faceScannerRefreshSignal}
           />
+
+          {/* Full Success Overlay (Injected inside camera area for perfect clipping) */}
+          {isSuccess && (
+            <div style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+              backgroundColor: isCheckout ? 'rgba(0, 78, 76, 0.9)' : 'rgba(0, 153, 93, 0.85)',
+              zIndex: 10,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'white',
+              textAlign: 'center',
+              padding: '20px',
+              animation: 'modalFadeIn 0.3s ease-out',
+              backdropFilter: 'blur(5px)'
+            }}>
+              <div style={{
+                  width: '120px',
+                  height: '120px',
+                  borderRadius: '50%',
+                  border: '4px solid white',
+                  overflow: 'hidden',
+                  marginBottom: '1rem',
+                  backgroundColor: 'rgba(255,255,255,0.2)',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.2)'
+              }}>
+                  {participante.foto_biometria ? (
+                      <img src={participante.foto_biometria} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="Face" />
+                  ) : (
+                      <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '3.5rem', fontWeight: 'bold' }}>
+                          {participante.nome ? participante.nome.charAt(0) : '?'}
+                      </div>
+                  )}
+              </div>
+              
+              <div style={{
+                maxWidth: '90%',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                <h2 style={{ 
+                  fontSize: '1.4rem', 
+                  margin: '0 0 0.2rem 0', 
+                  fontWeight: 'bold', 
+                  textShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                  whiteSpace: 'nowrap'
+                }}>
+                    {isCheckout ? 'Até logo,' : (participante.genero === 'F' ? 'Bem-vinda,' : (participante.genero === 'M' ? 'Bem-vindo,' : 'Bem-vindo(a),'))}
+                </h2>
+                <h1 style={{ 
+                  fontSize: `${Math.max(1.3, 2.0 - ((participante.nome?.length || 0) * 0.025))}rem`, 
+                  margin: '0 0 0.5rem 0', 
+                  lineHeight: '1.1', 
+                  fontWeight: '800',
+                  overflowWrap: 'break-word',
+                  wordBreak: 'break-word',
+                  width: '100%'
+                }}>
+                    {participante.nome || 'Visitante'}
+                </h1>
+              </div>
+              {participante.crm && (
+                  <div style={{ fontSize: '1rem', marginBottom: '0.8rem', fontWeight: 'bold', color: 'rgba(255,255,255,0.9)' }}>
+                      CRM: {participante.crm}
+                  </div>
+              )}
+              <div style={{ fontSize: '1.1rem', fontWeight: '600', backgroundColor: 'rgba(255,255,255,0.2)', padding: '0.4rem 1.2rem', borderRadius: '50px' }}>
+                  {isCheckout ? 'Volte sempre!' : 'Tenha um bom evento!'}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Status Text Area - Persistent to keep layout stable */}
@@ -731,61 +758,6 @@ function ControleAcesso() {
           <p className="access-subtitle" style={{ fontSize: '0.9rem' }}>O reconhecimento facial está ativo</p>
         </div>
 
-        {/* Full Success Overlay (400x400) */}
-        {isSuccess && (
-          <div style={{
-            position: 'absolute',
-            top: '40px',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            width: '400px',
-            height: '400px',
-            backgroundColor: 'rgba(25, 135, 84, 0.5)',
-            borderRadius: '15px',
-            zIndex: 10,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: 'white',
-            textAlign: 'center',
-            padding: '20px',
-            animation: 'modalFadeIn 0.3s ease-out'
-          }}>
-            <div style={{
-                width: '100px',
-                height: '100px',
-                borderRadius: '50%',
-                border: '4px solid white',
-                overflow: 'hidden',
-                marginBottom: '1rem',
-                backgroundColor: 'rgba(255,255,255,0.2)'
-            }}>
-                {participante.foto_biometria ? (
-                    <img src={participante.foto_biometria} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="Face" />
-                ) : (
-                    <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '3rem', fontWeight: 'bold' }}>
-                        {participante.nome ? participante.nome.charAt(0) : '?'}
-                    </div>
-                )}
-            </div>
-            
-            <h2 style={{ fontSize: '1.8rem', margin: '0 0 0.5rem 0', fontWeight: 'bold' }}>
-                {participante.genero === 'F' ? 'Bem-vinda' : (participante.genero === 'M' ? 'Bem-vindo' : 'Bem-vindo(a)')},
-            </h2>
-            <h1 style={{ fontSize: '2rem', margin: '0 0 0.5rem 0', lineHeight: '1.1' }}>
-                {participante.nome || 'Visitante'}
-            </h1>
-            {participante.crm && (
-                <div style={{ fontSize: '1.1rem', marginBottom: '1rem', fontWeight: 'bold', color: 'rgba(255,255,255,0.9)' }}>
-                    CRM: {participante.crm}
-                </div>
-            )}
-            <div style={{ fontSize: '1.2rem', fontWeight: '500', backgroundColor: 'rgba(0,0,0,0.2)', padding: '0.5rem 1rem', borderRadius: '50px' }}>
-                Tenha um bom evento!
-            </div>
-          </div>
-        )}
 
         {/* Floating Card - Only if identified and NOT shown via balloon and NOT shown via full success overlay */}
         {modalData && !balloonData && !isSuccess && (
@@ -844,7 +816,7 @@ function ControleAcesso() {
                   {participante.crm && <span>CRM: <strong>{participante.crm}</strong></span>}
                 </div>
                 <div style={{ color: cardColor, fontSize: '0.9rem', fontWeight: '600' }}>
-                  {isSuccess ? 'Entrada Confirmada! ✓' : (isAlert ? 'Já registrado! ✓' : (modalData.mensagem || 'Falha'))}
+                  {isSuccess ? (isCheckout ? 'Saída Confirmada! ✓' : 'Entrada Confirmada! ✓') : (isAlert ? 'Já registrado! ✓' : (modalData.mensagem || 'Falha'))}
                 </div>
               </div>
             </div>
@@ -880,7 +852,7 @@ function ControleAcesso() {
         <button
           onClick={handleFinishClick}
           style={{
-            backgroundColor: '#fd7e14',
+            backgroundColor: '#F47920',
             border: 'none',
             color: 'white',
             padding: '0.75rem 1.5rem',
@@ -892,12 +864,12 @@ function ControleAcesso() {
             boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
           }}
           onMouseOver={(e) => {
-            e.currentTarget.style.backgroundColor = '#e66d10';
+            e.currentTarget.style.backgroundColor = '#004E4C';
             e.currentTarget.style.transform = 'translateY(-1px)';
             e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,0,0,0.15)';
           }}
           onMouseOut={(e) => {
-            e.currentTarget.style.backgroundColor = '#fd7e14';
+            e.currentTarget.style.backgroundColor = '#F47920';
             e.currentTarget.style.transform = 'translateY(0)';
             e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
           }}
@@ -970,11 +942,11 @@ function ControleAcesso() {
                     <div style={{ display: 'flex', width: '100%', height: '6px', borderRadius: '3px', overflow: 'hidden', backgroundColor: '#eee', position: 'relative', marginTop: '0.5rem' }}>
                       <div style={{ width: `${percentParticipants}%`, backgroundColor: '#00995D', height: '100%', transition: 'width 0.5s' }} title={`Participantes: ${percentParticipants}%`}></div>
                       <div style={{ width: '2px', backgroundColor: '#fff', zIndex: 1 }}></div>
-                      <div style={{ width: `${percentCompanions}%`, backgroundColor: '#b1d249', height: '100%', flex: 1, transition: 'width 0.5s' }} title={`Acompanhantes: ${percentCompanions}%`}></div>
+                      <div style={{ width: `${percentCompanions}%`, backgroundColor: '#B1D34B', height: '100%', flex: 1, transition: 'width 0.5s' }} title={`Acompanhantes: ${percentCompanions}%`}></div>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: 'var(--text-secondary)', marginTop: '0.3rem' }}>
                       <span style={{ color: '#00995D', fontWeight: 'bold' }}>👤 {percentParticipants}%</span>
-                      <span style={{ color: '#b1d249', fontWeight: 'bold' }}>👥 {percentCompanions}%</span>
+                      <span style={{ color: '#B1D34B', fontWeight: 'bold' }}>👥 {percentCompanions}%</span>
                     </div>
                   </>
                 );
@@ -1010,16 +982,16 @@ function ControleAcesso() {
 
               {/* Barra de Gênero */}
               <div style={{ display: 'flex', width: '100%', height: '6px', borderRadius: '3px', overflow: 'hidden', backgroundColor: '#eee', position: 'relative' }}>
-                <div style={{ width: `${stats.percentMale !== undefined && stats.percentMale !== 0 ? stats.percentMale : 50}%`, backgroundColor: '#74c0fc', height: '100%', transition: 'width 0.5s' }} title={`Homens: ${stats.percentMale}%`}></div>
+                <div style={{ width: `${stats.percentMale !== undefined && stats.percentMale !== 0 ? stats.percentMale : 50}%`, backgroundColor: '#A4D8DE', height: '100%', transition: 'width 0.5s' }} title={`Homens: ${stats.percentMale}%`}></div>
 
                 {/* Separador Central */}
                 <div style={{ width: '2px', backgroundColor: '#fff', zIndex: 1 }}></div>
 
-                <div style={{ width: `${stats.percentFemale !== undefined && stats.percentFemale !== 0 ? stats.percentFemale : 50}%`, backgroundColor: '#faa2c1', height: '100%', flex: 1, transition: 'width 0.5s' }} title={`Mulheres: ${stats.percentFemale}%`}></div>
+                <div style={{ width: `${stats.percentFemale !== undefined && stats.percentFemale !== 0 ? stats.percentFemale : 50}%`, backgroundColor: 'var(--support-pink)', height: '100%', flex: 1, transition: 'width 0.5s' }} title={`Mulheres: ${stats.percentFemale}%`}></div>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.3rem' }}>
-                <span style={{ color: '#74c0fc', fontWeight: 'bold', fontSize: '1.2rem' }}>♂ {stats.percentMale ?? 0}%</span>
-                <span style={{ color: '#faa2c1', fontWeight: 'bold', fontSize: '1.2rem' }}>♀ {stats.percentFemale ?? 0}%</span>
+                <span style={{ color: '#A4D8DE', fontWeight: 'bold', fontSize: '1.2rem' }}>♂ {stats.percentMale ?? 0}%</span>
+                <span style={{ color: 'var(--support-pink)', fontWeight: 'bold', fontSize: '1.2rem' }}>♀ {stats.percentFemale ?? 0}%</span>
               </div>
             </div>
             <div className="card">
@@ -1104,7 +1076,7 @@ function ControleAcesso() {
               <button
                 onClick={() => window.open(`/totem/${evento?.uuid}`, '_blank')}
                 style={{
-                  backgroundColor: '#b1d249',
+                  backgroundColor: 'var(--accent-color)',
                   border: 'none',
                   color: 'white',
                   padding: '1rem',
@@ -1121,11 +1093,11 @@ function ControleAcesso() {
                   gridColumn: '1'
                 }}
                 onMouseOver={(e) => {
-                  e.currentTarget.style.backgroundColor = '#9ebc41';
+                  e.currentTarget.style.backgroundColor = '#004E4C';
                   e.currentTarget.style.transform = 'translateY(-1px)';
                 }}
                 onMouseOut={(e) => {
-                  e.currentTarget.style.backgroundColor = '#b1d249';
+                  e.currentTarget.style.backgroundColor = 'var(--accent-color)';
                   e.currentTarget.style.transform = 'translateY(0)';
                 }}
               >
@@ -1136,7 +1108,7 @@ function ControleAcesso() {
                 <button
                   onClick={() => window.open(`/totem-checkout/${evento?.uuid}`, '_blank')}
                   style={{
-                    backgroundColor: '#0d6efd',
+                  backgroundColor: 'var(--support-dark-blue)',
                     border: 'none',
                     color: 'white',
                     padding: '1rem',
@@ -1153,11 +1125,11 @@ function ControleAcesso() {
                     gridColumn: '2'
                   }}
                   onMouseOver={(e) => {
-                    e.currentTarget.style.backgroundColor = '#0b5ed7';
+                    e.currentTarget.style.backgroundColor = '#004E4C';
                     e.currentTarget.style.transform = 'translateY(-1px)';
                   }}
                   onMouseOut={(e) => {
-                    e.currentTarget.style.backgroundColor = '#0d6efd';
+                    e.currentTarget.style.backgroundColor = 'var(--support-dark-blue)';
                     e.currentTarget.style.transform = 'translateY(0)';
                   }}
                 >
@@ -1167,8 +1139,13 @@ function ControleAcesso() {
                 <div style={{ gridColumn: '2' }}></div> // Spacer se checkout desligado
               )}
 
-              {/* Spacer para manter a grade 3x2 alinhada (Coluna 3 da linha 1) */}
-              <div style={{ gridColumn: '3' }}></div>
+              {/* Linha Divisória */}
+              <div style={{ 
+                gridColumn: '1 / -1', 
+                borderBottom: '1px solid var(--basic-gray-100)', 
+                margin: '0.5rem 0 0.2rem 0',
+                opacity: 0.8
+              }}></div>
 
               {/* Linha 2: Ações Manuais */}
               <button
@@ -1188,18 +1165,21 @@ function ControleAcesso() {
                   gap: '0.5rem',
                   transition: 'all 0.2s ease',
                   boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-                  gridRow: '2',
+                  opacity: 0.9,
+                  gridRow: '3',
                   gridColumn: '1'
                 }}
                 onMouseOver={(e) => {
-                  e.currentTarget.style.backgroundColor = '#007a4a';
+                  e.currentTarget.style.backgroundColor = '#004E4C';
                   e.currentTarget.style.transform = 'translateY(-1px)';
                   e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,0,0,0.15)';
+                  e.currentTarget.style.opacity = '1';
                 }}
                 onMouseOut={(e) => {
                   e.currentTarget.style.backgroundColor = 'var(--accent-color)';
                   e.currentTarget.style.transform = 'translateY(0)';
                   e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+                  e.currentTarget.style.opacity = '0.9';
                 }}
               >
                 <span>+</span> Registrar Participante
@@ -1209,7 +1189,7 @@ function ControleAcesso() {
                 <button
                   onClick={() => setCheckoutModalOpen(true)}
                   style={{
-                    backgroundColor: '#0d6efd',
+                    backgroundColor: 'var(--support-dark-blue)',
                     border: 'none',
                     color: 'white',
                     padding: '1rem',
@@ -1223,24 +1203,27 @@ function ControleAcesso() {
                     gap: '0.5rem',
                     transition: 'all 0.2s ease',
                     boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-                    gridRow: '2',
+                    opacity: 0.9,
+                    gridRow: '3',
                     gridColumn: '2'
                   }}
                   onMouseOver={(e) => {
-                    e.currentTarget.style.backgroundColor = '#0b5ed7';
+                    e.currentTarget.style.backgroundColor = '#004E4C';
                     e.currentTarget.style.transform = 'translateY(-1px)';
                     e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,0,0,0.15)';
+                    e.currentTarget.style.opacity = '1';
                   }}
                   onMouseOut={(e) => {
-                    e.currentTarget.style.backgroundColor = '#0d6efd';
+                    e.currentTarget.style.backgroundColor = 'var(--support-dark-blue)';
                     e.currentTarget.style.transform = 'translateY(0)';
                     e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+                    e.currentTarget.style.opacity = '0.9';
                   }}
                 >
                   <span>-</span> Registrar Saída
                 </button>
               ) : (
-                 <div style={{ gridRow: '2', gridColumn: '2' }}></div> // Spacer se checkout desligado
+                 <div style={{ gridRow: '3', gridColumn: '2' }}></div>
               )}
 
               <button
@@ -1267,17 +1250,18 @@ function ControleAcesso() {
                   alignItems: 'center',
                   justifyContent: 'center',
                   gap: '0.5rem',
-                  opacity: (evento && !evento.permitir_acompanhantes) ? 0.5 : 1,
+                  opacity: (evento && !evento.permitir_acompanhantes) ? 0.4 : 0.9,
                   transition: 'all 0.2s ease',
                   boxShadow: (evento && !evento.permitir_acompanhantes) ? 'none' : '0 2px 4px rgba(0,0,0,0.1)',
-                  gridRow: '2',
+                  gridRow: '3',
                   gridColumn: '3'
                 }}
                 onMouseOver={(e) => {
                   if (evento && evento.permitir_acompanhantes) {
-                    e.currentTarget.style.backgroundColor = '#007a4a';
+                    e.currentTarget.style.backgroundColor = '#004E4C';
                     e.currentTarget.style.transform = 'translateY(-1px)';
                     e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,0,0,0.15)';
+                    e.currentTarget.style.opacity = '1';
                   }
                 }}
                 onMouseOut={(e) => {
@@ -1285,6 +1269,7 @@ function ControleAcesso() {
                     e.currentTarget.style.backgroundColor = 'var(--accent-color)';
                     e.currentTarget.style.transform = 'translateY(0)';
                     e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+                    e.currentTarget.style.opacity = '0.9';
                   }
                 }}
               >
@@ -1404,12 +1389,12 @@ function ControleAcesso() {
                     if (isAcompanhante) {
                       const index = companionIndexMap.get(log.AcompanhanteId) || '?';
                       badgeText = `Acompanhante ${index}`;
-                      badgeBg = '#e9ecef';
-                      badgeColor = '#495057';
+                      badgeBg = '#ECE3D9';
+                      badgeColor = '#004E4C';
                     } else {
                       badgeText = 'Participante';
-                      badgeBg = '#e7f5ff';
-                      badgeColor = '#1c7ed6';
+                      badgeBg = '#A4D8DE';
+                      badgeColor = '#004E4C';
                     }
 
                     return (
@@ -1477,8 +1462,8 @@ function ControleAcesso() {
                     width: '80px',
                     height: '80px',
                     borderRadius: '50%',
-                    backgroundColor: '#e7f5ff',
-                    color: '#1c7ed6',
+                    backgroundColor: '#A4D8DE',
+                    color: '#004E4C',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -1494,14 +1479,15 @@ function ControleAcesso() {
                   </p>
                   <div style={{ margin: '0.3rem 0', color: '#666', fontSize: '0.9rem', display: 'flex', flexDirection: 'column', gap: '2px' }}>
                     {selectedManualParticipant.crm && <span>CRM: <strong>{selectedManualParticipant.crm}</strong></span>}
-                    {selectedManualParticipant.especialidade && <span style={{ color: '#0d6efd', fontStyle: 'italic' }}>{selectedManualParticipant.especialidade}</span>}
+                    {selectedManualParticipant.especialidade && <span style={{ color: '#004E4C', fontStyle: 'italic' }}>{selectedManualParticipant.especialidade}</span>}
                   </div>
 
-                  <div style={{ marginTop: '1.5rem', padding: '1rem', backgroundColor: '#e7f5ff', border: '1px solid #74c0fc', borderRadius: '8px', color: '#1864ab' }}>
+                  <div style={{ marginTop: '1.5rem', padding: '1rem', backgroundColor: '#CDE3BB', border: '1px solid #B1D34B', borderRadius: '8px', color: '#004E4C' }}>
                     <FaceScanner 
                       onScanSuccess={handleBiometricAttempt} 
                       isRegistration={true} 
                       token={token}
+                      refreshSignal={faceScannerRefreshSignal}
                     />
                     <div style={{ marginTop: '0.8rem', fontSize: '0.85rem' }}>
                       <strong>Captura Facial para Renovação:</strong><br />
@@ -1572,7 +1558,7 @@ function ControleAcesso() {
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                           {p.template_biometrico && !p.template_biometrico.startsWith('manual_') ? (
-                            <span title="Face Cadastrada" style={{ color: '#4CAF50', display: 'flex' }}><FaceIcon size="1.8rem" /></span>
+                            <span title="Face Cadastrada" style={{ color: '#00995D', display: 'flex' }}><FaceIcon size="1.8rem" /></span>
                           ) : (
                             <span title="Sem Biometria" style={{ color: '#666', opacity: 0.3, filter: 'grayscale(100%)', display: 'flex' }}><FaceIcon size="1.8rem" /></span>
                           )}
@@ -1598,7 +1584,7 @@ function ControleAcesso() {
       </div>
 
       {/* Modal Finalizar */}
-      < div className={`modal-overlay ${finishModalOpen ? 'open' : ''}`} onClick={() => setFinishModalOpen(false)}>
+      <div className={`modal-overlay ${finishModalOpen ? 'open' : ''}`} onClick={() => setFinishModalOpen(false)}>
         <div className="modal-content" onClick={e => e.stopPropagation()} style={{ textAlign: 'center' }}>
           <div className="modal-header" style={{ color: 'var(--error-color)' }}>Finalizar Evento?</div>
           <p style={{ marginBottom: '1rem', color: 'var(--text-secondary)' }}>
@@ -1642,10 +1628,10 @@ function ControleAcesso() {
             </button>
           </div>
         </div>
-      </div >
+      </div>
 
       {/* Modal Novo Acompanhante */}
-      < div className={`modal-overlay ${companionModalOpen ? 'open' : ''}`} onClick={resetCompanionModal} >
+      <div className={`modal-overlay ${companionModalOpen ? 'open' : ''}`} onClick={resetCompanionModal} >
         <div className="modal-content" onClick={e => e.stopPropagation()} style={{ width: '500px', maxWidth: '95%' }}>
           <h2 className="modal-header">Adicionar Acompanhante</h2>
 
@@ -1718,21 +1704,21 @@ function ControleAcesso() {
           ) : (
             <div style={{ marginBottom: '1.5rem', textAlign: 'center' }}>
               <div style={{
-                background: '#e6fffa',
-                border: '1px solid #b2f5ea',
+                background: '#CDE3BB',
+                border: '1px solid #B1D34B',
                 padding: '1rem',
                 borderRadius: '8px',
                 marginBottom: '1.5rem'
               }}>
-                <p style={{ margin: '0 0 0.2rem 0', fontWeight: 'bold', color: '#2c7a7b' }}>{selectedResponsible?.nome}</p>
-                <div style={{ color: '#319795', fontSize: '0.8rem', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                <p style={{ margin: '0 0 0.2rem 0', fontWeight: 'bold', color: '#004E4C' }}>{selectedResponsible?.nome}</p>
+                <div style={{ color: '#00995D', fontSize: '0.8rem', display: 'flex', flexDirection: 'column', gap: '2px' }}>
                   <span>CPF: {maskCPF(selectedResponsible?.cpf)}</span>
                   {selectedResponsible?.crm && <span>CRM: {selectedResponsible?.crm}</span>}
                   {selectedResponsible?.especialidade && <span style={{ fontStyle: 'italic' }}>{selectedResponsible?.especialidade}</span>}
                 </div>
                 <button
                   onClick={() => { setResponsavelId(null); setSelectedResponsible(null); }}
-                  style={{ background: 'none', border: 'none', color: '#2c7a7b', textDecoration: 'underline', cursor: 'pointer', fontSize: '0.85rem', marginTop: '0.5rem' }}
+                  style={{ background: 'none', border: 'none', color: '#004E4C', textDecoration: 'underline', cursor: 'pointer', fontSize: '0.85rem', marginTop: '0.5rem' }}
                 >
                   Alterar
                 </button>
@@ -1763,12 +1749,12 @@ function ControleAcesso() {
             )}
           </div>
         </div>
-      </div >
+      </div>
 
       {/* Modal Registrar Saída (Checkout) */}
       <div className={`modal-overlay ${checkoutModalOpen ? 'open' : ''}`} onClick={() => setCheckoutModalOpen(false)}>
         <div className="modal-content" onClick={e => e.stopPropagation()} style={{ width: '600px', maxWidth: '95%' }}>
-          <h2 className="modal-header" style={{ color: '#0d6efd' }}>Registrar Saída (Checkout)</h2>
+          <h2 className="modal-header" style={{ color: 'var(--support-dark-blue)' }}>Registrar Saída (Checkout)</h2>
           
           <div style={{ marginBottom: '1rem' }}>
             <input
@@ -1827,7 +1813,7 @@ function ControleAcesso() {
                   </div>
                   <button 
                     style={{
-                      backgroundColor: '#0d6efd',
+                      backgroundColor: 'var(--support-dark-blue)',
                       color: 'white',
                       border: 'none',
                       padding: '0.4rem 0.8rem',
@@ -1924,7 +1910,7 @@ function ControleAcesso() {
                           cx={x} 
                           cy={jitter} 
                           r="4" 
-                          fill={isSaida ? '#339af0' : 'var(--accent-color)'} 
+                          fill={isSaida ? 'var(--support-dark-blue)' : 'var(--accent-color)'} 
                           fillOpacity="0.5"
                         >
                           <title>{log.Participante?.nome || 'Acompanhante'} - {isSaida ? 'SAÍDA' : 'ENTRADA'} - {new Date(log.createdAt).toLocaleTimeString()}</title>
@@ -1946,7 +1932,7 @@ function ControleAcesso() {
                 <span>Entradas</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: '#339af0' }}></div>
+                <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: 'var(--support-dark-blue)' }}></div>
                 <span>Saídas</span>
               </div>
             </div>

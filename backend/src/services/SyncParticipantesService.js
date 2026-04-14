@@ -34,7 +34,7 @@ function estaDesligado(dt_rescisao) {
 }
 
 /**
- * Converte data no formato "dd/MM/yyyy" para "yyyy-MM-dd" (padrão SQLite/ISO).
+ * Converte data no formato "dd/MM/yyyy" para "yyyy-MM-dd" (padrão ISO).
  * Retorna null se inválido.
  */
 function converterData(dtStr) {

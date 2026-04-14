@@ -1,20 +1,43 @@
 @import url('https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap');
 
 :root {
+  /* === Paleta Primária Unimed === */
+  --primary-green: #00995D;
+  --secondary-green: #B1D34B;
+  --dark-green: #004E4C;
+  --accent-orange: #F47920;
+
+  /* === Cores de Apoio === */
+  --support-rose: #D2A494;
+  --support-pink: #F1CDCD;
+  --support-beige: #ECE3D9;
+  --support-yellow: #FFE596;
+  --support-light-green: #CDE3BB;
+  --support-light-blue: #A4D8DE;
+  --support-dark-blue: #0054A6;
+
+  /* === Semânticas (derivadas da paleta) === */
+  --accent-color: var(--primary-green);
+  --success-color: var(--primary-green);
+  --alert-color: var(--accent-orange);
+  --error-color: #cf222e;
+  --warning-color: var(--support-yellow);
+  --info-color: var(--support-light-blue);
+
+  /* === Cores Básicas Unimed (estruturais) === */
+  --basic-black: #1a1a1a;
+  --basic-gray-900: #2d3748;
+  --basic-gray-700: #495057;
+  --basic-gray-500: #6c757d;
+  --basic-gray-300: #a0aec0;
+  --basic-gray-100: #e2e8f0;
+
+  /* === Neutros (aliases) === */
   --bg-color: #ffffff;
   --card-bg: #f8f9fa;
-  --text-primary: #333333;
-  --text-secondary: #666666;
-  --accent-color: #00995D;
-  /* Verde Unimed Principal */
-  --secondary-green: #B1D34B;
-  /* Verde Claro Unimed */
-  --alert-color: #F47920;
-  /* Laranja Unimed */
-
-  --success-color: #00995D;
-  --error-color: #cf222e;
-  --border-color: #e1e4e8;
+  --text-primary: var(--basic-gray-900);
+  --text-secondary: var(--basic-gray-500);
+  --border-color: var(--basic-gray-100);
 }
 
 body {
@@ -132,9 +155,9 @@ body {
 }
 
 .access-panel.warning {
-  border-color: #ffc107;
+  border-color: var(--support-yellow);
   background-color: #fffcf0;
-  box-shadow: 0 0 30px rgba(255, 193, 7, 0.15);
+  box-shadow: 0 0 30px rgba(255, 229, 150, 0.3);
 }
 
 .access-photo-large {
@@ -336,8 +359,8 @@ tr:hover, .table-row-clickable:hover {
 }
 
 .badge-success {
-  background-color: #dafbe1;
-  color: #1a7f37;
+  background-color: var(--support-light-green);
+  color: var(--dark-green);
 }
 
 .badge-error {
@@ -437,7 +460,7 @@ tr:hover, .table-row-clickable:hover {
 }
 
 .btn-primary:hover {
-  background-color: #007a4a;
+  background-color: var(--dark-green);
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(0, 153, 93, 0.2);
 }
@@ -504,8 +527,8 @@ tr:hover, .table-row-clickable:hover {
   left: 0;
   bottom: 0;
   width: 280px;
-  background-color: var(--accent-color);
-  /* Fundo Verde */
+  background-color: var(--dark-green);
+  /* Fundo Verde Profundo */
   z-index: 2001;
   transform: translateX(-100%);
   transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -520,7 +543,8 @@ tr:hover, .table-row-clickable:hover {
 
 .sidebar-header {
   padding: 1.5rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  background-color: var(--primary-green);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -569,13 +593,14 @@ tr:hover, .table-row-clickable:hover {
 .sidebar-link:hover {
   background-color: rgba(255, 255, 255, 0.1);
   color: #ffffff;
+  font-weight: 600;
 }
 
 .sidebar-link.active {
-  background-color: #ffffff;
-  color: var(--accent-color);
+  background-color: var(--primary-green);
+  color: #ffffff;
   font-weight: 700;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
 }
 
 .sidebar-icon {
@@ -591,4 +616,28 @@ tr:hover, .table-row-clickable:hover {
   to {
     width: 0%;
   }
+}
+
+/* Bordas Animadas para os Totens (Câmera/FaceScanner) */
+@keyframes move-border-gradient {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+
+.moving-border-wrapper {
+  padding: 6px; /* Espessura da borda */
+  background-size: 200% auto;
+  animation: move-border-gradient 3s linear infinite;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+}
+
+.moving-border-green {
+  background-image: linear-gradient(90deg, #00995D, #00FF9D, #00995D, #00FF9D, #00995D);
+}
+
+.moving-border-blue {
+  background-image: linear-gradient(90deg, #0054A6, #00A2FF, #0054A6, #00A2FF, #0054A6);
 }

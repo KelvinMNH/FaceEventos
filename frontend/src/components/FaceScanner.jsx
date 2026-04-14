@@ -1,8 +1,7 @@
 import React, { useEffect, useRef, useState, useId } from 'react';
 import Webcam from 'react-webcam';
 import * as faceapi from 'face-api.js';
-
-const API_URL = `${window.location.protocol}//${window.location.hostname}:3000/api`;
+import apiService from '../services/api';
 const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
 
 // Singleton para carregar modelos uma única vez na sessão
@@ -18,10 +17,10 @@ const loadModels = () => {
     return modelsPromise;
 };
 
-export const FaceScanner = ({ active = true, onScanSuccess, onFaceDetected, isRegistration = false, token = '', eventId = '', followerBalloon = null, glowColor = null }) => {
+export const FaceScanner = ({ active = true, onScanSuccess, onFaceDetected, isRegistration = false, token = '', eventId = '', followerBalloon = null, glowColor = null, refreshSignal = 0 }) => {
     const webcamRef = useRef(null);
     const [modelsLoaded, setModelsLoaded] = useState(false);
-    const [scanCooldown, setScanCooldown] = useState(false);
+    const scanCooldownRef = useRef(false);
     const [statusMsg, setStatusMsg] = useState('Carregando modelos...');
     const [errorMsg, setErrorMsg] = useState('');
     const candidatesRef = useRef([]);
@@ -29,6 +28,7 @@ export const FaceScanner = ({ active = true, onScanSuccess, onFaceDetected, isRe
     const [faceDetected, setFaceDetected] = useState(false);
     const [faceBox, setFaceBox] = useState(null); // Real-time coordinates
     const faceBoxTimeoutRef = useRef(null);
+    const lastLogTimeRef = useRef(0);
     const maskId = useId();
 
     // Notify parent about face detection
@@ -54,13 +54,16 @@ export const FaceScanner = ({ active = true, onScanSuccess, onFaceDetected, isRe
     // 2. Loop de Detecção em tempo real
     useEffect(() => {
         let interval;
-        if (modelsLoaded && !scanCooldown && active) {
+        if (modelsLoaded && active) {
             interval = setInterval(async () => {
                 if (webcamRef.current && webcamRef.current.video && webcamRef.current.video.readyState === 4) {
                     try {
                         const video = webcamRef.current.video;
                         const displaySize = { width: video.clientWidth, height: video.clientHeight };
                         
+                        // Ignorar se estiver em cooldown
+                        if (scanCooldownRef.current) return;
+
                         const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
                             .withFaceLandmarks()
                             .withFaceDescriptor();
@@ -102,12 +105,12 @@ export const FaceScanner = ({ active = true, onScanSuccess, onFaceDetected, isRe
             if (faceBoxTimeoutRef.current) clearTimeout(faceBoxTimeoutRef.current);
             setFaceBox(null);
         };
-    }, [modelsLoaded, scanCooldown, isRegistration, eventId, active]);
+    }, [modelsLoaded, isRegistration, eventId, active, onScanSuccess]);
 
     // Limpar cache de candidatos ao reativar o scanner (ex: após fechar modal de renovação)
     useEffect(() => {
-        if (active) candidatesRef.current = [];
-    }, [active]);
+        if (active || refreshSignal > 0) candidatesRef.current = [];
+    }, [active, refreshSignal]);
 
     // 3. Lógica de Identificação
     const handleIdentification = async (descriptor) => {
@@ -119,11 +122,12 @@ export const FaceScanner = ({ active = true, onScanSuccess, onFaceDetected, isRe
             setStatusMsg('Buscando...');
             // Buscar candidatos se não houver em cache
             if (candidatesRef.current.length === 0) {
-                const res = await fetch(`${API_URL}/biometria/candidatos`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
+                const res = await apiService.get('/biometria/candidatos', token);
                 if (res.ok) {
-                    candidatesRef.current = await res.json();
+                    candidatesRef.current = res.data || [];
+                    console.log(`[FaceScanner] ${candidatesRef.current.length} candidatos carregados para reconhecimento.`);
+                } else {
+                    console.error('[FaceScanner] Erro ao carregar candidatos:', res.data?.error || res.status);
                 }
             }
 
@@ -134,15 +138,27 @@ export const FaceScanner = ({ active = true, onScanSuccess, onFaceDetected, isRe
                 return;
             }
 
+            // Verificação de segurança: vídeo deve estar pronto
+            if (!webcamRef.current?.video || webcamRef.current.video.readyState < 4) return;
+
             // Comparação Euclidiana (Padrão para face-api.js)
             let bestMatch = null;
-            let minDistance = 0.45; // Threshold mais rigoroso para evitar falsos positivos (Padrão sugerido: 0.4 a 0.5)
+            let minDistance = 0.48;
+            const now = Date.now();
+            const shouldLog = now - lastLogTimeRef.current > 1500; // Log apenas a cada 1.5s
+            if (shouldLog) lastLogTimeRef.current = now;
 
             for (const candidate of candidatesRef.current) {
                 try {
                     const savedDescriptor = JSON.parse(candidate.template_biometrico);
                     if (Array.isArray(savedDescriptor)) {
                         const distance = faceapi.euclideanDistance(descriptor, savedDescriptor);
+                        
+                        // Log de debug controlado para análise de precisão
+                        if (shouldLog) {
+                            console.log(`[BioDebug] Candidato: ${candidate.nome || candidate.id} | Distância: ${distance.toFixed(4)} (Threshold: ${minDistance})`);
+                        }
+
                         if (distance < minDistance) {
                             minDistance = distance;
                             bestMatch = candidate;
@@ -153,22 +169,26 @@ export const FaceScanner = ({ active = true, onScanSuccess, onFaceDetected, isRe
 
             if (bestMatch) {
                 setStatusMsg('Identificado!');
-                // Sucesso! Avisa o componente pai
-                const screenshot = webcamRef.current.getScreenshot();
-                onScanSuccess(null, null, null, bestMatch.id, screenshot);
-                setScanCooldown(true);
-                setTimeout(() => setScanCooldown(false), 5000); // Cooldown para evitar logs duplicados
+                // Sucesso! Avisa o componente pai (Garante que o vídeo ainda está pronto)
+                if (webcamRef.current?.video?.readyState === 4) {
+                    const screenshot = webcamRef.current.getScreenshot();
+                    onScanSuccess(null, null, null, bestMatch.id, screenshot);
+                    scanCooldownRef.current = true;
+                    setTimeout(() => { scanCooldownRef.current = false; }, 5000); // Cooldown para evitar logs duplicados
+                }
             } else {
                 setStatusMsg('Face não reconhecida');
                 // IMPORTANTE: Avisar o pai mesmo se não reconhecer, para ele poder mostrar o GLOW VERMELHO
-                const screenshot = webcamRef.current.getScreenshot();
-                onScanSuccess(null, null, null, null, screenshot); 
-                
-                setScanCooldown(true); // Evita spam de erro
-                setTimeout(() => {
-                    setScanCooldown(false);
-                    setStatusMsg('Câmera Pronta');
-                }, 3000);
+                if (webcamRef.current?.video?.readyState === 4) {
+                    const screenshot = webcamRef.current.getScreenshot();
+                    onScanSuccess(null, null, null, null, screenshot); 
+                    
+                    scanCooldownRef.current = true; // Evita spam de erro
+                    setTimeout(() => {
+                        scanCooldownRef.current = false;
+                        setStatusMsg('Câmera Pronta');
+                    }, 3000);
+                }
             }
         } catch (e) {
             console.error('Erro na identificação facial:', e);
@@ -256,12 +276,12 @@ export const FaceScanner = ({ active = true, onScanSuccess, onFaceDetected, isRe
                         rx="112" 
                         ry="152" 
                         fill="none" 
-                        stroke={faceDetected ? (glowColor || '#ffc107') : 'rgba(255,255,255,0.4)'} 
+                        stroke={faceDetected ? (glowColor || '#ffffff') : 'rgba(255,255,255,0.4)'} 
                         strokeWidth="3" 
                         strokeDasharray={faceDetected ? 'none' : '10,5'}
                         style={{ 
                             transition: 'all 0.3s ease', 
-                            filter: faceDetected ? `drop-shadow(0 0 10px ${glowColor || '#ffc107'})` : 'none' 
+                            filter: faceDetected ? `drop-shadow(0 0 10px ${glowColor || '#ffffff'})` : 'none' 
                         }}
                     />
 
@@ -278,7 +298,7 @@ export const FaceScanner = ({ active = true, onScanSuccess, onFaceDetected, isRe
                                 <defs>
                                     <linearGradient id="balloonGradient" x1="0%" y1="0%" x2="0%" y2="100%">
                                         <stop offset="0%" style={{ stopColor: '#ffec3d', stopOpacity: 1 }} />
-                                        <stop offset="100%" style={{ stopColor: '#ffc107', stopOpacity: 1 }} />
+                                        <stop offset="100%" style={{ stopColor: '#FFE596', stopOpacity: 1 }} />
                                     </linearGradient>
                                     <filter id="balloonShadow" x="-100%" y="-100%" width="300%" height="300%">
                                         <feDropShadow dx="0" dy="4" stdDeviation="6" floodOpacity="0.3" />
