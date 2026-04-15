@@ -40,6 +40,7 @@ frontend/.env.local
 # Backend
 backend/node_modules/
 backend/*.log
+backend/logs/
 *.log
 
 # Tools & Debug
