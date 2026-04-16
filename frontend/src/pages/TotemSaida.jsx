@@ -153,7 +153,7 @@ function TotemSaida() {
             setStatusMessage('');
             setSelectedParticipant(null);
             setGlowColor(null);
-        }, 3000);
+        }, 6000);
     };
 
     const maskCPF = (cpf) => {
@@ -274,7 +274,8 @@ function TotemSaida() {
             {view === 'success' && (
                 <SuccessView 
                     scannedUser={selectedParticipant} 
-                    statusMessage={statusMessage} 
+                    statusMessage={statusMessage}
+                    mode="checkout"
                 />
             )}
             

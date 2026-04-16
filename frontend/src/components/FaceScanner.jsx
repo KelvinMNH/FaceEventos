@@ -23,6 +23,7 @@ export const FaceScanner = ({ active = true, onScanSuccess, onFaceDetected, isRe
     const scanCooldownRef = useRef(false);
     const [statusMsg, setStatusMsg] = useState('Carregando modelos...');
     const [errorMsg, setErrorMsg] = useState('');
+    const [cameraError, setCameraError] = useState(null); // Erro de hardware da câmera
     const candidatesRef = useRef([]);
     const [isVerifying, setIsVerifying] = useState(false);
     const [faceDetected, setFaceDetected] = useState(false);
@@ -30,6 +31,43 @@ export const FaceScanner = ({ active = true, onScanSuccess, onFaceDetected, isRe
     const faceBoxTimeoutRef = useRef(null);
     const lastLogTimeRef = useRef(0);
     const maskId = useId();
+
+    // Traduz o erro do navegador para uma mensagem amigável
+    const handleCameraError = (err) => {
+        console.error('[FaceScanner] Erro de câmera:', err);
+        const name = err?.name || '';
+        if (name === 'NotReadableError' || name === 'TrackStartError') {
+            setCameraError({
+                icon: '📷',
+                title: 'Câmera em uso',
+                message: 'Outro aplicativo está usando a câmera (OBS, Teams, Zoom, etc.). Feche-o e tente novamente.'
+            });
+        } else if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
+            setCameraError({
+                icon: '🔒',
+                title: 'Permissão negada',
+                message: 'O acesso à câmera foi bloqueado pelo navegador. Clique no ícone de câmera na barra de endereço e permita o acesso.'
+            });
+        } else if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
+            setCameraError({
+                icon: '🔌',
+                title: 'Câmera não encontrada',
+                message: 'Nenhuma câmera foi detectada neste dispositivo. Verifique a conexão.'
+            });
+        } else if (name === 'OverconstrainedError') {
+            setCameraError({
+                icon: '⚙️',
+                title: 'Câmera incompatível',
+                message: 'A câmera disponível não suporta as configurações necessárias.'
+            });
+        } else {
+            setCameraError({
+                icon: '⚠️',
+                title: 'Erro na câmera',
+                message: 'Não foi possível iniciar a câmera. Verifique as permissões e tente novamente.'
+            });
+        }
+    };
 
     // Notify parent about face detection
     useEffect(() => {
@@ -221,6 +259,33 @@ export const FaceScanner = ({ active = true, onScanSuccess, onFaceDetected, isRe
 
     return (
         <div style={{ position: 'relative', width: '100%', height: '100%', borderRadius: '12px', overflow: 'hidden', backgroundColor: '#000' }}>
+
+            {/* Tela de erro de hardware da câmera */}
+            {cameraError && (
+                <div style={{
+                    position: 'absolute', inset: 0, zIndex: 30,
+                    backgroundColor: '#1a1a2e',
+                    display: 'flex', flexDirection: 'column',
+                    alignItems: 'center', justifyContent: 'center',
+                    padding: '1.5rem', textAlign: 'center', gap: '0.75rem'
+                }}>
+                    <div style={{ fontSize: '3.5rem', lineHeight: 1 }}>{cameraError.icon}</div>
+                    <div style={{ color: '#ff6b6b', fontWeight: 'bold', fontSize: '1.1rem' }}>{cameraError.title}</div>
+                    <div style={{ color: '#adb5bd', fontSize: '0.82rem', lineHeight: '1.5', maxWidth: '260px' }}>{cameraError.message}</div>
+                    <button
+                        onClick={() => { setCameraError(null); }}
+                        style={{
+                            marginTop: '0.5rem', padding: '0.5rem 1.4rem',
+                            backgroundColor: '#00995D', color: 'white',
+                            border: 'none', borderRadius: '20px',
+                            fontSize: '0.85rem', fontWeight: 'bold', cursor: 'pointer'
+                        }}
+                    >
+                        🔄 Tentar novamente
+                    </button>
+                </div>
+            )}
+
             <Webcam
                 audio={false}
                 ref={webcamRef}
@@ -228,6 +293,8 @@ export const FaceScanner = ({ active = true, onScanSuccess, onFaceDetected, isRe
                 videoConstraints={{ width: { ideal: 640 }, height: { ideal: 480 }, facingMode: "user" }}
                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                 mirrored={true}
+                onUserMedia={() => setCameraError(null)}
+                onUserMediaError={handleCameraError}
             />
 
             {/* Overlay de Status */}

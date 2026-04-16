@@ -173,38 +173,112 @@ export const ConfirmView = ({ selectedParticipant, maskCPF, handleBiometricScan,
     </div>
 );
 
-export const SuccessView = ({ scannedUser, statusMessage }) => (
-    <div style={{ 
-        textAlign: 'center', animation: 'popIn 0.5s', width: '100%', maxWidth: '800px', padding: '3rem 2rem',
-        borderRadius: '30px', backgroundColor: 'rgba(0, 153, 93, 0.5)', color: 'white', boxShadow: '0 20px 50px rgba(0,0,0,0.3)',
-        border: '4px solid white', backdropFilter: 'blur(10px)'
-    }}>
+// Rodízio de mensagens de boas-vindas para check-in
+const CHECKIN_MESSAGES = [
+    (nome) => `Que ótimo ter você aqui, ${nome}! Aproveite muito!`,
+    (nome) => `Presença confirmada, ${nome}! Seja muito bem-vindo(a).`,
+    (nome) => `${nome}, que bom que você veio! Bom evento!`,
+    (nome) => `Entrada registrada! Prepare-se para um ótimo evento, ${nome}.`,
+    (nome) => `Felizes em receber você, ${nome}! Aproveite cada momento.`,
+    (nome) => `${nome} chegou! O evento fica ainda melhor com você aqui. 🎉`,
+];
+
+const getNextCheckinMessage = (nome) => {
+    const KEY = 'unieventos_checkin_msg_idx';
+    const current = parseInt(localStorage.getItem(KEY) || '0', 10);
+    const next = (current + 1) % CHECKIN_MESSAGES.length;
+    localStorage.setItem(KEY, String(next));
+    return CHECKIN_MESSAGES[current](nome);
+};
+
+// Rodízio de mensagens de despedida para checkout
+const CHECKOUT_MESSAGES = [
+    (nome) => `Até logo, ${nome}. Agradecemos sua participação!`,
+    (nome) => `Saída registrada. Até o próximo evento, ${nome}!`,
+    (nome) => `Foi um prazer, ${nome}. Tenha um excelente restante do dia.`,
+    (nome) => `Obrigado por estar aqui, ${nome}! Foi um prazer ter você.`,
+    (nome) => `Até a próxima, ${nome}! Esperamos você no próximo evento.`,
+    (nome) => `${nome}, sua presença fez a diferença. Até breve!`,
+];
+
+const getNextCheckoutMessage = (nome) => {
+    const KEY = 'unieventos_checkout_msg_idx';
+    const current = parseInt(localStorage.getItem(KEY) || '0', 10);
+    const next = (current + 1) % CHECKOUT_MESSAGES.length;
+    localStorage.setItem(KEY, String(next));
+    return CHECKOUT_MESSAGES[current](nome);
+};
+
+export const SuccessView = ({ scannedUser, statusMessage, mode = 'checkin' }) => {
+    const isCheckout = mode === 'checkout';
+
+    const bgColor = isCheckout ? 'rgba(0, 84, 166, 0.6)' : 'rgba(0, 153, 93, 0.5)';
+    const icon = isCheckout ? '👋' : '✅';
+
+    const greeting = isCheckout
+        ? 'Até logo'
+        : (scannedUser?.genero === 'F' ? 'Bem-vinda' : (scannedUser?.genero === 'M' ? 'Bem-vindo' : 'Bem-vindo(a)'));
+
+    // Rodízio de mensagens — calculado uma vez via ref para não mudar durante a exibição
+    const messageRef = React.useRef(null);
+    const firstName = scannedUser?.nome?.split(' ')[0] || 'participante';
+    if (messageRef.current === null) {
+        messageRef.current = isCheckout
+            ? getNextCheckoutMessage(firstName)
+            : getNextCheckinMessage(firstName);
+    }
+    const farewell = messageRef.current;
+
+    return (
         <div style={{
-            width: '240px', height: '240px', margin: '0 auto 1.5rem', borderRadius: '50%', display: 'flex',
-            alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.2)', border: '8px solid white', overflow: 'hidden'
+            textAlign: 'center', animation: 'popIn 0.5s', width: '100%', maxWidth: '800px', padding: '3rem 2rem',
+            borderRadius: '30px', backgroundColor: bgColor, color: 'white', boxShadow: '0 20px 50px rgba(0,0,0,0.3)',
+            border: '4px solid white', backdropFilter: 'blur(10px)'
         }}>
-            {scannedUser?.foto_biometria ? (
-                <img src={scannedUser.foto_biometria} alt="Foto" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-            ) : (
-                <div style={{ fontSize: '8rem' }}>✅</div>
-            )}
-        </div>
-        <h2 style={{ fontSize: '2.5rem', margin: '0 0 0.5rem 0', fontWeight: 'bold' }}>
-            {scannedUser?.genero === 'F' ? 'Bem-vinda' : (scannedUser?.genero === 'M' ? 'Bem-vindo' : 'Bem-vindo(a)')},
-        </h2>
-        <h1 style={{ fontSize: '3rem', margin: '0 0 0.5rem 0', lineHeight: '1.2' }}>
-            {scannedUser?.nome || 'Participante'}
-        </h1>
-        {scannedUser?.crm && (
-            <div style={{ fontSize: '1.8rem', marginBottom: '1.5rem', fontWeight: 'bold', color: 'rgba(255,255,255,0.9)' }}>
-                CRM: {scannedUser.crm}
+            {/* Foto ou ícone */}
+            <div style={{
+                width: '200px', height: '200px', margin: '0 auto 1.2rem', borderRadius: '50%', display: 'flex',
+                alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.2)', border: '8px solid white', overflow: 'hidden'
+            }}>
+                {scannedUser?.foto_biometria ? (
+                    <img src={scannedUser.foto_biometria} alt="Foto" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ) : (
+                    <div style={{ fontSize: '7rem' }}>{icon}</div>
+                )}
             </div>
-        )}
-        <div style={{ fontSize: '1.8rem', fontWeight: '600', backgroundColor: 'rgba(0,0,0,0.2)', padding: '1rem 2rem', borderRadius: '50px', display: 'inline-block' }}>
-            Tenha um bom evento!
+
+            {/* Saudação */}
+            <h2 style={{ fontSize: '2.2rem', margin: '0 0 0.8rem 0', fontWeight: '700', opacity: 0.95 }}>
+                {greeting}!
+            </h2>
+
+            {/* Mensagem do rodízio em destaque */}
+            <div style={{
+                fontSize: '1.6rem', fontWeight: '600',
+                backgroundColor: 'rgba(0,0,0,0.2)', padding: '1rem 2rem',
+                borderRadius: '50px', display: 'inline-block', marginBottom: '1.8rem',
+                lineHeight: '1.4'
+            }}>
+                {farewell}
+            </div>
+
+            {/* Separador */}
+            <div style={{ borderTop: '1px solid rgba(255,255,255,0.3)', marginBottom: '1.2rem' }} />
+
+            {/* Dados do participante — rodapé do card */}
+            <div style={{ opacity: 0.92 }}>
+                <div style={{ fontSize: '1.5rem', fontWeight: 'bold', lineHeight: '1.3' }}>
+                    {scannedUser?.nome || 'Participante'}
+                </div>
+                {scannedUser?.crm && (
+                    <div style={{ fontSize: '1.1rem', marginTop: '0.3rem', color: 'rgba(255,255,255,0.85)', fontWeight: '600' }}>
+                        CRM: {scannedUser.crm}
+                    </div>
+                )}
+            </div>
         </div>
-    </div>
-);
+    );
+};
 
 export const ErrorView = ({ statusMessage }) => (
     <div style={{ textAlign: 'center', animation: 'shake 0.5s' }}>

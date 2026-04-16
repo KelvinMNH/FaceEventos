@@ -163,7 +163,7 @@ function TotemAcesso() {
                 setCapturedTemplates([]);
                 setCaptureStep(1);
                 setScannedUser(null);
-            }, 3000);
+            }, 6000);
         } else {
             setStatusMessage(finalData.mensagem || "Biometria não identificada");
             setView('error');
@@ -221,7 +221,7 @@ function TotemAcesso() {
             setSearchResults([]);
             setSelectedParticipant(null);
             setStatusMessage('');
-        }, 4000);
+        }, 6000);
     };
 
     const maskCPF = (cpf) => {

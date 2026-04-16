@@ -327,8 +327,12 @@ class AcessoController {
 
             // Verificar o ÚLTIMO status do participante neste evento (para permitir reentradas)
             const ultimoLog = await RegistroAcesso.findOne({
-                where: { EventoId: evento.id, ParticipanteId: participante.id },
-                order: [['createdAt', 'DESC']]
+                where: { 
+                    EventoId: evento.id, 
+                    ParticipanteId: participante.id,
+                    status_validacao: 'sucesso'
+                },
+                order: [['id', 'DESC']]
             });
 
             // Se não tem log ou o último foi SAÍDA, não pode fazer checkout
