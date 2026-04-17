@@ -397,7 +397,7 @@ class AcessoController {
                 order: [['createdAt', 'DESC']],
                 limit: eventoUuid ? 2000 : 1000, 
                 include: [
-                    { model: Participante, attributes: ['id', 'nome', 'cpf', 'crm', 'genero', 'data_nascimento'] },
+                    { model: Participante, attributes: ['id', 'nome', 'cpf', 'crm', 'genero', 'data_nascimento', 'especialidade'] },
                     { model: Acompanhante, attributes: ['id', 'nome', 'ParticipanteId'] },
                     eventInclude
                 ]

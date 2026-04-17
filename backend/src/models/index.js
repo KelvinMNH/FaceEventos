@@ -81,6 +81,27 @@ async function syncDB() {
         console.log("✨ Dados seed criados.");
     }
 
+    // Seed de Médicos de Teste (Equipe Univentos)
+    const crmsTeste = ['00001', '00002', '00003', '00004'];
+    for (let i = 0; i < crmsTeste.length; i++) {
+        const crm = crmsTeste[i];
+        const index = i + 1;
+        const exists = await Participante.findOne({ where: { crm } });
+        
+        if (!exists) {
+            console.log(`👨‍⚕️ Criando Médico Teste ${index}...`);
+            await Participante.create({
+                nome: `Médico Teste ${index}`,
+                cpf: `0000000000${index}`,
+                crm: crm,
+                especialidade: 'Equipe Univentos',
+                genero: index % 2 === 0 ? 'F' : 'M',
+                data_nascimento: `${1960 + (index * 10)}-01-01`, // Décadas diferentes
+                ativo: true
+            });
+        }
+    }
+
     // Seed de Usuários
     const usuarioCount = await Usuario.count();
     if (usuarioCount === 0) {

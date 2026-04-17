@@ -1303,11 +1303,12 @@ function ControleAcesso() {
             <table>
               <thead>
                 <tr>
-                  <th style={{ width: '15%' }}>Horário</th>
+                  <th style={{ width: '12%' }}>Horários</th>
                   <th>Participante</th>
                   <th style={{ width: '15%' }}>Tipo</th>
-                  <th style={{ width: '15%' }}>CRM</th>
-                  <th style={{ width: '12%' }}>Status</th>
+                  <th style={{ width: '12%' }}>CRM</th>
+                  <th style={{ width: '15%' }}>Especialidade</th>
+                  <th style={{ width: '10%' }}>Status</th>
                 </tr>
               </thead>
               <tbody>
@@ -1429,7 +1430,10 @@ function ControleAcesso() {
                           </span>
                         </td>
                         <td style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                          {log.Participante?.crm || (isAcompanhante ? '-' : '-')}
+                          {log.Participante?.crm || '-'}
+                        </td>
+                        <td style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontStyle: 'italic' }}>
+                          {log.Participante?.especialidade || '-'}
                         </td>
                         <td>
                           <span className={`badge ${log.tipo_acesso === 'saida' ? 'badge-neutral' : 'badge-success'}`}>

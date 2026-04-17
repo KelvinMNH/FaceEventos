@@ -445,13 +445,14 @@ function RelatorioEventoContent() {
 
                 <button
                     onClick={() => {
-                        const headers = ["Participante", "CPF", "CRM", "Data Nasc.", "Gênero", "Entrada", "Saída", "Permanência", "Qtd Acomp.", "Acompanhantes (ID: Nome)"];
+                        const headers = ["Participante", "CPF", "CRM", "Especialidade", "Data Nasc.", "Gênero", "Entrada", "Saída", "Permanência", "Qtd Acomp.", "Acompanhantes (ID: Nome)"];
                         const rows = processedData.map(p => {
                             const companionDetails = (p.acompanhantes || []).map(a => `${a.id}: ${a.nome}`).join(" | ");
                             return [
                                 p.nome,
                                 p.cpf || p.documento,
                                 p.crm || '-',
+                                p.especialidade || '-',
                                 formatDate(p.data_nascimento),
                                 formatGender(p.genero),
                                 p.horarioEntrada ? formatDateTimeWithSeconds(p.horarioEntrada) : '-',
@@ -507,12 +508,13 @@ function RelatorioEventoContent() {
                             return;
                         }
 
-                        const headers = ["Participante", "CPF", "CRM", "Data Nasc.", "Tipo", "Entrada"];
+                        const headers = ["Participante", "CPF", "CRM", "Especialidade", "Data Nasc.", "Tipo", "Entrada"];
                         const rows = manualData.map(p => {
                             return [
                                 p.nome,
                                 p.cpf || p.documento,
                                 p.crm || '-',
+                                p.especialidade || '-',
                                 formatDate(p.data_nascimento),
                                 p.deviceEntrada === 'new_entry_web' ? 'Cadastro Novo' : 'Busca Manual',
                                 p.horarioEntrada ? formatDateTimeWithSeconds(p.horarioEntrada) : '-',
@@ -687,6 +689,7 @@ function RelatorioEventoContent() {
                                 <th>Participante</th>
                                 <th>CPF</th>
                                 <th>CRM</th>
+                                <th>Especialidade</th>
                                 <th>Data Nasc.</th>
                                 <th style={{ width: '50px' }}>Gênero</th>
                                 <th style={{ width: '40px' }} title="Acompanhantes">Acomp.</th>
@@ -701,6 +704,7 @@ function RelatorioEventoContent() {
                                     <td>{p.nome}</td>
                                     <td style={{ fontSize: '0.85rem', fontFamily: 'monospace' }}>{maskCPF(p.cpf || p.documento)}</td>
                                     <td style={{ fontSize: '0.85rem' }}>{p.crm || '-'}</td>
+                                    <td style={{ fontSize: '0.85rem' }}>{p.especialidade || '-'}</td>
                                     <td style={{ fontSize: '0.85rem' }}>{formatDate(p.data_nascimento)}</td>
                                     <td style={{ textAlign: 'center', fontSize: '0.85rem' }}>{formatGender(p.genero)}</td>
                                     <td style={{ textAlign: 'center', fontWeight: 'bold' }}>

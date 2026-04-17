@@ -77,6 +77,19 @@ docker-compose up -d --build
 ### 4.2 Testes de Stress
 O sistema foi validado para suportar sincronização de lotes com mais de 13.000 registros sem degradação de performance nas buscas manuais ou biométricas.
 
+### 4.3 Participantes de Teste (Equipe Univentos)
+Para facilitar testes operacionais (câmera, rede, totem) sem sujar as estatísticas reais, o sistema mantém 4 participantes fixos:
+*   **Médico Teste 1 a 4:** CRMs `00001`, `00002`, `00003`, `00004`.
+*   **Auto-Limpeza:** Qualquer registro de entrada/saída desses participantes é deletado automaticamente do banco de dados 10 minutos após a entrada.
+
+#### Como realizar testes de biometria com os Médicos de Teste:
+1.  Acesse a tela de **Controle de Acesso** do evento.
+2.  Clique em **"+ Registrar Participante"**.
+3.  Busque por "Médico Teste" ou pelo CRM (ex: `00001`) e selecione o médico.
+4.  No modal de confirmação, será exibida a moldura da câmera. Posicione o rosto e utilize o botão de captura para **vincular o rosto ao médico de teste**.
+5.  Após o vínculo, você pode utilizar esse médico nos totens de entrada/saída para validar o reconhecimento facial.
+6.  **Observação:** Lembre-se que em 10 minutos o registro de entrada sumirá do dashboard, permitindo novos testes limpos.
+
 ---
 
 ## 5. Manutenção

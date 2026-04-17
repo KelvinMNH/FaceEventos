@@ -28,6 +28,10 @@ const startServer = async () => {
         // Inicializar Banco e Seed
         await syncDB();
 
+        // Inicializar Serviço de Limpeza de Registros de Teste
+        const CleanupService = require('./src/services/CleanupService');
+        CleanupService.init();
+
         const fs = require('fs');
         const https = require('https');
         

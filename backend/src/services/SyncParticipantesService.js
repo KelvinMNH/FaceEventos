@@ -316,9 +316,15 @@ class SyncParticipantesService {
                 }
             }
 
-            // 5. Inativar quem não veio na API
+            // 5. Inativar quem não veio na API (Exceto médicos de teste)
+            const crmsTeste = ['00001', '00002', '00003', '00004'];
             for (const p of participantesAtuais) {
                 const cpfP = normalizarCpf(p.cpf);
+                const crmP = p.crm ? String(p.crm).replace(/\D/g, '') : null;
+                
+                // Pular se for médico de teste
+                if (crmP && crmsTeste.includes(crmP)) continue;
+
                 if (p.ativo === true && cpfP && !cpfsRecebidos.has(cpfP)) {
                     p.ativo = false;
                     await p.save();
