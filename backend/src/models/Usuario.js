@@ -14,7 +14,7 @@ const Usuario = sequelize.define('Usuario', {
     },
     password: {
         type: DataTypes.STRING,
-        allowNull: false
+        allowNull: true
     },
     perfil: {
         type: DataTypes.ENUM('admin', 'operador'),
@@ -24,12 +24,12 @@ const Usuario = sequelize.define('Usuario', {
 }, {
     hooks: {
         beforeCreate: async (user) => {
-            if (user.password) {
+            if (user.password && user.password.trim() !== "") {
                 user.password = await bcrypt.hash(user.password, 10);
             }
         },
         beforeUpdate: async (user) => {
-            if (user.changed('password')) {
+            if (user.changed('password') && user.password && user.password.trim() !== "") {
                 user.password = await bcrypt.hash(user.password, 10);
             }
         }
@@ -38,6 +38,7 @@ const Usuario = sequelize.define('Usuario', {
 
 // Método para verificar senha
 Usuario.prototype.checkPassword = async function (password) {
+    if (!this.password) return false; // Se não tem senha (usuário AD puro), não valida localmente
     return await bcrypt.compare(password, this.password);
 };
 

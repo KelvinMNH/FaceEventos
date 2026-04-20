@@ -1,6 +1,6 @@
 const { Usuario, sequelize } = require('../models');
-const { Op } = require('sequelize');
 const jwt = require('jsonwebtoken');
+const AuthService = require('../services/AuthService');
 const SyncParticipantesService = require('../services/SyncParticipantesService');
 
 // Usar variável de ambiente para SECRET ou default para dev
@@ -11,19 +11,14 @@ class AuthController {
         try {
             const { username, password } = req.body;
 
-            // Busca usuário (Case-insensitive para o Oracle)
-            const user = await Usuario.findOne({ 
-                where: sequelize.where(sequelize.fn('LOWER', sequelize.col('username')), username.toLowerCase()) 
-            });
-            if (!user) {
-                return res.status(401).json({ success: false, msg: 'Usuário ou senha inválidos' });
+            // Delegar autenticação para o serviço
+            const auth = await AuthService.authenticate(username, password);
+
+            if (!auth.success) {
+                return res.status(401).json({ success: false, msg: auth.msg });
             }
 
-            // Verifica senha
-            const valid = await user.checkPassword(password);
-            if (!valid) {
-                return res.status(401).json({ success: false, msg: 'Usuário ou senha inválidos' });
-            }
+            const user = auth.user;
 
             // Gera Token
             const token = jwt.sign(
