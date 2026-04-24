@@ -17,8 +17,10 @@ O ambiente é controlado por dois arquivos principais na raiz do projeto:
 Edite o arquivo `.env` na raiz do projeto. As variáveis cruciais são:
 
 > [!IMPORTANT]
-> **JWT_SECRET**: Altere este valor para uma chave aleatória e complexa. Esta chave é usada para assinar os tokens de acesso do sistema.
-> **DB_PASS**: Senha do banco de dados Oracle. Certifique-se de que coincida com a definida no `docker-compose.yml` se estiver usando o container de banco do projeto.
+> **JWT_SECRET**: Altere este valor para uma chave aleatória e complexa no `.env`.
+> **DB_PASS**: Senha do usuário `unieventos` no Oracle. 
+> **DB_ROOT_PASS**: Senha do usuário `SYS` no Oracle.
+> **FRONTEND_URL**: URL completa de onde o frontend será acessado (ex: `https://unieventos.empresa.com.br`). Necessário para a configuração de segurança do CORS.
 
 ---
 
@@ -53,7 +55,9 @@ docker-compose logs -f backend
 ## Observações de Segurança (Homologação)
 - O **Frontend** roda na porta `5174` (mapeada para a 80 interna do Nginx).
 - O **Backend** roda na porta `3000`.
-- O **Banco de Dados** está exposto na porta `1521` (pode ser fechado no firewall se necessário, pois a rede interna do Docker já permite a comunicação entre backend e db).
+- O **Banco de Dados** NÃO está mais exposto para o host (porta 1521 fechada). A comunicação ocorre apenas via rede interna do Docker.
+- **Headers de Segurança**: Foram implementados via `Helmet` no backend e diretivas `add_header` no Nginx.
+- **Rate Limit**: O login está limitado a 10 tentativas a cada 15 minutos por IP.
 
 ---
 

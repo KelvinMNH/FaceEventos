@@ -3,12 +3,11 @@ services:
     image: gvenzl/oracle-free:latest
     container_name: unieventos-oracle
     restart: unless-stopped
-    ports:
-      - "1521:1521"
+    # Porta 1521 removida da exposição para o host por segurança (acesso apenas interno)
     environment:
-      - ORACLE_PASSWORD=unieventos123
-      - APP_USER=unieventos
-      - APP_USER_PASSWORD=unieventos123
+      - ORACLE_PASSWORD=${DB_ROOT_PASS:-unieventos123}
+      - APP_USER=${DB_USER:-unieventos}
+      - APP_USER_PASSWORD=${DB_PASS:-unieventos123}
     volumes:
       - oracle_data:/opt/oracle/oradata
     networks:

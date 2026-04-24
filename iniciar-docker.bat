@@ -34,12 +34,12 @@ echo    CONTEINERES INICIADOS COM SUCESSO!
 echo ========================================
 echo.
 echo Backend:    http://localhost:3000/api
-echo Frontend:   http://localhost:5173
+echo Frontend:   http://localhost:5174
 echo.
 echo [!] Pressione qualquer tecla para abrir o navegador...
 pause >nul
 
-start http://localhost:5173
+start http://localhost:5174
 
 echo.
 echo Sistema aberto no navegador!

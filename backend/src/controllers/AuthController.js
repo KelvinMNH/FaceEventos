@@ -5,6 +5,9 @@ const SyncParticipantesService = require('../services/SyncParticipantesService')
 
 // Usar variável de ambiente para SECRET ou default para dev
 const JWT_SECRET = process.env.JWT_SECRET || 'unieventos_secret_key_123';
+if (JWT_SECRET === 'unieventos_secret_key_123') {
+    console.warn('⚠️ AVISO DE SEGURANÇA: JWT_SECRET usando chave padrão. Altere para o ambiente de homologação/produção.');
+}
 
 class AuthController {
     async login(req, res) {

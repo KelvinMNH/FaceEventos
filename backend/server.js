@@ -4,12 +4,39 @@ const { syncDB } = require('./src/models');
 const routes = require('./src/routes');
 const logger = require('./src/utils/logger');
 const morgan = require('morgan');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middlewares
-app.use(cors());
+// Middlewares de Segurança
+app.use(helmet());
+
+// Configuração do CORS
+const corsOptions = {
+    origin: process.env.FRONTEND_URL || '*', // Em homologação, deve ser setado no .env
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+};
+app.use(cors(corsOptions));
+
+// Rate Limiting Global (100 requisições por 15 minutos por IP)
+const globalLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 100,
+    message: { msg: "Muitas requisições vindas deste IP, tente novamente mais tarde." }
+});
+app.use('/api/', globalLimiter);
+
+// Rate Limiting Específico para Login (5 tentativas por 15 minutos)
+const loginLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 10,
+    message: { msg: "Muitas tentativas de login. Tente novamente em 15 minutos." }
+});
+app.use('/api/login', loginLimiter);
+
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
