@@ -97,8 +97,8 @@ function ControleAcesso() {
 
       setLogs(filteredLogs);
 
-      const presentesMap = new Map();
-      const firstLogMap = new Map(); // Map<ParticipanteId, FirstLog>
+      const uniqueParticipantesMap = new Map();
+      const firstLogMap = new Map();
 
       // Ordenar logs por data ASC para encontrar a primeira entrada
       const sortedLogs = [...filteredLogs].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
@@ -106,9 +106,9 @@ function ControleAcesso() {
       sortedLogs.forEach(log => {
         if (log.status_validacao === 'sucesso' && log.Participante) {
           const pid = log.Participante.id;
-          if (!presentesMap.has(pid)) {
-            presentesMap.set(pid, log.Participante);
-            firstLogMap.set(pid, log); // Guarda o log da primeira entrada
+          if (!uniqueParticipantesMap.has(pid)) {
+            uniqueParticipantesMap.set(pid, log.Participante);
+            firstLogMap.set(pid, log);
           }
         }
       });
@@ -141,7 +141,7 @@ function ControleAcesso() {
           }
         }
       }
-      const participantes = Array.from(presentesMap.values());
+      const participantes = Array.from(uniqueParticipantesMap.values());
 
       // Estatísticas
       let manualCount = 0;
@@ -151,7 +151,15 @@ function ControleAcesso() {
         }
       });
 
-      const totalAcompanhantes = filteredLogs.filter(l => l.status_validacao === 'sucesso' && l.AcompanhanteId).length;
+      // Acompanhantes Únicos que entraram (evita contar logs de saída como novas entradas)
+      const acompanhantesUnicosMap = new Map();
+      filteredLogs.forEach(l => {
+        if (l.AcompanhanteId && l.tipo_acesso === 'entrada') {
+          acompanhantesUnicosMap.set(l.AcompanhanteId, l.Acompanhante);
+        }
+      });
+      const totalAcompanhantesUnicos = acompanhantesUnicosMap.size;
+
       let totalM = 0, totalF = 0;
       let idades = [];
       let faixas = { '18-25': 0, '26-35': 0, '36-50': 0, '50+': 0 };
@@ -183,7 +191,15 @@ function ControleAcesso() {
       }
       if (participantes.length === 0) faixaPredominante = '-';
 
-      const totalSaidas = filteredLogs.filter(l => l.status_validacao === 'sucesso' && l.tipo_acesso === 'saida').length;
+      // Saídas Únicas (Participantes + Acompanhantes)
+      const saidasUnicasSet = new Set();
+      filteredLogs.forEach(l => {
+        if (l.tipo_acesso === 'saida') {
+          const key = l.ParticipanteId ? `P-${l.ParticipanteId}` : (l.AcompanhanteId ? `A-${l.AcompanhanteId}` : null);
+          if (key) saidasUnicasSet.add(key);
+        }
+      });
+      const totalSaidasUnicas = saidasUnicasSet.size;
       const agora = new Date();
       let startTime = agora.getTime() - (7 * 3600000);
 
@@ -226,10 +242,10 @@ function ControleAcesso() {
         percentFemale,
         mediaIdade: idades.length ? Math.round(idades.reduce((a, b) => a + b, 0) / idades.length) : 0,
         manualCount,
-        totalAcompanhantes,
+        totalAcompanhantes: totalAcompanhantesUnicos,
         totalParticipantesUnicos: participantes.length,
-        totalSaidas,
-        ocupacaoAtual: (participantes.length + totalAcompanhantes) - totalSaidas,
+        totalSaidas: totalSaidasUnicas,
+        ocupacaoAtual: (participantes.length + totalAcompanhantesUnicos) - totalSaidasUnicas,
         distribuicaoHorario: distArray
       });
     } catch (err) {
