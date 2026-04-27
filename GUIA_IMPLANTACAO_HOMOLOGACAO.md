@@ -52,10 +52,12 @@ docker-compose logs -f backend
 
 ---
 
+## Requisitos de Infraestrutura (Nuvem - AWS/OCI)
+- **Portas de Acesso (Firewall)**: O **Frontend** roda na porta `80` (HTTP padrão). Certifique-se de liberar a porta **80** no Security Group / Security List para permitir o acesso web dos testadores. O **Backend** não precisa de porta externa exposta diretamente para o público, pois o frontend (Nginx) atua como proxy reverso para as requisições na rota `/api`.
+- **Permissão de Pastas de Log**: O sistema salva logs via volumes mapeados em `./backend/logs/`. Dependendo da distro Linux (Ubuntu/Amazon Linux), pode ser necessário garantir permissão de escrita (`chmod 777 -R ./backend/logs/`) caso ocorra "Permission Denied" no container do backend.
+
 ## Observações de Segurança (Homologação)
-- O **Frontend** roda na porta `5174` (mapeada para a 80 interna do Nginx).
-- O **Backend** roda na porta `3000`.
-- O **Banco de Dados** NÃO está mais exposto para o host (porta 1521 fechada). A comunicação ocorre apenas via rede interna do Docker.
+- O **Banco de Dados** NÃO está exposto para o host (porta 1521 fechada). A comunicação ocorre apenas via rede interna do Docker.
 - **Headers de Segurança**: Foram implementados via `Helmet` no backend e diretivas `add_header` no Nginx.
 - **Rate Limit**: O login está limitado a 10 tentativas a cada 15 minutos por IP.
 

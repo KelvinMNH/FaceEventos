@@ -46,7 +46,7 @@ services:
       context: ./frontend
     container_name: unieventos-frontend
     ports:
-      - "5174:80"
+      - "80:80"
     restart: unless-stopped
     depends_on:
       backend:
